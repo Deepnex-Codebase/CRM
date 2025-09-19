@@ -215,4 +215,4 @@ UserSchema.methods.getEmailVerificationToken = function() {
   return verificationToken;
 };
 
-module.exports = mongoose.model('User', UserSchema);
+module.exports = mongoose.models.User || mongoose.model('User', UserSchema);

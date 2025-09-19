@@ -1,6 +1,6 @@
 const ErrorResponse = require('../../utils/errorResponse');
 const asyncHandler = require('../../middleware/async');
-const NotificationLog = require('../../models/profile/NotificationLog');
+const NotificationLog = require('../../models/enquiry/NotificationLog');
 const Enquiry = require('../../models/enquiry/Enquiry');
 const User = require('../../models/profile/User');
 

@@ -13,6 +13,10 @@ const connectDB = require('./config/db');
 // Import middleware
 const errorHandler = require('./middleware/error');
 const asyncHandler = require('./middleware/async');
+const cookieParser = require('cookie-parser');
+
+// Import auth routes
+const authRoutes = require('./routes/auth');
 
 // Import profile routes
 const projectProfileRoutes = require('./routes/profile/projectProfiles');
@@ -31,6 +35,21 @@ const customerMasterRoutes = require('./routes/profile/customerMaster');
 const employeeRoutes = require('./routes/profile/employees');
 const roleRoutes = require('./routes/profile/roles');
 
+// Import enquiry routes
+const enquiryRoutes = require('./routes/enquiry/enquiries');
+const statusLogRoutes = require('./routes/enquiry/statusLogs');
+const assignmentLogRoutes = require('./routes/enquiry/assignmentLogs');
+const taskRoutes = require('./routes/enquiry/tasks');
+const communicationLogRoutes = require('./routes/enquiry/communicationLogs');
+const callLogRoutes = require('./routes/enquiry/callLogs');
+const sourceChannelRoutes = require('./routes/enquiry/sourceChannels');
+const statusTypeRoutes = require('./routes/enquiry/statusTypes');
+const automationRuleRoutes = require('./routes/enquiry/automationRules');
+const automationTriggerRoutes = require('./routes/enquiry/automationTriggers');
+const integrationConfigRoutes = require('./routes/enquiry/integrationConfigs');
+const auditLogRoutes = require('./routes/enquiry/auditLogs');
+const priorityScoreTypeRoutes = require('./routes/enquiry/priorityScoreTypes');
+
 const app = express();
 
 // Connect to database
@@ -40,11 +59,17 @@ connectDB();
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Cookie parser middleware
+app.use(cookieParser());
+
 // Enable CORS
 app.use(cors({
     origin: process.env.CLIENT_URL || 'http://localhost:3000',
     credentials: true
 }));
+
+// Authentication API Routes
+app.use('/api/v1/auth', authRoutes);
 
 // API Routes
 app.use('/api/profiles/project', projectProfileRoutes);
@@ -63,6 +88,21 @@ app.use('/api/customers', customerMasterRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/roles', roleRoutes);
 
+// Enquiry Management API Routes
+app.use('/api/enquiries', enquiryRoutes);
+app.use('/api/status-logs', statusLogRoutes);
+app.use('/api/assignment-logs', assignmentLogRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/communication-logs', communicationLogRoutes);
+app.use('/api/call-logs', callLogRoutes);
+app.use('/api/source-channels', sourceChannelRoutes);
+app.use('/api/status-types', statusTypeRoutes);
+app.use('/api/automation-rules', automationRuleRoutes);
+app.use('/api/automation-triggers', automationTriggerRoutes);
+app.use('/api/integration-configs', integrationConfigRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/priority-score-types', priorityScoreTypeRoutes);
+
 // Health check route
 app.get('/api/health', (req, res) => {
     res.status(200).json({
@@ -76,7 +116,7 @@ app.get('/api/health', (req, res) => {
 // Root route
 app.get('/', (req, res) => {
     res.json({
-        message: 'Profile Management Backend API',
+        message: 'Profile & Enquiry Management Backend API',
         version: '1.0.0',
         endpoints: {
             profiles: {
@@ -87,6 +127,21 @@ app.get('/', (req, res) => {
                 job: '/api/profiles/job',
                 info: '/api/profiles/info',
                 siteVisit: '/api/profiles/site-visit'
+            },
+            enquiry: {
+                enquiries: '/api/enquiries',
+                statusLogs: '/api/status-logs',
+                assignmentLogs: '/api/assignment-logs',
+                tasks: '/api/tasks',
+                communicationLogs: '/api/communication-logs',
+                callLogs: '/api/call-logs',
+                sourceChannels: '/api/source-channels',
+                statusTypes: '/api/status-types',
+                automationRules: '/api/automation-rules',
+                automationTriggers: '/api/automation-triggers',
+                integrationConfigs: '/api/integration-configs',
+                auditLogs: '/api/audit-logs',
+                priorityScoreTypes: '/api/priority-score-types'
             },
             system: {
                 mapping: '/api/profiles/mapping',

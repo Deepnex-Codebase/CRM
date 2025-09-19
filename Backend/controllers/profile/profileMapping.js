@@ -1,7 +1,7 @@
 const ErrorResponse = require('../../utils/errorResponse');
 const asyncHandler = require('../../middleware/async');
 const ProfileMapping = require('../../models/profile/ProfileMapping');
-const Enquiry = require('../../models/profile/Enquiry');
+const Enquiry = require('../../models/enquiry/Enquiry');
 const UserActivityLog = require('../../models/profile/UserActivityLog');
 
 // @desc    Get all profile mappings

@@ -1,6 +1,6 @@
 const asyncHandler = require('../../middleware/async');
 const ErrorResponse = require('../../utils/errorResponse');
-const Role = require('../../models/profile/Role');
+const Role = require('../../models/auth/Role');
 
 // @desc    Get all roles
 // @route   GET /api/v1/profile/roles
