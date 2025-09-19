@@ -69,7 +69,7 @@ app.use(cors({
 }));
 
 // Authentication API Routes
-app.use('/api/v1/auth', authRoutes);
+app.use('/api/auth', authRoutes);
 
 // API Routes
 app.use('/api/profiles/project', projectProfileRoutes);
