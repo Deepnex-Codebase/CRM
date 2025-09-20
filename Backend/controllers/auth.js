@@ -477,13 +477,123 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
   const resetUrl = `${process.env.RESET_PASSWORD_URL}?token=${resetToken}`;
 
   const message = `
-    <h2>Password Reset Request</h2>
-    <p>You are receiving this email because you (or someone else) has requested the reset of a password.</p>
-    <p>Please click the link below to reset your password:</p>
-    <a href="${resetUrl}" style="background-color: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Reset Password</a>
-    <p>If the button doesn't work, copy and paste this link into your browser:</p>
-    <p>${resetUrl}</p>
-    <p>This link will expire in 10 minutes.</p>
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Password Reset</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          line-height: 1.6;
+          margin: 0;
+          padding: 0;
+          background: #f4f4f4;
+        }
+        .container {
+          max-width: 600px;
+          margin: 20px auto;
+          background: #fff;
+          padding: 20px;
+          border-radius: 8px;
+          box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .header {
+          text-align: center;
+          padding: 20px 0;
+          border-bottom: 2px solid #eee;
+        }
+        .logo {
+          font-size: 28px;
+          color: #007bff;
+          font-weight: bold;
+        }
+        .title {
+          font-size: 24px;
+          color: #333;
+          margin: 15px 0;
+        }
+        .content {
+          padding: 20px 0;
+          color: #333;
+        }
+        .button {
+          display: inline-block;
+          padding: 12px 24px;
+          background: #007bff;
+          color: #fff;
+          text-decoration: none;
+          border-radius: 4px;
+          margin: 20px 0;
+        }
+        .security-note {
+          background: #e7f3ff;
+          border: 1px solid #b3d9ff;
+          padding: 15px;
+          margin: 20px 0;
+          border-radius: 4px;
+        }
+        .link-box {
+          background: #f8f9fa;
+          border-left: 4px solid #007bff;
+          padding: 15px;
+          margin: 20px 0;
+          word-break: break-all;
+          font-family: monospace;
+        }
+        .warning {
+          background: #fff3cd;
+          border: 1px solid #ffeaa7;
+          padding: 15px;
+          margin: 20px 0;
+          border-radius: 4px;
+          color: #856404;
+        }
+        .footer {
+          text-align: center;
+          padding-top: 20px;
+          border-top: 1px solid #eee;
+          color: #666;
+          font-size: 14px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">🔐 CRM System</div>
+          <div class="title">Password Reset Request</div>
+        </div>
+        
+        <div class="content">
+          <p>Hello,</p>
+          <p>We received a request to reset your password for your CRM account. If you made this request, please click the button below to reset your password:</p>
+          
+          <center><a href="${resetUrl}" class="button">🔑 Reset My Password</a></center>
+          
+          <div class="security-note">
+            <strong>🛡️ Security Note:</strong> This link will expire in <strong>10 minutes</strong> for your security.
+          </div>
+          
+          <p>If the button above doesn't work, you can copy and paste the following link into your browser:</p>
+          
+          <div class="link-box">
+            ${resetUrl}
+          </div>
+          
+          <div class="warning">
+            <strong>⚠️ Important:</strong> If you didn't request this password reset, please ignore this email. Your password will remain unchanged.
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>This is an automated message from CRM System.</p>
+          <p>For security reasons, please do not reply to this email.</p>
+          <p style="font-size: 12px; color: #999;">© ${new Date().getFullYear()} CRM System. All rights reserved.</p>
+        </div>
+      </div>
+    </body>
+    </html>
   `;
 
   try {
@@ -882,7 +992,27 @@ const sendTokenResponse = async (user, statusCode, res, req = null) => {
     is_active: true
   };
 
-  await Session.create(sessionData);
+  const newSession = await Session.create(sessionData);
+
+  // Get complete user data with populated role
+  const userWithRole = await User.findById(user._id).populate('role_id');
+  console.log('User with role:', JSON.stringify(userWithRole, null, 2));
+  
+  // Get user's active sessions
+  const activeSessions = await Session.find({ 
+    user_id: user._id, 
+    is_active: true 
+  }).select('device_info ip_address issued_at expires_at').sort({ issued_at: -1 });
+  console.log('Active sessions:', JSON.stringify(activeSessions, null, 2));
+
+  // Get role assignment details
+  let roleAssignment = null;
+  try {
+    roleAssignment = await EmployeeRoleAssignment.getActiveAssignment(user._id);
+    console.log('Role assignment:', JSON.stringify(roleAssignment, null, 2));
+  } catch (error) {
+    console.log('Error getting role assignment:', error.message);
+  }
 
   const options = {
     expires: new Date(
@@ -896,15 +1026,30 @@ const sendTokenResponse = async (user, statusCode, res, req = null) => {
     options.secure = true;
   }
 
-  res.status(statusCode).cookie('token', token, options).json({
+  const responseData = {
     success: true,
     token,
     user: {
       id: user._id,
       name: `${user.first_name} ${user.last_name}`,
       email: user.email,
-      role: user.role_id || 'user', // Default role if role_id is not populated
-      is_active: user.is_active
+      phone: user.phone,
+      role: userWithRole.role_id || null, // Complete role object
+      role_assignment: roleAssignment ? {
+        assignment_id: roleAssignment.assignment_id,
+        role_name: roleAssignment.role_id.role_name,
+        assigned_at: roleAssignment.assigned_at,
+        effective_from: roleAssignment.effective_from,
+        effective_until: roleAssignment.effective_until
+      } : null,
+      is_active: user.is_active,
+      last_login: user.last_login,
+      created_at: user.created_at,
+      sessions: activeSessions // Complete sessions array
     }
-  });
+  };
+  
+  console.log('Final response data:', JSON.stringify(responseData, null, 2));
+  
+  res.status(statusCode).cookie('token', token, options).json(responseData);
 };
