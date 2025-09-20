@@ -11,7 +11,7 @@ const TokenDetails = ({ isOpen, onClose, tokenId }) => {
   const mockTokenData = {
     id: 'token_001',
     name: 'Production API Key',
-    token_value: 'sk_live_51H7qYKJ2eZvKYlo2C8ZJQXhYcVSaEiB9qI',
+    //token_value: 'sk_live_51H7qYKJ2eZvKYlo2C8ZJQXhYcVSaEiB9qI',
     type: 'API Key',
     status: 'active',
     created_at: '2024-01-15 10:30:00',

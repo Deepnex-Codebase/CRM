@@ -154,7 +154,7 @@ const TwoFactorAuth = ({ userId, onClose, onUpdate }) => {
     setAuthHistory(mockAuthHistory);
     
     // Generate mock QR code and backup codes
-    setQrCode('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
+   // setQrCode('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==');
     setBackupCodes([
       'ABC123DEF456',
       'GHI789JKL012',
