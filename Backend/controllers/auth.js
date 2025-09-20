@@ -683,6 +683,7 @@ exports.getUsers = asyncHandler(async (req, res, next) => {
 
   const total = await User.countDocuments(query);
   const users = await User.find(query)
+    .populate('role_id', 'role_name description permissions')
     .sort({ created_at: -1 })
     .limit(limit)
     .skip(startIndex)

@@ -13,10 +13,12 @@ import {
   Lock,
   FileText,
   BarChart3,
-  Building2
+  Building2,
+  Loader2
 } from 'lucide-react';
 import RoleForm from './components/RoleForm';
 import RoleDetails from './components/RoleDetails';
+import roleService from '../../services/roleService';
 
 const RolePermissions = () => {
   const [roles, setRoles] = useState([]);
@@ -25,58 +27,31 @@ const RolePermissions = () => {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [showRoleDetails, setShowRoleDetails] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Mock data for roles
-  const mockRoles = [
-    {
-      role_id: 1,
-      role_name: 'Admin',
-      description: 'Full system access with all permissions',
-      user_count: 2,
-      created_at: '2024-01-15',
-      permissions: {
-        dashboard: { read: true, write: true, delete: true, approve: true },
-        users: { read: true, write: true, delete: true, approve: true },
-        leads: { read: true, write: true, delete: true, approve: true },
-        companies: { read: true, write: true, delete: true, approve: true },
-        reports: { read: true, write: true, delete: true, approve: true },
-        analytics: { read: true, write: true, delete: true, approve: true },
-        settings: { read: true, write: true, delete: true, approve: true }
-      }
-    },
-    {
-      role_id: 2,
-      role_name: 'Manager',
-      description: 'Department management with limited admin access',
-      user_count: 5,
-      created_at: '2024-01-16',
-      permissions: {
-        dashboard: { read: true, write: true, delete: false, approve: true },
-        users: { read: true, write: false, delete: false, approve: false },
-        leads: { read: true, write: true, delete: true, approve: true },
-        companies: { read: true, write: true, delete: false, approve: true },
-        reports: { read: true, write: true, delete: false, approve: false },
-        analytics: { read: true, write: false, delete: false, approve: false },
-        settings: { read: true, write: false, delete: false, approve: false }
-      }
-    },
-    {
-      role_id: 3,
-      role_name: 'Staff',
-      description: 'Basic access for daily operations',
-      user_count: 12,
-      created_at: '2024-01-17',
-      permissions: {
-        dashboard: { read: true, write: false, delete: false, approve: false },
-        users: { read: false, write: false, delete: false, approve: false },
-        leads: { read: true, write: true, delete: false, approve: false },
-        companies: { read: true, write: false, delete: false, approve: false },
-        reports: { read: true, write: false, delete: false, approve: false },
-        analytics: { read: false, write: false, delete: false, approve: false },
-        settings: { read: false, write: false, delete: false, approve: false }
-      }
+  // Load roles on component mount
+  useEffect(() => {
+    loadRoles();
+  }, []);
+
+  /**
+   * Load all roles from the backend
+   */
+  const loadRoles = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await roleService.getRoles();
+      setRoles(response.data);
+    } catch (error) {
+      console.error('Error loading roles:', error);
+      setError(error.message || 'Failed to load roles');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   // Module definitions
   const modules = [
@@ -88,10 +63,6 @@ const RolePermissions = () => {
     { key: 'analytics', name: 'Analytics', icon: BarChart3, description: 'Data analytics and insights' },
     { key: 'settings', name: 'Settings', icon: Settings, description: 'System configuration' }
   ];
-
-  useEffect(() => {
-    setRoles(mockRoles);
-  }, []);
 
   const filteredRoles = roles.filter(role =>
     role.role_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -128,49 +99,70 @@ const RolePermissions = () => {
 
   const handleFormSubmit = async (formData) => {
     try {
+      setActionLoading(true);
+      setError(null);
+
       if (selectedRole) {
         // Update existing role
-        const updatedRole = {
-          ...selectedRole,
-          ...formData,
-          updated_at: new Date().toISOString()
-        };
+        const response = await roleService.updateRole(selectedRole._id, formData);
         
+        // Update the role in the local state
         setRoles(roles.map(role => 
-          role.role_id === selectedRole.role_id ? updatedRole : role
+          role._id === selectedRole._id ? response.data : role
         ));
         
         alert('Role updated successfully!');
       } else {
         // Create new role
-        const newRole = {
-          role_id: Math.max(...roles.map(r => r.role_id)) + 1,
-          ...formData,
-          user_count: 0,
-          created_at: new Date().toISOString()
-        };
+        const response = await roleService.createRole(formData);
         
-        setRoles([...roles, newRole]);
-        alert('Role created successfully!');
+        // Add the new role to the local state
+        setRoles([...roles, response.data]);
+        alert(response.message || 'Role created successfully!');
       }
       
       setShowRoleModal(false);
       setSelectedRole(null);
     } catch (error) {
       console.error('Error saving role:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'An unexpected error occurred';
+      setError(errorMessage);
+      alert(`Error: ${errorMessage}`);
       throw error;
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const handleDeleteRole = (roleId) => {
-    const role = roles.find(r => r.role_id === roleId);
+  const handleDeleteRole = async (roleId) => {
+    const role = roles.find(r => r._id === roleId);
     const confirmMessage = role?.user_count > 0 
       ? `Are you sure you want to delete "${role.role_name}"? This role is currently assigned to ${role.user_count} user(s). This action cannot be undone.`
       : `Are you sure you want to delete "${role?.role_name}"? This action cannot be undone.`;
     
     if (window.confirm(confirmMessage)) {
-      setRoles(roles.filter(role => role.role_id !== roleId));
-      alert('Role deleted successfully!');
+      try {
+        setActionLoading(true);
+        setError(null);
+        
+        await roleService.deleteRole(roleId);
+        
+        // Remove the role from local state
+        setRoles(roles.filter(role => role._id !== roleId));
+        alert('Role deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting role:', error);
+        const errorMessage = error.response?.data?.message || error.message || 'An unexpected error occurred';
+        
+        if (error.response?.status === 400 && errorMessage.includes('assigned to users')) {
+          alert(`Cannot delete role: ${errorMessage}`);
+        } else {
+          alert(`Error deleting role: ${errorMessage}`);
+        }
+        setError(errorMessage);
+      } finally {
+        setActionLoading(false);
+      }
     }
   };
 
@@ -247,15 +239,46 @@ const RolePermissions = () => {
         </div>
         <button
           onClick={handleCreateRole}
-          className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          disabled={actionLoading}
+          className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="h-4 w-4 mr-2" />
           Create Role
         </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Loading State */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+          <span className="ml-2 text-gray-600 dark:text-gray-400">Loading roles...</span>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <X className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                Error loading roles
+              </h3>
+              <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                {error}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content - Only show when not loading */}
+      {!loading && (
+        <>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
@@ -336,7 +359,7 @@ const RolePermissions = () => {
       {/* Roles Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {filteredRoles.map((role) => (
-          <div key={role.role_id} className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+          <div key={role._id} className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
@@ -353,21 +376,24 @@ const RolePermissions = () => {
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => handleViewRole(role)}
-                    className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                    disabled={actionLoading}
+                    className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="View Role Details"
                   >
                     <Eye className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => handleEditRole(role)}
-                    className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300"
+                    disabled={actionLoading}
+                    className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Edit Role"
                   >
                     <Edit className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => handleDeleteRole(role.role_id)}
-                    className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                    onClick={() => handleDeleteRole(role._id)}
+                    disabled={actionLoading}
+                    className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Delete Role"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -400,7 +426,8 @@ const RolePermissions = () => {
 
               <button
                 onClick={() => handleManagePermissions(role)}
-                className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                disabled={actionLoading}
+                className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Lock className="h-4 w-4 mr-2" />
                 Manage Permissions
@@ -409,6 +436,8 @@ const RolePermissions = () => {
           </div>
         ))}
       </div>
+        </>
+      )}
 
       {/* Permission Modal */}
       {showPermissionModal && selectedRole && (

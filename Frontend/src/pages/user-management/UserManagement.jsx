@@ -11,11 +11,14 @@ import {
   Eye,
   MoreVertical,
   UserCheck,
-  UserX,
-  Shield
+   UserX,
+  Shield,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import UserForm from './components/UserForm';
 import UserDetails from './components/UserDetails';
+import userService from '../../services/userService';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
@@ -24,69 +27,76 @@ const UserManagement = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    currentPage: 1,
+    limit: 25,
+    total: 0,
+    totalPages: 0
+  });
 
-  // Mock data - replace with API calls
-  const mockUsers = [
-    {
-      user_id: 1,
-      username: 'admin',
-      email: 'admin@company.com',
-      phone: '+91 9876543210',
-      status: 'Active',
-      role: 'Admin',
-      created_at: '2024-01-15',
-      last_login: '2024-01-20 10:30:00',
-      team: 'Management',
-      firstName: 'Admin',
-      lastName: 'User',
-      department: 'IT',
-      twoFactorEnabled: true,
-      loginCount: 156
-    },
-    {
-      user_id: 2,
-      username: 'manager1',
-      email: 'manager@company.com',
-      phone: '+91 9876543211',
-      status: 'Active',
-      role: 'Manager',
-      created_at: '2024-01-16',
-      last_login: '2024-01-20 09:15:00',
-      team: 'Sales',
-      firstName: 'John',
-      lastName: 'Manager',
-      department: 'Sales',
-      twoFactorEnabled: false,
-      loginCount: 89
-    },
-    {
-      user_id: 3,
-      username: 'staff1',
-      email: 'staff@company.com',
-      phone: '+91 9876543212',
-      status: 'Inactive',
-      role: 'Staff',
-      created_at: '2024-01-17',
-      last_login: '2024-01-19 16:45:00',
-      team: 'Support',
-      firstName: 'Jane',
-      lastName: 'Staff',
-      department: 'Support',
-      twoFactorEnabled: false,
-      loginCount: 23
+  // Fetch users from API
+  const fetchUsers = async (params = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const queryParams = {
+        page: pagination.currentPage,
+        limit: pagination.limit,
+        ...params
+      };
+
+      // Add search filter
+      if (searchTerm.trim()) {
+        queryParams.search = searchTerm.trim();
+      }
+
+      // Add status filter
+      if (filterStatus !== 'all') {
+        queryParams.is_active = filterStatus === 'active';
+      }
+
+      const response = await userService.getUsers(queryParams);
+      
+      if (response.success) {
+        const transformedUsers = response.data.map(user => userService.transformUserData(user));
+        setUsers(transformedUsers);
+        setPagination(prev => ({
+          ...prev,
+          total: response.total,
+          totalPages: Math.ceil(response.total / pagination.limit)
+        }));
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to fetch users');
+      console.error('Error fetching users:', err);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
   useEffect(() => {
-    setUsers(mockUsers);
-  }, []);
+    fetchUsers();
+  }, [pagination.currentPage, pagination.limit]);
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || user.status.toLowerCase() === filterStatus.toLowerCase();
-    return matchesSearch && matchesFilter;
-  });
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (pagination.currentPage === 1) {
+        fetchUsers();
+      } else {
+        setPagination(prev => ({ ...prev, currentPage: 1 }));
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, filterStatus]);
+
+  // Users are already filtered on the server side
+  const filteredUsers = users;
 
   const getStatusBadge = (status) => {
     const statusClasses = {
@@ -128,61 +138,73 @@ const UserManagement = () => {
 
   const handleFormSubmit = async (formData) => {
     try {
+      const backendData = userService.transformUserDataForBackend(formData);
+      
       if (selectedUser) {
         // Update existing user
-        const updatedUser = {
-          ...selectedUser,
-          ...formData,
-          updated_at: new Date().toISOString()
-        };
-        setUsers(users.map(user => 
-          user.user_id === selectedUser.user_id ? updatedUser : user
-        ));
-        console.log('User updated:', updatedUser);
+        const response = await userService.updateUser(selectedUser._id || selectedUser.user_id, backendData);
+        
+        if (response.success) {
+          // Refresh the users list
+          await fetchUsers();
+          alert('User updated successfully!');
+        }
       } else {
         // Create new user
-        const newUser = {
-          ...formData,
-          user_id: Math.max(...users.map(u => u.user_id)) + 1,
-          created_at: new Date().toISOString().split('T')[0],
-          last_login: null,
-          loginCount: 0,
-          twoFactorEnabled: false
-        };
-        setUsers([...users, newUser]);
-        console.log('User created:', newUser);
+        const response = await userService.createUser(backendData);
+        
+        if (response.success) {
+          // Refresh the users list
+          await fetchUsers();
+          alert('User created successfully!');
+        }
       }
       
       // Close modal
       setShowCreateModal(false);
       setSelectedUser(null);
       
-      // Show success message (you can implement toast notifications here)
-      alert(selectedUser ? 'User updated successfully!' : 'User created successfully!');
-      
     } catch (error) {
       console.error('Error saving user:', error);
+      alert(error.message || 'Failed to save user');
       throw error; // Re-throw to let the form handle the error
     }
   };
 
-  const handleToggleStatus = (userId, currentStatus) => {
-    const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
-    setUsers(users.map(user => 
-      user.user_id === userId ? { 
-        ...user, 
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      } : user
-    ));
+  const handleToggleStatus = async (userId, currentStatus) => {
+    try {
+      const user = users.find(u => u.user_id === userId || u._id === userId);
+      const userIdToUse = user._id || user.user_id;
+      
+      if (currentStatus === 'Active') {
+        await userService.deactivateUser(userIdToUse);
+      } else {
+        await userService.activateUser(userIdToUse);
+      }
+      
+      // Refresh the users list
+      await fetchUsers();
+      alert(`User ${currentStatus === 'Active' ? 'deactivated' : 'activated'} successfully!`);
+    } catch (error) {
+      console.error('Error toggling user status:', error);
+      alert(error.message || 'Failed to update user status');
+    }
   };
 
-  const handleDeleteUser = (userId) => {
-    const userToDelete = users.find(u => u.user_id === userId);
-    if (window.confirm(`Are you sure you want to delete user "${userToDelete?.username}"? This action cannot be undone.`)) {
-      setUsers(users.filter(user => user.user_id !== userId));
-      console.log('User deleted:', userId);
-      alert('User deleted successfully!');
+  const handleDeleteUser = async (userId) => {
+    const userToDelete = users.find(u => u.user_id === userId || u._id === userId);
+    if (window.confirm(`Are you sure you want to delete user "${userToDelete?.username || userToDelete?.email}"? This action cannot be undone.`)) {
+      try {
+        const userIdToUse = userToDelete._id || userToDelete.user_id;
+        await userService.deleteUser(userIdToUse);
+        
+        // Refresh the users list
+        await fetchUsers();
+        alert('User deleted successfully!');
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        alert(error.message || 'Failed to delete user');
+      }
     }
   };
 
@@ -204,6 +226,20 @@ const UserManagement = () => {
           Add User
         </button>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-400">
+          <AlertCircle className="w-5 h-5" />
+          <span>{error}</span>
+          <button 
+            onClick={() => setError('')}
+            className="ml-auto text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -322,6 +358,15 @@ const UserManagement = () => {
 
       {/* Users Table */}
       <div className="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
+        {/* Loading State */}
+        {loading && (
+          <div className="p-8 text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
+            <p className="mt-2 text-gray-600">Loading users...</p>
+          </div>
+        )}
+        
+        {!loading && (
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900">
@@ -367,10 +412,10 @@ const UserManagement = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      {getRoleIcon(user.role)}
+                      {getRoleIcon(user.role_assignment?.role_name || user.role)}
                       <div className="ml-2">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {user.role}
+                          {user.role_assignment?.role_name || user.role || 'Unknown'}
                         </div>
                         <div className="text-sm text-gray-500 dark:text-gray-400">
                           {user.team}
@@ -417,6 +462,7 @@ const UserManagement = () => {
             </tbody>
           </table>
         </div>
+        )}
       </div>
 
       {/* User Form Modal */}
@@ -445,6 +491,52 @@ const UserManagement = () => {
           setShowCreateModal(true);
         }}
       />
+        
+        {/* Pagination */}
+        {!loading && pagination.totalPages > 1 && (
+          <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+            <div className="text-sm text-gray-700">
+              Showing {((pagination.currentPage - 1) * pagination.limit) + 1} to {Math.min(pagination.currentPage * pagination.limit, pagination.total)} of {pagination.total} users
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
+                disabled={pagination.currentPage === 1}
+                className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Previous
+              </button>
+              
+              {/* Page numbers */}
+              {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                const pageNum = Math.max(1, pagination.currentPage - 2) + i;
+                if (pageNum > pagination.totalPages) return null;
+                
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setPagination(prev => ({ ...prev, currentPage: pageNum }))}
+                    className={`px-3 py-1 border rounded-md text-sm ${
+                      pageNum === pagination.currentPage
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              
+              <button
+                onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
+                disabled={pagination.currentPage === pagination.totalPages}
+                className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
     </div>
   );
 };

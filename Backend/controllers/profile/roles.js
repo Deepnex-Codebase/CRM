@@ -1,6 +1,7 @@
 const asyncHandler = require('../../middleware/async');
 const ErrorResponse = require('../../utils/errorResponse');
 const Role = require('../../models/auth/Role');
+const User = require('../../models/profile/User');
 
 // @desc    Get all roles
 // @route   GET /api/v1/profile/roles
@@ -8,10 +9,21 @@ const Role = require('../../models/auth/Role');
 exports.getRoles = asyncHandler(async (req, res, next) => {
   const roles = await Role.find().sort({ created_at: -1 });
 
+  // Get user count for each role
+  const rolesWithUserCount = await Promise.all(
+    roles.map(async (role) => {
+      const userCount = await User.countDocuments({ role_id: role._id });
+      return {
+        ...role.toObject(),
+        user_count: userCount
+      };
+    })
+  );
+
   res.status(200).json({
     success: true,
-    count: roles.length,
-    data: roles
+    count: rolesWithUserCount.length,
+    data: rolesWithUserCount
   });
 });
 

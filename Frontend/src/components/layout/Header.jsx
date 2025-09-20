@@ -107,7 +107,6 @@ const Header = ({ onMenuClick, sidebarCollapsed, onToggleSidebar }) => {
                   <div className="text-sm font-medium text-gray-900 dark:text-white">
                     {user?.name}
                   </div>
-                  {console.log(user)}
                   <div className="text-xs text-gray-500 dark:text-gray-400">
                     {user?.role?.role_name}
                   </div>
