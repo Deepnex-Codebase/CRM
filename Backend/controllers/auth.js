@@ -473,8 +473,8 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
 
   await user.save({ validateBeforeSave: false });
 
-  // Create reset url
-  const resetUrl = `${req.protocol}://${req.get('host')}/api/v1/auth/resetpassword/${resetToken}`;
+  // Create reset url using frontend URL from environment
+  const resetUrl = `${process.env.RESET_PASSWORD_URL}?token=${resetToken}`;
 
   const message = `
     <h2>Password Reset Request</h2>
