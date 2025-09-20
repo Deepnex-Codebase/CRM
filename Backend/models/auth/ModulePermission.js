@@ -14,16 +14,7 @@ const ModulePermissionSchema = new mongoose.Schema({
   module_name: {
     type: String,
     required: [true, 'Please add a module name'],
-    enum: [
-      'User Management',
-      'Enquiry Management',
-      'Call Management',
-      'Role Management',
-      'Reports',
-      'Settings',
-      'Profile Management',
-      'Dashboard'
-    ]
+    trim: true
   },
   permission_type: {
     type: String,

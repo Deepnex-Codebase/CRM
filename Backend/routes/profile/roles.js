@@ -4,7 +4,8 @@ const {
   getRole,
   createRole,
   updateRole,
-  deleteRole
+  deleteRole,
+  getAvailablePermissions
 } = require('../../controllers/profile/roles');
 
 const router = express.Router();
@@ -12,6 +13,11 @@ const router = express.Router();
 const { protect, authorize } = require('../../middleware/auth');
 
 router.use(protect);
+
+// Get available permissions route (should be before /:id route)
+router
+  .route('/permissions')
+  .get(getAvailablePermissions);
 
 router
   .route('/')
