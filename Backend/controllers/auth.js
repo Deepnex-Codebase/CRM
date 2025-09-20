@@ -52,10 +52,15 @@ exports.register = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('User with this email or phone already exists', 400));
   }
 
-  // Find the role
-  const role = await Role.findOne({ role_name });
+  // Find the role (case-insensitive)
+  const role = await Role.findOne({ 
+    role_name: { $regex: new RegExp(`^${role_name}$`, 'i') } 
+  });
   if (!role) {
-    return next(new ErrorResponse('Invalid role specified', 400));
+    console.log(`Role lookup failed for: "${role_name}"`);
+    const availableRoles = await Role.find({}, 'role_name');
+    console.log('Available roles:', availableRoles.map(r => r.role_name));
+    return next(new ErrorResponse(`Invalid role specified: "${role_name}". Available roles: ${availableRoles.map(r => r.role_name).join(', ')}`, 400));
   }
 
   // Validate password if provided
@@ -173,15 +178,20 @@ exports.verifyEmail = asyncHandler(async (req, res, next) => {
 // @route   POST /api/v1/auth/login
 // @access  Public
 exports.login = asyncHandler(async (req, res, next) => {
-  const { email, password } = req.body;
+  const { email, phone, password } = req.body;
 
-  // Validate email & password
-  if (!email || !password) {
-    return next(new ErrorResponse('Please provide an email and password', 400));
+  // Validate email/phone & password
+  if ((!email && !phone) || !password) {
+    return next(new ErrorResponse('Please provide an email/phone and password', 400));
   }
 
-  // Check for user
-  const user = await User.findOne({ email }).select('+password');
+  // Check for user by email or phone
+  let user;
+  if (email) {
+    user = await User.findOne({ email }).select('+password');
+  } else if (phone) {
+    user = await User.findOne({ phone }).select('+password');
+  }
 
   if (!user) {
     return next(new ErrorResponse('Invalid credentials', 401));
@@ -199,7 +209,7 @@ exports.login = asyncHandler(async (req, res, next) => {
     // Log failed login attempt
     await LoginAttempt.create({
       user_id: user._id,
-      email,
+      email: email || user.email,
       ip_address: getClientIp(req),
       device_info: req.headers['user-agent'],
       status: 'failed',
@@ -215,7 +225,7 @@ exports.login = asyncHandler(async (req, res, next) => {
   // Log successful login attempt
   await LoginAttempt.create({
     user_id: user._id,
-    email,
+    email: email || user.email,
     ip_address: getClientIp(req),
     device_info: req.headers['user-agent'],
     status: 'success'
