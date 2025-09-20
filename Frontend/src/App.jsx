@@ -15,6 +15,17 @@ import Dashboard from './pages/Dashboard';
 import Enquiries from './pages/Enquiries';
 import Customers from './pages/Customers';
 
+// User Management Pages
+import UserManagement from './pages/user-management/UserManagement';
+import RolePermissions from './pages/user-management/RolePermissions';
+import SessionManagement from './pages/user-management/SessionManagement';
+import TeamsManagement from './pages/user-management/TeamsManagement';
+import EmployeeRoleAssignment from './pages/user-management/EmployeeRoleAssignment';
+import DeviceRegistry from './pages/user-management/DeviceRegistry';
+import ApiTokens from './pages/user-management/ApiTokens';
+import SecurityLogs from './pages/user-management/SecurityLogs';
+import AutomatedSecurityRules from './pages/user-management/AutomatedSecurityRules';
+
 function App() {
   return (
     <ThemeProvider>
@@ -39,6 +50,22 @@ function App() {
                 {/* CRM Routes */}
                 <Route path="enquiries" element={<Enquiries />} />
                 <Route path="customers" element={<Customers />} />
+                
+                {/* User Management Routes */}
+              <Route path="/user-management/users" element={<UserManagement />} />
+              <Route path="/user-management/roles" element={<RolePermissions />} />
+              <Route path="/user-management/teams" element={<TeamsManagement />} />
+              <Route path="/user-management/employee-roles" element={<EmployeeRoleAssignment />} />
+              <Route path="/user-management/sessions" element={<SessionManagement />} />
+              <Route path="/user-management/devices" element={<DeviceRegistry />} />
+              <Route path="/user-management/api-tokens" element={<ApiTokens />} />
+              <Route path="/user-management/security-logs" element={<SecurityLogs />} />
+              <Route path="/user-management/security-rules" element={<AutomatedSecurityRules />} />
+                
+                {/* Legacy routes for backward compatibility */}
+                <Route path="users" element={<UserManagement />} />
+                <Route path="roles" element={<RolePermissions />} />
+                <Route path="sessions" element={<SessionManagement />} />
                 
                 {/* Placeholder routes for future implementation */}
                 <Route path="leads" element={
