@@ -105,10 +105,11 @@ const Header = ({ onMenuClick, sidebarCollapsed, onToggleSidebar }) => {
               >
                 <div className="hidden md:block text-right">
                   <div className="text-sm font-medium text-gray-900 dark:text-white">
-                    {user?.name || 'John Doe'}
+                    {user?.name}
                   </div>
+                  {console.log(user)}
                   <div className="text-xs text-gray-500 dark:text-gray-400">
-                    {user?.role || 'Admin'}
+                    {user?.role?.role_name}
                   </div>
                 </div>
                 <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center">

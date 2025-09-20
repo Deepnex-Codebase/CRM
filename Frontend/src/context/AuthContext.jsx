@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import authService from '../services/authService';
 
 const AuthContext = createContext();
 
@@ -62,57 +63,101 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     
     try {
-      // Simulate API call - replace with actual API call later
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await authService.login(credentials);
       
-      // Mock user data based on email/phone
-      const mockUser = {
-        id: 1,
-        name: 'John Doe',
-        email: credentials.email,
-        role: credentials.email.includes('admin') ? 'Admin' : 
-              credentials.email.includes('manager') ? 'Manager' : 
-              credentials.email.includes('hr') ? 'HR' : 
-              credentials.email.includes('engineer') ? 'Engineer' : 'Telecaller'
-      };
-      
-      const mockToken = 'mock-jwt-token-' + Date.now();
-      
-      // Store in localStorage
-      localStorage.setItem('token', mockToken);
-      localStorage.setItem('user', JSON.stringify(mockUser));
-      
-      dispatch({
-        type: 'LOGIN',
-        payload: {
-          user: mockUser,
-          token: mockToken
-        }
-      });
-      
-      return { success: true, user: mockUser };
+      if (result.success) {
+        dispatch({
+          type: 'LOGIN',
+          payload: {
+            user: result.user,
+            token: result.token
+          }
+        });
+        
+        return { success: true, user: result.user };
+      } else {
+        dispatch({ type: 'SET_LOADING', payload: false });
+        return { success: false, error: result.error };
+      }
     } catch (error) {
       dispatch({ type: 'SET_LOADING', payload: false });
-      return { success: false, error: error.message };
+      return { success: false, error: error.message || 'Login failed' };
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    dispatch({ type: 'LOGOUT' });
+  const logout = async () => {
+    try {
+      await authService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      dispatch({ type: 'LOGOUT' });
+    }
   };
 
   const forgotPassword = async (email) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return { success: true, message: 'Reset link sent to your email' };
+    try {
+      const result = await authService.forgotPassword(email);
+      return result;
+    } catch (error) {
+      return { success: false, error: error.message || 'Failed to send reset email' };
+    }
   };
 
   const resetPassword = async (token, newPassword) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    return { success: true, message: 'Password reset successfully' };
+    try {
+      const result = await authService.resetPassword(token, newPassword);
+      
+      if (result.success) {
+        // Update auth state with new user data
+        dispatch({
+          type: 'LOGIN',
+          payload: {
+            user: result.user,
+            token: result.token
+          }
+        });
+      }
+      
+      return result;
+    } catch (error) {
+      return { success: false, error: error.message || 'Password reset failed' };
+    }
+  };
+
+  const loginWithOTP = async (email) => {
+    try {
+      const result = await authService.loginWithOTP(email);
+      return result;
+    } catch (error) {
+      return { success: false, error: error.message || 'Failed to send OTP' };
+    }
+  };
+
+  const verifyOTP = async (email, otp) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    
+    try {
+      const result = await authService.verifyOTP(email, otp);
+      
+      if (result.success) {
+        dispatch({
+          type: 'LOGIN',
+          payload: {
+            user: result.user,
+            token: result.token
+          }
+        });
+        
+        return { success: true, user: result.user };
+      } else {
+        dispatch({ type: 'SET_LOADING', payload: false });
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      dispatch({ type: 'SET_LOADING', payload: false });
+      return { success: false, error: error.message || 'OTP verification failed' };
+    }
   };
 
   const value = {
@@ -120,7 +165,9 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    loginWithOTP,
+    verifyOTP
   };
 
   return (
