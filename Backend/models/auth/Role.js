@@ -15,18 +15,7 @@ const RoleSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please add a role name'],
     unique: true,
-    enum: [
-      'Admin',
-      'Sales Head',
-      'Project Executive',
-      'Telecaller',
-      'Service Executive',
-      'Site Supervisor',
-      'HR',
-      'Accounts',
-      'Dispatch',
-      'Logistics'
-    ]
+    trim: true
   },
   description: {
     type: String,
@@ -34,7 +23,6 @@ const RoleSchema = new mongoose.Schema({
   },
   permissions: {
     type: [String],
-    required: true,
     default: function() {
       // If this is Admin, include all permissions
       if (this.role_name === 'Admin') {
@@ -48,6 +36,23 @@ const RoleSchema = new mongoose.Schema({
         ];
       }
       return [];
+    },
+    validate: {
+      validator: function(permissions) {
+        // Available permissions list
+        const availablePermissions = [
+          'user_view', 'user_create', 'user_update', 'user_delete',
+          'enquiry_view', 'enquiry_create', 'enquiry_update', 'enquiry_delete',
+          'call_view', 'call_create', 'call_update', 'call_delete',
+          'role_view', 'role_create', 'role_update', 'role_delete',
+          'report_view', 'report_generate',
+          'settings_view', 'settings_update'
+        ];
+        
+        // Check if all permissions are valid
+        return permissions.every(perm => availablePermissions.includes(perm));
+      },
+      message: 'Invalid permission(s) provided'
     }
   },
   created_at: {

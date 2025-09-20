@@ -35,10 +35,56 @@ exports.getRole = asyncHandler(async (req, res, next) => {
 // @route   POST /api/v1/profile/roles
 // @access  Private
 exports.createRole = asyncHandler(async (req, res, next) => {
-  const role = await Role.create(req.body);
+  const { role_name, description, permissions } = req.body;
+
+  // Validate required fields
+  if (!role_name || !description) {
+    return next(new ErrorResponse('Please provide role name and description', 400));
+  }
+
+  // Check if role already exists (case-insensitive)
+  const existingRole = await Role.findOne({ 
+    role_name: { $regex: new RegExp(`^${role_name}$`, 'i') } 
+  });
+
+  if (existingRole) {
+    return next(new ErrorResponse(`Role with name '${role_name}' already exists`, 400));
+  }
+
+  // Validate permissions array if provided
+  if (permissions && !Array.isArray(permissions)) {
+    return next(new ErrorResponse('Permissions must be an array', 400));
+  }
+
+  // Available permissions list for validation
+  const availablePermissions = [
+    'user_view', 'user_create', 'user_update', 'user_delete',
+    'enquiry_view', 'enquiry_create', 'enquiry_update', 'enquiry_delete',
+    'call_view', 'call_create', 'call_update', 'call_delete',
+    'role_view', 'role_create', 'role_update', 'role_delete',
+    'report_view', 'report_generate',
+    'settings_view', 'settings_update'
+  ];
+
+  // Validate each permission if provided
+  if (permissions && permissions.length > 0) {
+    const invalidPermissions = permissions.filter(perm => !availablePermissions.includes(perm));
+    if (invalidPermissions.length > 0) {
+      return next(new ErrorResponse(`Invalid permissions: ${invalidPermissions.join(', ')}. Available permissions: ${availablePermissions.join(', ')}`, 400));
+    }
+  }
+
+  const roleData = {
+    role_name: role_name.trim(),
+    description: description.trim(),
+    permissions: permissions || []
+  };
+
+  const role = await Role.create(roleData);
 
   res.status(201).json({
     success: true,
+    message: `Role '${role.role_name}' created successfully`,
     data: role
   });
 });
