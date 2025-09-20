@@ -99,7 +99,7 @@ exports.register = asyncHandler(async (req, res, next) => {
   await user.save({ validateBeforeSave: false });
 
   // Create verification URL
-  const verifyUrl = `${req.protocol}://${req.get('host')}/api/v1/auth/verify-email/${verifyToken}`;
+  const verifyUrl = `${req.protocol}://${req.get('host')}/api/auth/verify-email/${verifyToken}`;
 
   // Send verification email
   const message = `

@@ -59,7 +59,7 @@ const Login = () => {
     
     if (result.success) {
       // Role-based redirection
-      const userRole = result.user.role.toLowerCase();
+      const userRole = result.user.role.role_name.toLowerCase();
       switch (userRole) {
         case 'admin':
           navigate('/dashboard');
