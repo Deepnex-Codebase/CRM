@@ -36,11 +36,11 @@ function validatePasswordPolicy(password, policy = {}) {
 // @route   POST /api/v1/auth/register
 // @access  Private/Admin
 exports.register = asyncHandler(async (req, res, next) => {
-  const { name, email, phone, role_name, password } = req.body;
+  const { first_name, last_name, email, phone, role_name, password } = req.body;
 
   // Validate required fields
-  if (!name || !email || !role_name) {
-    return next(new ErrorResponse('Please provide name, email, and role', 400));
+  if (!first_name || !last_name || !email || !role_name) {
+    return next(new ErrorResponse('Please provide first name, last name, email, and role', 400));
   }
 
   // Check if user already exists
@@ -65,10 +65,11 @@ exports.register = asyncHandler(async (req, res, next) => {
 
   // Create user
   const userData = {
-    name,
+    first_name,
+    last_name,
     email,
     phone,
-    role: role_name,
+    role_id: role._id,
     is_active: false, // User needs email verification
     created_by: req.user._id
   };
@@ -375,10 +376,10 @@ exports.getMe = asyncHandler(async (req, res, next) => {
   
   const userData = {
     id: req.user._id,
-    name: req.user.name,
+    name: `${req.user.first_name} ${req.user.last_name}`,
     email: req.user.email,
     phone: req.user.phone,
-    role: req.user.role,
+    role: req.user.role_id || 'user', // Default role if role_id is not populated
     is_active: req.user.is_active,
     last_login: req.user.last_login,
     created_at: req.user.created_at
@@ -539,8 +540,11 @@ exports.getUsers = asyncHandler(async (req, res, next) => {
   let query = {};
   
   // Filter by role if specified
-  if (req.query.role) {
-    query.role = req.query.role;
+  if (req.query.role_name) {
+    const role = await Role.findOne({ role_name: req.query.role_name });
+    if (role) {
+      query.role_id = role._id;
+    }
   }
 
   // Filter by active status if specified
@@ -551,7 +555,8 @@ exports.getUsers = asyncHandler(async (req, res, next) => {
   // Search by name or email
   if (req.query.search) {
     query.$or = [
-      { name: { $regex: req.query.search, $options: 'i' } },
+      { first_name: { $regex: req.query.search, $options: 'i' } },
+      { last_name: { $regex: req.query.search, $options: 'i' } },
       { email: { $regex: req.query.search, $options: 'i' } }
     ];
   }
@@ -638,30 +643,33 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
   }).select('-password');
 
   // Handle role change if specified
-  if (role_name && role_name !== user.role) {
+  if (role_name) {
     const role = await Role.findOne({ role_name });
     if (!role) {
       return next(new ErrorResponse('Invalid role specified', 400));
     }
 
-    // Deactivate current role assignment
-    await EmployeeRoleAssignment.updateMany(
-      { user_id: user._id, is_active: true },
-      { is_active: false, effective_until: new Date() }
-    );
+    // Check if role is actually changing
+    if (user.role_id.toString() !== role._id.toString()) {
+      // Deactivate current role assignment
+      await EmployeeRoleAssignment.updateMany(
+        { user_id: user._id, is_active: true },
+        { is_active: false, effective_until: new Date() }
+      );
 
-    // Create new role assignment
-    await EmployeeRoleAssignment.create({
-      user_id: user._id,
-      role_id: role._id,
-      assigned_by: req.user._id,
-      effective_from: new Date(),
-      is_active: true
-    });
+      // Create new role assignment
+      await EmployeeRoleAssignment.create({
+        user_id: user._id,
+        role_id: role._id,
+        assigned_by: req.user._id,
+        effective_from: new Date(),
+        is_active: true
+      });
 
-    // Update user role
-    user.role = role_name;
-    await user.save();
+      // Update user role_id
+      user.role_id = role._id;
+      await user.save();
+    }
   }
 
   res.status(200).json({
@@ -883,9 +891,9 @@ const sendTokenResponse = async (user, statusCode, res, req = null) => {
     token,
     user: {
       id: user._id,
-      name: user.name,
+      name: `${user.first_name} ${user.last_name}`,
       email: user.email,
-      role: user.role,
+      role: user.role_id || 'user', // Default role if role_id is not populated
       is_active: user.is_active
     }
   });
