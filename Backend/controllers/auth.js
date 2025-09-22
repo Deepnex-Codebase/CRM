@@ -7,6 +7,7 @@ const Session = require('../models/auth/Session');
 const LoginAttempt = require('../models/auth/LoginAttempt');
 const EmployeeRoleAssignment = require('../models/auth/EmployeeRoleAssignment');
 const sendEmail = require('../utils/sendEmail');
+const { getDeviceAndLocationInfo, isSameDevice, isDifferentLocation } = require('../utils/deviceTracker');
 
 // Helper function to get client IP
 function getClientIp(req) {
@@ -206,12 +207,15 @@ exports.login = asyncHandler(async (req, res, next) => {
   const isMatch = await user.matchPassword(password);
 
   if (!isMatch) {
+    // Get device and location info for failed attempt
+    const deviceLocationInfo = await getDeviceAndLocationInfo(req);
+    
     // Log failed login attempt
     await LoginAttempt.create({
       user_id: user._id,
       email: email || user.email,
-      ip_address: getClientIp(req),
-      device_info: req.headers['user-agent'],
+      ip_address: deviceLocationInfo.ip_address,
+      device_info: JSON.stringify(deviceLocationInfo.device_info),
       status: 'failed',
       reason: 'Invalid password'
     });
@@ -222,12 +226,15 @@ exports.login = asyncHandler(async (req, res, next) => {
   user.last_login = Date.now();
   await user.save({ validateBeforeSave: false });
 
+  // Get device and location info for successful attempt
+  const deviceLocationInfo = await getDeviceAndLocationInfo(req);
+  
   // Log successful login attempt
   await LoginAttempt.create({
     user_id: user._id,
     email: email || user.email,
-    ip_address: getClientIp(req),
-    device_info: req.headers['user-agent'],
+    ip_address: deviceLocationInfo.ip_address,
+    device_info: JSON.stringify(deviceLocationInfo.device_info),
     status: 'success'
   });
 
@@ -1047,18 +1054,80 @@ const sendTokenResponse = async (user, statusCode, res, req = null) => {
   // Create token
   const token = user.getSignedJwtToken();
 
-  // Create session record
-  const sessionData = {
-    token,
-    user_id: user._id,
-    device_info: req ? req.headers['user-agent'] : null,
-    ip_address: req ? getClientIp(req) : null,
-    issued_at: new Date(),
-    expires_at: new Date(Date.now() + process.env.JWT_EXPIRE_TIME * 24 * 60 * 60 * 1000),
-    is_active: true
+  // Get device and location information
+  const deviceLocationInfo = req ? await getDeviceAndLocationInfo(req) : {
+    device_info: {
+      browser: { name: null, version: null },
+      os: { name: null, version: null },
+      device: { type: null, vendor: null, model: null },
+      user_agent: null
+    },
+    ip_address: null,
+    location: {
+      country: null,
+      region: null,
+      city: null,
+      timezone: null,
+      latitude: null,
+      longitude: null,
+      isp: null
+    }
   };
 
-  const newSession = await Session.create(sessionData);
+  // Check for existing active sessions for this user
+  const existingSessions = await Session.find({ 
+    user_id: user._id, 
+    is_active: true 
+  }).sort({ issued_at: -1 });
+
+  let sessionToUpdate = null;
+  let shouldCreateNewSession = true;
+
+  // Check if we should update an existing session or create a new one
+  if (existingSessions.length > 0 && req) {
+    for (const session of existingSessions) {
+      // Check if it's the same device
+      if (isSameDevice(session.device_info, deviceLocationInfo.device_info)) {
+        // Same device - update the existing session
+        sessionToUpdate = session;
+        shouldCreateNewSession = false;
+        break;
+      }
+    }
+  }
+
+  let newSession;
+  
+  if (shouldCreateNewSession) {
+    // Create new session record with complete device and location info
+    const sessionData = {
+      token,
+      user_id: user._id,
+      ...deviceLocationInfo,
+      issued_at: new Date(),
+      expires_at: new Date(Date.now() + process.env.JWT_EXPIRE_TIME * 24 * 60 * 60 * 1000),
+      is_active: true
+    };
+
+    newSession = await Session.create(sessionData);
+    console.log('Created new session for user:', user._id, 'with device:', deviceLocationInfo.device_info.device?.type);
+  } else {
+    // Update existing session with new token and location info (if different)
+    sessionToUpdate.token = token;
+    sessionToUpdate.issued_at = new Date();
+    sessionToUpdate.expires_at = new Date(Date.now() + process.env.JWT_EXPIRE_TIME * 24 * 60 * 60 * 1000);
+    
+    // Update IP and location if different
+    if (sessionToUpdate.ip_address !== deviceLocationInfo.ip_address) {
+      sessionToUpdate.ip_address = deviceLocationInfo.ip_address;
+      sessionToUpdate.location = deviceLocationInfo.location;
+      console.log('Updated session location for user:', user._id, 'from', sessionToUpdate.location?.city, 'to', deviceLocationInfo.location?.city);
+    }
+    
+    await sessionToUpdate.save();
+    newSession = sessionToUpdate;
+    console.log('Updated existing session for user:', user._id, 'same device detected');
+  }
 
   // Get complete user data with populated role
   const userWithRole = await User.findById(user._id).populate('role_id');

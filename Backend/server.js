@@ -35,6 +35,16 @@ const customerMasterRoutes = require('./routes/profile/customerMaster');
 const employeeRoutes = require('./routes/profile/employees');
 const roleRoutes = require('./routes/profile/roles');
 
+// Import Info routes
+const infoTypesRoutes = require('./routes/info/infoTypes');
+const infoStatusesRoutes = require('./routes/info/infoStatuses');
+const infoActionsRoutes = require('./routes/info/infoActions');
+const infoSlaRulesRoutes = require('./routes/info/infoSlaRules');
+const infoAuditLogsRoutes = require('./routes/info/infoAuditLogs');
+const infoAttachmentsRoutes = require('./routes/info/infoAttachments');
+const infoFeedbacksRoutes = require('./routes/info/infoFeedbacks');
+const infoResponsesRoutes = require('./routes/info/infoResponses');
+
 // Import enquiry routes
 const enquiryRoutes = require('./routes/enquiry/enquiries');
 const statusLogRoutes = require('./routes/enquiry/statusLogs');
@@ -64,7 +74,7 @@ app.use(cookieParser());
 
 // Enable CORS
 app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
     credentials: true
 }));
 
@@ -87,6 +97,16 @@ app.use('/api/user-activity-logs', userActivityLogRoutes);
 app.use('/api/customers', customerMasterRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/roles', roleRoutes);
+
+// Info Management API Routes
+app.use('/api/info/types', infoTypesRoutes);
+app.use('/api/info/statuses', infoStatusesRoutes);
+app.use('/api/info/actions', infoActionsRoutes);
+app.use('/api/info/sla-rules', infoSlaRulesRoutes);
+app.use('/api/info/audit-logs', infoAuditLogsRoutes);
+app.use('/api/info/attachments', infoAttachmentsRoutes);
+app.use('/api/info/feedbacks', infoFeedbacksRoutes);
+app.use('/api/info/responses', infoResponsesRoutes);
 
 // Enquiry Management API Routes
 app.use('/api/enquiries', enquiryRoutes);
@@ -127,6 +147,16 @@ app.get('/', (req, res) => {
                 job: '/api/profiles/job',
                 info: '/api/profiles/info',
                 siteVisit: '/api/profiles/site-visit'
+            },
+            info: {
+                types: '/api/info/types',
+                statuses: '/api/info/statuses',
+                actions: '/api/info/actions',
+                slaRules: '/api/info/sla-rules',
+                auditLogs: '/api/info/audit-logs',
+                attachments: '/api/info/attachments',
+                feedbacks: '/api/info/feedbacks',
+                responses: '/api/info/responses'
             },
             enquiry: {
                 enquiries: '/api/enquiries',
