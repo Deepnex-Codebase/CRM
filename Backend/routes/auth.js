@@ -18,6 +18,7 @@ const {
   activateUser,
   deleteUser,
   getUserLoginHistory,
+  getLoginAttempts,
   getActiveSessions,
   revokeSession
 } = require('../controllers/auth');
@@ -59,6 +60,9 @@ router.put('/users/:id/deactivate', deactivateUser);
 
 // User login history
 router.get('/users/:id/login-history', getUserLoginHistory);
+
+// Login attempts management
+router.get('/login-attempts', getLoginAttempts);
 
 // Session management
 router.get('/sessions', getActiveSessions);

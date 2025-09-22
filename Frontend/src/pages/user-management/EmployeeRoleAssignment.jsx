@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Users, 
   UserCheck, 
@@ -49,6 +49,7 @@ import {
   Network,
   Workflow
 } from 'lucide-react';
+import employeeRoleService from '../../services/user_management/employeeRoleService';
 
 const EmployeeRoleAssignment = () => {
   const [employees, setEmployees] = useState([]);
@@ -68,208 +69,122 @@ const EmployeeRoleAssignment = () => {
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [notification, setNotification] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0
+  });
 
-  // Mock data
-  const mockDepartments = [
-    { id: 'dept_001', name: 'Sales', description: 'Sales and Business Development', employee_count: 25, manager: 'John Smith' },
-    { id: 'dept_002', name: 'Marketing', description: 'Marketing and Communications', employee_count: 18, manager: 'Sarah Johnson' },
-    { id: 'dept_003', name: 'Engineering', description: 'Software Development', employee_count: 45, manager: 'Mike Chen' },
-    { id: 'dept_004', name: 'HR', description: 'Human Resources', employee_count: 12, manager: 'Lisa Brown' },
-    { id: 'dept_005', name: 'Finance', description: 'Finance and Accounting', employee_count: 15, manager: 'David Wilson' }
-  ];
-
-  const mockRoles = [
-    { 
-      id: 'role_001', 
-      name: 'Admin', 
-      level: 1, 
-      permissions: ['all'], 
-      color: 'red',
-      description: 'Full system access',
-      parent_role: null,
-      employee_count: 3
-    },
-    { 
-      id: 'role_002', 
-      name: 'Manager', 
-      level: 2, 
-      permissions: ['manage_team', 'view_reports'], 
-      color: 'blue',
-      description: 'Team management and reporting',
-      parent_role: 'role_001',
-      employee_count: 12
-    },
-    { 
-      id: 'role_003', 
-      name: 'Team Lead', 
-      level: 3, 
-      permissions: ['manage_tasks', 'view_team'], 
-      color: 'green',
-      description: 'Task management and team coordination',
-      parent_role: 'role_002',
-      employee_count: 18
-    },
-    { 
-      id: 'role_004', 
-      name: 'Senior Employee', 
-      level: 4, 
-      permissions: ['edit_data', 'view_data'], 
-      color: 'purple',
-      description: 'Senior level access and responsibilities',
-      parent_role: 'role_003',
-      employee_count: 35
-    },
-    { 
-      id: 'role_005', 
-      name: 'Employee', 
-      level: 5, 
-      permissions: ['view_data'], 
-      color: 'gray',
-      description: 'Basic employee access',
-      parent_role: 'role_004',
-      employee_count: 47
-    }
-  ];
-
-  const mockEmployees = [
-    {
-      employee_id: 'emp_001',
-      name: 'John Smith',
-      email: 'john.smith@company.com',
-      phone: '+1 (555) 123-4567',
-      department: 'dept_001',
-      current_role: 'role_002',
-      hire_date: '2022-01-15',
-      status: 'active',
-      avatar: null,
-      location: 'New York, NY',
-      manager: 'emp_010',
-      direct_reports: ['emp_015', 'emp_016', 'emp_017'],
-      last_role_change: '2023-06-01',
-      performance_rating: 4.5,
-      access_level: 'high'
-    },
-    {
-      employee_id: 'emp_002',
-      name: 'Sarah Johnson',
-      email: 'sarah.johnson@company.com',
-      phone: '+1 (555) 234-5678',
-      department: 'dept_002',
-      current_role: 'role_002',
-      hire_date: '2021-08-20',
-      status: 'active',
-      avatar: null,
-      location: 'Los Angeles, CA',
-      manager: 'emp_011',
-      direct_reports: ['emp_018', 'emp_019'],
-      last_role_change: '2023-03-15',
-      performance_rating: 4.8,
-      access_level: 'high'
-    },
-    {
-      employee_id: 'emp_003',
-      name: 'Mike Chen',
-      email: 'mike.chen@company.com',
-      phone: '+1 (555) 345-6789',
-      department: 'dept_003',
-      current_role: 'role_001',
-      hire_date: '2020-03-10',
-      status: 'active',
-      avatar: null,
-      location: 'San Francisco, CA',
-      manager: null,
-      direct_reports: ['emp_020', 'emp_021', 'emp_022', 'emp_023'],
-      last_role_change: '2022-12-01',
-      performance_rating: 4.9,
-      access_level: 'admin'
-    },
-    {
-      employee_id: 'emp_004',
-      name: 'Lisa Brown',
-      email: 'lisa.brown@company.com',
-      phone: '+1 (555) 456-7890',
-      department: 'dept_004',
-      current_role: 'role_003',
-      hire_date: '2022-05-12',
-      status: 'active',
-      avatar: null,
-      location: 'Chicago, IL',
-      manager: 'emp_012',
-      direct_reports: ['emp_024', 'emp_025'],
-      last_role_change: '2023-09-01',
-      performance_rating: 4.3,
-      access_level: 'medium'
-    },
-    {
-      employee_id: 'emp_005',
-      name: 'David Wilson',
-      email: 'david.wilson@company.com',
-      phone: '+1 (555) 567-8901',
-      department: 'dept_005',
-      current_role: 'role_004',
-      hire_date: '2023-01-08',
-      status: 'active',
-      avatar: null,
-      location: 'Boston, MA',
-      manager: 'emp_013',
-      direct_reports: [],
-      last_role_change: '2023-01-08',
-      performance_rating: 4.1,
-      access_level: 'medium'
-    }
-  ];
-
-  const mockAssignmentHistory = [
-    {
-      history_id: 'hist_001',
-      employee_id: 'emp_001',
-      employee_name: 'John Smith',
-      previous_role: 'role_003',
-      new_role: 'role_002',
-      changed_by: 'emp_003',
-      changed_by_name: 'Mike Chen',
-      change_date: '2023-06-01T10:30:00Z',
-      reason: 'Promotion to Manager',
-      effective_date: '2023-06-01',
-      approval_status: 'approved',
-      notes: 'Excellent performance and leadership skills demonstrated'
-    },
-    {
-      history_id: 'hist_002',
-      employee_id: 'emp_002',
-      employee_name: 'Sarah Johnson',
-      previous_role: 'role_003',
-      new_role: 'role_002',
-      changed_by: 'emp_003',
-      changed_by_name: 'Mike Chen',
-      change_date: '2023-03-15T14:20:00Z',
-      reason: 'Department Restructuring',
-      effective_date: '2023-03-15',
-      approval_status: 'approved',
-      notes: 'Role change due to marketing department expansion'
-    },
-    {
-      history_id: 'hist_003',
-      employee_id: 'emp_004',
-      employee_name: 'Lisa Brown',
-      previous_role: 'role_004',
-      new_role: 'role_003',
-      changed_by: 'emp_003',
-      changed_by_name: 'Mike Chen',
-      change_date: '2023-09-01T09:15:00Z',
-      reason: 'Performance Recognition',
-      effective_date: '2023-09-01',
-      approval_status: 'approved',
-      notes: 'Promoted to Team Lead based on outstanding performance'
-    }
-  ];
-
-  useEffect(() => {
-    setEmployees(mockEmployees);
-    setRoles(mockRoles);
-    setDepartments(mockDepartments);
-    setAssignmentHistory(mockAssignmentHistory);
+  // Notification system
+  const showNotification = useCallback((message, type = 'success') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 5000);
   }, []);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  // Data loading functions
+  const loadEmployees = useCallback(async (params = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const queryParams = {
+        page: pagination.page,
+        limit: pagination.limit,
+        search: searchTerm,
+        department: selectedDepartment,
+        role: selectedRole,
+        ...params
+      };
+
+      const response = await employeeRoleService.getEmployees(queryParams);
+      
+      if (response.success) {
+        setEmployees(response.data);
+        if (response.pagination) {
+          setPagination(prev => ({
+            ...prev,
+            total: response.count,
+            totalPages: response.pagination.totalPages
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error loading employees:', error);
+      setError(error.message);
+      showNotification(error.message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.page, pagination.limit, searchTerm, selectedDepartment, selectedRole, showNotification]);
+
+  const loadRoles = useCallback(async () => {
+    try {
+      const response = await employeeRoleService.getRoles();
+      if (response.success) {
+        setRoles(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading roles:', error);
+      setError(error.message);
+    }
+  }, []);
+
+  const loadTeams = useCallback(async () => {
+    try {
+      const response = await employeeRoleService.getTeams();
+      if (response.success) {
+        setDepartments(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading teams:', error);
+      setError(error.message);
+    }
+  }, []);
+
+  const loadAssignmentHistory = useCallback(async () => {
+    try {
+      const response = await employeeRoleService.getAllAssignmentHistory({
+        page: 1,
+        limit: 50
+      });
+      if (response.success) {
+        setAssignmentHistory(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading assignment history:', error);
+      setError(error.message);
+    }
+  }, []);
+
+  // Initial data loading
+  useEffect(() => {
+    const initializeData = async () => {
+      await Promise.all([
+        loadRoles(),
+        loadTeams(),
+        loadAssignmentHistory()
+      ]);
+      await loadEmployees();
+    };
+
+    initializeData();
+  }, []);
+
+  // Reload employees when filters change
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      loadEmployees();
+    }, 300); // Debounce search
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, selectedDepartment, selectedRole, pagination.page]);
 
   const filteredEmployees = employees.filter(employee => {
     const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -311,22 +226,26 @@ const EmployeeRoleAssignment = () => {
   });
 
   const getDepartmentName = (deptId) => {
-    const dept = departments.find(d => d.id === deptId);
-    return dept ? dept.name : 'Unknown';
+    if (!deptId) return 'Not Assigned';
+    const dept = departments.find(d => d.id === deptId || d.name === deptId);
+    return dept ? dept.name : deptId;
   };
 
   const getRoleName = (roleId) => {
-    const role = roles.find(r => r.id === roleId);
-    return role ? role.name : 'Unknown';
+    if (!roleId) return 'No Role';
+    const role = roles.find(r => r.id === roleId || r.role_id === roleId);
+    return role ? role.name || role.role_name : 'Unknown';
   };
 
   const getRoleColor = (roleId) => {
-    const role = roles.find(r => r.id === roleId);
+    if (!roleId) return 'gray';
+    const role = roles.find(r => r.id === roleId || r.role_id === roleId);
     return role ? role.color : 'gray';
   };
 
   const getRoleIcon = (roleId) => {
-    const role = roles.find(r => r.id === roleId);
+    if (!roleId) return Users;
+    const role = roles.find(r => r.id === roleId || r.role_id === roleId);
     if (!role) return Users;
     
     switch (role.level) {
@@ -338,87 +257,81 @@ const EmployeeRoleAssignment = () => {
     }
   };
 
-  const handleAssignRole = (employeeId, newRoleId, reason = '') => {
-    setLoading(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const updatedEmployees = employees.map(emp => {
-        if (emp.employee_id === employeeId) {
-          const previousRole = emp.current_role;
-          return {
-            ...emp,
-            current_role: newRoleId,
-            last_role_change: new Date().toISOString().split('T')[0]
-          };
-        }
-        return emp;
-      });
-      
-      setEmployees(updatedEmployees);
-      
-      // Add to history
-      const newHistoryEntry = {
-        history_id: `hist_${Date.now()}`,
-        employee_id: employeeId,
-        employee_name: employees.find(e => e.employee_id === employeeId)?.name,
-        previous_role: employees.find(e => e.employee_id === employeeId)?.current_role,
-        new_role: newRoleId,
-        changed_by: 'current_user',
-        changed_by_name: 'Current User',
-        change_date: new Date().toISOString(),
-        reason: reason || 'Role Assignment',
-        effective_date: new Date().toISOString().split('T')[0],
-        approval_status: 'approved',
-        notes: reason
+  const handleAssignRole = async (employeeId, newRoleId, reason = '', effectiveDate = null) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Validate assignment data
+      const assignmentData = {
+        user_id: employeeId,
+        role_id: newRoleId,
+        effective_from: effectiveDate || new Date().toISOString(),
+        notes: reason || 'Role Assignment'
       };
+
+      const validation = employeeRoleService.validateRoleAssignment(assignmentData);
+      if (!validation.isValid) {
+        throw new Error(validation.errors.join(', '));
+      }
+
+      const response = await employeeRoleService.assignRole(assignmentData);
       
-      setAssignmentHistory([newHistoryEntry, ...assignmentHistory]);
+      if (response.success) {
+        // Refresh employees data to reflect the change
+        await loadEmployees();
+        await loadAssignmentHistory();
+        
+        setShowAssignmentModal(false);
+        showNotification(response.message || 'Role assigned successfully!');
+      }
+    } catch (error) {
+      console.error('Error assigning role:', error);
+      setError(error.message);
+      showNotification(error.message, 'error');
+    } finally {
       setLoading(false);
-      setShowAssignmentModal(false);
-      alert('Role assigned successfully!');
-    }, 1500);
+    }
   };
 
-  const handleBulkAssign = (employeeIds, roleId, reason = '') => {
-    setLoading(true);
-    
-    setTimeout(() => {
-      const updatedEmployees = employees.map(emp => {
-        if (employeeIds.includes(emp.employee_id)) {
-          return {
-            ...emp,
-            current_role: roleId,
-            last_role_change: new Date().toISOString().split('T')[0]
-          };
+  const handleBulkAssign = async (employeeIds, roleId, reason = '', effectiveDate = null) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const bulkAssignmentData = {
+        user_ids: employeeIds,
+        role_id: roleId,
+        effective_from: effectiveDate || new Date().toISOString(),
+        notes: reason || 'Bulk Role Assignment'
+      };
+
+      const response = await employeeRoleService.bulkAssignRoles(bulkAssignmentData);
+      
+      if (response.success) {
+        const { successful_count, failed_count, failed_assignments } = response.data;
+        
+        // Refresh data to reflect changes
+        await loadEmployees();
+        await loadAssignmentHistory();
+        
+        setSelectedEmployees([]);
+        setShowBulkAssignModal(false);
+        
+        if (failed_count > 0) {
+          const failedMessage = `${successful_count} roles assigned successfully, ${failed_count} failed. Failed assignments: ${failed_assignments.map(f => f.error).join(', ')}`;
+          showNotification(failedMessage, 'warning');
+        } else {
+          showNotification(response.message || `Roles assigned to ${successful_count} employees successfully!`);
         }
-        return emp;
-      });
-      
-      setEmployees(updatedEmployees);
-      
-      // Add bulk history entries
-      const newHistoryEntries = employeeIds.map(empId => ({
-        history_id: `hist_${Date.now()}_${empId}`,
-        employee_id: empId,
-        employee_name: employees.find(e => e.employee_id === empId)?.name,
-        previous_role: employees.find(e => e.employee_id === empId)?.current_role,
-        new_role: roleId,
-        changed_by: 'current_user',
-        changed_by_name: 'Current User',
-        change_date: new Date().toISOString(),
-        reason: reason || 'Bulk Role Assignment',
-        effective_date: new Date().toISOString().split('T')[0],
-        approval_status: 'approved',
-        notes: reason
-      }));
-      
-      setAssignmentHistory([...newHistoryEntries, ...assignmentHistory]);
-      setSelectedEmployees([]);
+      }
+    } catch (error) {
+      console.error('Error in bulk role assignment:', error);
+      setError(error.message);
+      showNotification(error.message, 'error');
+    } finally {
       setLoading(false);
-      setShowBulkAssignModal(false);
-      alert(`Roles assigned to ${employeeIds.length} employees successfully!`);
-    }, 2000);
+    }
   };
 
   const handleSelectEmployee = (employeeId) => {
@@ -597,6 +510,53 @@ const EmployeeRoleAssignment = () => {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Notification */}
+      {notification && (
+        <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-md ${
+          notification.type === 'success' 
+            ? 'bg-green-100 border border-green-400 text-green-700' 
+            : notification.type === 'error'
+            ? 'bg-red-100 border border-red-400 text-red-700'
+            : 'bg-blue-100 border border-blue-400 text-blue-700'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              {notification.type === 'success' && <Check className="h-5 w-5 mr-2" />}
+              {notification.type === 'error' && <AlertTriangle className="h-5 w-5 mr-2" />}
+              {notification.type === 'info' && <Bell className="h-5 w-5 mr-2" />}
+              <span className="font-medium">{notification.message}</span>
+            </div>
+            <button
+              onClick={() => setNotification(null)}
+              className="ml-4 text-gray-400 hover:text-gray-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
+              <div>
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
+              </div>
+            </div>
+            <button
+              onClick={clearError}
+              className="text-red-400 hover:text-red-600"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -604,6 +564,30 @@ const EmployeeRoleAssignment = () => {
           <p className="text-gray-600 dark:text-gray-400">Manage employee roles and permissions</p>
         </div>
         <div className="flex space-x-3">
+          <button
+            onClick={async () => {
+              setLoading(true);
+              try {
+                await Promise.all([
+                  loadEmployees(),
+                  loadRoles(),
+                  loadTeams(),
+                  loadAssignmentHistory()
+                ]);
+                showNotification('Data refreshed successfully', 'success');
+              } catch (error) {
+                console.error('Error refreshing data:', error);
+                setError('Failed to refresh data. Please try again.');
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
           <button
             onClick={() => setShowRoleHierarchy(!showRoleHierarchy)}
             className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center"
@@ -729,7 +713,20 @@ const EmployeeRoleAssignment = () => {
         </div>
 
         <div className="p-6">
-          {viewMode === 'grid' ? (
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="flex items-center space-x-2">
+                <RefreshCw className="h-6 w-6 animate-spin text-primary-600" />
+                <span className="text-gray-600 dark:text-gray-400">Loading employees...</span>
+              </div>
+            </div>
+          ) : sortedEmployees.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No employees found</h3>
+              <p className="text-gray-600 dark:text-gray-400">Try adjusting your search or filter criteria.</p>
+            </div>
+          ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {sortedEmployees.map((employee) => {
                 const RoleIcon = getRoleIcon(employee.current_role);

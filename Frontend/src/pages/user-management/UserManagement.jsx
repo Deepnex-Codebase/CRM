@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import UserForm from './components/UserForm';
 import UserDetails from './components/UserDetails';
-import userService from '../../services/userService';
+import userService from '../../services/user_management/userService';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);

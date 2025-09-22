@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import RoleForm from './components/RoleForm';
 import RoleDetails from './components/RoleDetails';
-import roleService from '../../services/roleService';
+import roleService from '../../services/user_management/roleService';
 
 const RolePermissions = () => {
   const [roles, setRoles] = useState([]);
