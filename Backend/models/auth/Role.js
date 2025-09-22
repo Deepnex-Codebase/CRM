@@ -32,22 +32,46 @@ const RoleSchema = new mongoose.Schema({
           'call_view', 'call_create', 'call_update', 'call_delete',
           'role_view', 'role_create', 'role_update', 'role_delete',
           'report_view', 'report_generate',
-          'settings_view', 'settings_update'
+          'settings_view', 'settings_update',
+          'profile_view', 'profile_create', 'profile_update', 'profile_delete',
+          'dashboard_view'
         ];
       }
       return [];
     },
     validate: {
-      validator: function(permissions) {
-        // Available permissions list
+      validator: async function(permissions) {
+        // Get ModulePermission model
+        const ModulePermission = mongoose.model('ModulePermission');
+        
+        // Get all active permissions from ModulePermission model
+        const activePermissions = await ModulePermission.find({ is_active: true });
+        
+        // Create available permissions list from ModulePermission model
         const availablePermissions = [
+          // Static permissions (for backward compatibility)
           'user_view', 'user_create', 'user_update', 'user_delete',
           'enquiry_view', 'enquiry_create', 'enquiry_update', 'enquiry_delete',
           'call_view', 'call_create', 'call_update', 'call_delete',
           'role_view', 'role_create', 'role_update', 'role_delete',
           'report_view', 'report_generate',
-          'settings_view', 'settings_update'
+          'settings_view', 'settings_update',
+          'profile_view', 'profile_create', 'profile_update', 'profile_delete',
+          'dashboard_view'
         ];
+        
+        // Add dynamic permissions from ModulePermission model
+        activePermissions.forEach(perm => {
+          const permissionName = perm.permission_name || perm.full_permission_name;
+          if (permissionName && !availablePermissions.includes(permissionName)) {
+            availablePermissions.push(permissionName);
+          }
+          
+          // Also add the virtual full_permission_name if it exists
+          if (perm.full_permission_name && !availablePermissions.includes(perm.full_permission_name)) {
+            availablePermissions.push(perm.full_permission_name);
+          }
+        });
         
         // Check if all permissions are valid
         return permissions.every(perm => availablePermissions.includes(perm));

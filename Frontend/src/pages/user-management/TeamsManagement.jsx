@@ -15,10 +15,13 @@ import {
   Activity,
   MoreVertical,
   Download,
-  Upload
+  Upload,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import TeamForm from './components/TeamForm';
 import TeamDetails from './components/TeamDetails';
+import teamService from '../../services/user_management/teamService';
 
 const TeamsManagement = () => {
   const [teams, setTeams] = useState([]);
@@ -28,94 +31,105 @@ const TeamsManagement = () => {
   const [showTeamDetails, setShowTeamDetails] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [editingTeam, setEditingTeam] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    pages: 0
+  });
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // Mock data for teams
-  const mockTeams = [
-    {
-      team_id: 'team_001',
-      team_name: 'Sales Team North',
-      department: 'Sales',
-      description: 'Handles sales operations for northern region',
-      team_lead: 'John Smith',
-      team_lead_id: 'user_001',
-      member_count: 8,
-      territory: 'North India',
-      created_at: '2024-01-15T10:30:00Z',
-      status: 'Active',
-      members: [
-        { user_id: 'user_001', name: 'John Smith', role: 'Team Lead', email: 'john@company.com' },
-        { user_id: 'user_002', name: 'Sarah Johnson', role: 'Senior Sales Rep', email: 'sarah@company.com' },
-        { user_id: 'user_003', name: 'Mike Wilson', role: 'Sales Rep', email: 'mike@company.com' },
-        { user_id: 'user_004', name: 'Lisa Brown', role: 'Sales Rep', email: 'lisa@company.com' },
-        { user_id: 'user_005', name: 'David Lee', role: 'Sales Rep', email: 'david@company.com' },
-        { user_id: 'user_006', name: 'Emma Davis', role: 'Sales Rep', email: 'emma@company.com' },
-        { user_id: 'user_007', name: 'Tom Anderson', role: 'Sales Rep', email: 'tom@company.com' },
-        { user_id: 'user_008', name: 'Amy Taylor', role: 'Sales Rep', email: 'amy@company.com' }
-      ]
-    },
-    {
-      team_id: 'team_002',
-      team_name: 'Marketing Team',
-      department: 'Marketing',
-      description: 'Digital marketing and brand management',
-      team_lead: 'Jennifer Wilson',
-      team_lead_id: 'user_009',
-      member_count: 6,
-      territory: 'Pan India',
-      created_at: '2024-01-20T14:15:00Z',
-      status: 'Active',
-      members: [
-        { user_id: 'user_009', name: 'Jennifer Wilson', role: 'Marketing Manager', email: 'jennifer@company.com' },
-        { user_id: 'user_010', name: 'Alex Chen', role: 'Digital Marketing Specialist', email: 'alex@company.com' },
-        { user_id: 'user_011', name: 'Maria Garcia', role: 'Content Creator', email: 'maria@company.com' },
-        { user_id: 'user_012', name: 'Ryan Murphy', role: 'SEO Specialist', email: 'ryan@company.com' },
-        { user_id: 'user_013', name: 'Sophie Turner', role: 'Social Media Manager', email: 'sophie@company.com' },
-        { user_id: 'user_014', name: 'James Rodriguez', role: 'Graphic Designer', email: 'james@company.com' }
-      ]
-    },
-    {
-      team_id: 'team_003',
-      team_name: 'Support Team',
-      department: 'Customer Support',
-      description: 'Customer support and technical assistance',
-      team_lead: 'Robert Johnson',
-      team_lead_id: 'user_015',
-      member_count: 12,
-      territory: 'Global',
-      created_at: '2024-02-01T09:00:00Z',
-      status: 'Active',
-      members: [
-        { user_id: 'user_015', name: 'Robert Johnson', role: 'Support Manager', email: 'robert@company.com' },
-        { user_id: 'user_016', name: 'Linda White', role: 'Senior Support Agent', email: 'linda@company.com' },
-        { user_id: 'user_017', name: 'Kevin Brown', role: 'Technical Support', email: 'kevin@company.com' }
-        // ... more members
-      ]
-    },
-    {
-      team_id: 'team_004',
-      team_name: 'Development Team',
-      department: 'IT',
-      description: 'Software development and maintenance',
-      team_lead: 'Michael Chang',
-      team_lead_id: 'user_020',
-      member_count: 10,
-      territory: 'Remote',
-      created_at: '2024-01-10T11:45:00Z',
-      status: 'Active',
-      members: [
-        { user_id: 'user_020', name: 'Michael Chang', role: 'Tech Lead', email: 'michael@company.com' },
-        { user_id: 'user_021', name: 'Anna Kowalski', role: 'Senior Developer', email: 'anna@company.com' },
-        { user_id: 'user_022', name: 'Carlos Silva', role: 'Full Stack Developer', email: 'carlos@company.com' }
-        // ... more members
-      ]
+  // Get departments from team service
+  const departments = teamService.getDepartments();
+
+  // Prepare data options for dynamic form
+  const formDataOptions = {
+    departments: departments.map(dept => ({ value: dept, label: dept })),
+    teamLeads: [], // Will be populated from API or user service
+    territories: [
+      { value: 'North India', label: 'North India' },
+      { value: 'South India', label: 'South India' },
+      { value: 'East India', label: 'East India' },
+      { value: 'West India', label: 'West India' },
+      { value: 'Central India', label: 'Central India' },
+      { value: 'Pan India', label: 'Pan India' },
+      { value: 'International', label: 'International' },
+      { value: 'Remote', label: 'Remote' },
+      { value: 'Global', label: 'Global' }
+    ],
+    statuses: [
+      { value: 'Active', label: 'Active' },
+      { value: 'Inactive', label: 'Inactive' },
+      { value: 'Suspended', label: 'Suspended' }
+    ]
+  };
+
+  // Fetch teams from API
+  const fetchTeams = async (params = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const queryParams = {
+        page: pagination.page,
+        limit: pagination.limit,
+        ...params
+      };
+
+      // Add search and filter parameters
+      if (searchTerm) {
+        queryParams.search = searchTerm;
+      }
+      if (filterDepartment && filterDepartment !== 'all') {
+        queryParams.department = filterDepartment;
+      }
+
+      const response = await teamService.getTeams(queryParams);
+      
+      if (response.success) {
+        // Transform backend data to frontend format
+        const transformedTeams = response.data.map(team => 
+          teamService.transformTeamData(team)
+        );
+        
+        setTeams(transformedTeams);
+        
+        // Update pagination if available
+        if (response.pagination) {
+          setPagination(prev => ({
+            ...prev,
+            total: response.pagination.total,
+            pages: response.pagination.pages
+          }));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching teams:', error);
+      setError(error.message);
+      setTeams([]);
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  const departments = ['Sales', 'Marketing', 'Customer Support', 'IT', 'HR', 'Finance'];
+  };
 
   useEffect(() => {
-    setTeams(mockTeams);
-  }, []);
+    fetchTeams();
+  }, [pagination.page, pagination.limit]);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (pagination.page === 1) {
+        fetchTeams();
+      } else {
+        setPagination(prev => ({ ...prev, page: 1 }));
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, filterDepartment]);
 
   // Filter teams based on search and department
   const filteredTeams = teams.filter(team => {
@@ -137,49 +151,98 @@ const TeamsManagement = () => {
     setShowTeamModal(true);
   };
 
-  const handleViewTeam = (team) => {
-    setSelectedTeam(team);
-    setShowTeamDetails(true);
+  const handleViewTeam = async (team) => {
+    try {
+      setActionLoading(true);
+      setError(null); // Clear any previous errors
+      
+      // Fetch detailed team data including members
+      const response = await teamService.getTeam(team.team_id);
+      if (response.success) {
+        const detailedTeam = teamService.transformTeamData(response.data);
+        
+        // Fetch team members
+        const membersResponse = await teamService.getTeamMembers(team.team_id);
+        if (membersResponse.success) {
+          detailedTeam.members = membersResponse.data;
+        } else {
+          // If members fetch fails, still show team details but with empty members
+          detailedTeam.members = [];
+          console.warn('Failed to fetch team members:', membersResponse.message);
+        }
+        
+        setSelectedTeam(detailedTeam);
+        setShowTeamDetails(true);
+      } else {
+        setError(response.message);
+      }
+    } catch (error) {
+      console.error('Error fetching team details:', error);
+      setError(`Unexpected error: ${error.message}`);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const handleDeleteTeam = (teamId) => {
+  const handleDeleteTeam = async (teamId) => {
     const team = teams.find(t => t.team_id === teamId);
     if (window.confirm(`Are you sure you want to delete team "${team?.team_name}"? This action cannot be undone.`)) {
-      setTeams(teams.filter(t => t.team_id !== teamId));
-      alert('Team deleted successfully');
+      try {
+        setActionLoading(true);
+        setError(null); // Clear any previous errors
+        
+        const response = await teamService.deleteTeam(teamId);
+        if (response.success) {
+          alert(response.message);
+          await fetchTeams(); // Refresh teams list
+        } else {
+          setError(response.message);
+        }
+      } catch (error) {
+        console.error('Error deleting team:', error);
+        setError(`Unexpected error: ${error.message}`);
+      } finally {
+        setActionLoading(false);
+      }
     }
   };
 
-  const handleFormSubmit = (teamData) => {
-    if (editingTeam) {
-      // Update existing team
-      setTeams(teams.map(team => 
-        team.team_id === editingTeam.team_id 
-          ? { ...team, ...teamData, updated_at: new Date().toISOString() }
-          : team
-      ));
-      alert('Team updated successfully');
-    } else {
-      // Create new team
-      const newTeam = {
-        ...teamData,
-        team_id: `team_${Date.now()}`,
-        created_at: new Date().toISOString(),
-        member_count: 1, // Team lead
-        members: [
-          {
-            user_id: 'temp_user',
-            name: teamData.team_lead,
-            role: 'Team Lead',
-            email: 'temp@company.com'
-          }
-        ]
-      };
-      setTeams([...teams, newTeam]);
-      alert('Team created successfully');
+  const handleFormSubmit = async (teamData) => {
+    try {
+      setActionLoading(true);
+      setError(null); // Clear any previous errors
+      
+      let response;
+      if (editingTeam) {
+        // Update existing team
+        const backendData = teamService.transformTeamDataForBackend(teamData);
+        response = await teamService.updateTeam(editingTeam.team_id, backendData);
+      } else {
+        // Create new team
+        const backendData = teamService.transformTeamDataForBackend(teamData);
+        response = await teamService.createTeam(backendData);
+      }
+      
+      if (response.success) {
+        alert(response.message);
+        await fetchTeams(); // Refresh the list
+        setShowTeamModal(false);
+        setEditingTeam(null);
+      } else {
+        // Handle validation errors
+        if (response.error === 'VALIDATION_ERROR' && response.details) {
+          const errorMessage = response.details.join('\n');
+          alert(`Validation Error:\n${errorMessage}`);
+        } else {
+          setError(response.message);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving team:', error);
+      setError(`Unexpected error: ${error.message}`);
+    } finally {
+      setActionLoading(false);
     }
-    setShowTeamModal(false);
-    setEditingTeam(null);
   };
 
   const getStatusBadge = (status) => {
@@ -226,6 +289,7 @@ const TeamsManagement = () => {
           </button>
           <button 
             onClick={handleCreateTeam}
+            disabled={loading || actionLoading}
             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -233,6 +297,22 @@ const TeamsManagement = () => {
           </button>
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+            <span className="text-sm text-red-800 dark:text-red-200">{error}</span>
+            <button 
+              className="ml-auto text-red-400 hover:text-red-600"
+              onClick={() => setError(null)}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -348,136 +428,214 @@ const TeamsManagement = () => {
           </div>
         </div>
 
-        {/* Teams Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Team
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Department
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Team Lead
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Members
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Territory
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredTeams.map((team) => (
-                <tr key={team.team_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        <div className="h-10 w-10 rounded-lg bg-primary-100 dark:bg-primary-900/20 flex items-center justify-center">
-                          {getDepartmentIcon(team.department)}
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {team.team_name}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {team.description}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      {getDepartmentIcon(team.department)}
-                      <span className="ml-2 text-sm text-gray-900 dark:text-white">
-                        {team.department}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {team.team_lead}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <Users className="h-4 w-4 text-gray-400 mr-1" />
-                      <span className="text-sm text-gray-900 dark:text-white">
-                        {team.member_count}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <MapPin className="h-4 w-4 text-gray-400 mr-1" />
-                      <span className="text-sm text-gray-900 dark:text-white">
-                        {team.territory}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {getStatusBadge(team.status)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex items-center justify-end space-x-2">
-                      <button 
-                        onClick={() => handleViewTeam(team)}
-                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                        title="View Team Details"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleEditTeam(team)}
-                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
-                        title="Edit Team"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button 
-                        onClick={() => handleDeleteTeam(team.team_id)}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                        title="Delete Team"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredTeams.length === 0 && (
-          <div className="text-center py-12">
-            <Users className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No teams found</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        {/* Teams Grid */}
+        {loading ? (
+          <div className="loading-container flex items-center justify-center py-12">
+            <Loader2 className="animate-spin h-8 w-8 text-primary-600" />
+            <span className="ml-2 text-gray-600 dark:text-gray-400">Loading teams...</span>
+          </div>
+        ) : filteredTeams.length === 0 ? (
+          <div className="empty-state text-center py-12">
+            <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No teams found</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">
               {searchTerm || filterDepartment !== 'all' 
-                ? 'Try adjusting your search or filter criteria.'
-                : 'Get started by creating a new team.'
-              }
+                ? 'Try adjusting your search or filter criteria.' 
+                : 'Get started by creating your first team.'}
             </p>
-            {(!searchTerm && filterDepartment === 'all') && (
-              <div className="mt-6">
-                <button
-                  onClick={handleCreateTeam}
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Team
-                </button>
-              </div>
+            {!searchTerm && filterDepartment === 'all' && (
+              <button 
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                onClick={handleCreateTeam}
+                disabled={actionLoading}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create First Team
+              </button>
             )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Team
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Department
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Team Lead
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Members
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Territory
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {filteredTeams.map((team) => (
+                  <tr key={team.team_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10">
+                          <div className="h-10 w-10 rounded-lg bg-primary-100 dark:bg-primary-900/20 flex items-center justify-center">
+                            {getDepartmentIcon(team.department)}
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {team.team_name}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {team.description}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        {getDepartmentIcon(team.department)}
+                        <span className="ml-2 text-sm text-gray-900 dark:text-white">
+                          {team.department}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {team.team_lead}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <Users className="h-4 w-4 text-gray-400 mr-1" />
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {team.member_count}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <MapPin className="h-4 w-4 text-gray-400 mr-1" />
+                        <span className="text-sm text-gray-900 dark:text-white">
+                          {team.territory}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(team.status)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end space-x-2">
+                        <button 
+                          onClick={() => handleViewTeam(team)}
+                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                          title="View Team Details"
+                          disabled={actionLoading}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleEditTeam(team)}
+                          className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
+                          title="Edit Team"
+                          disabled={actionLoading}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteTeam(team.team_id)}
+                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                          title="Delete Team"
+                          disabled={actionLoading}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!loading && filteredTeams.length > 0 && pagination.pages > 1 && (
+          <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 sm:px-6">
+            <div className="flex flex-1 justify-between sm:hidden">
+              <button
+                onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                disabled={pagination.page === 1}
+                className="relative inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setPagination(prev => ({ ...prev, page: Math.min(prev.pages, prev.page + 1) }))}
+                disabled={pagination.page === pagination.pages}
+                className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700 dark:text-gray-300">
+                  Showing{' '}
+                  <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span>
+                  {' '}to{' '}
+                  <span className="font-medium">
+                    {Math.min(pagination.page * pagination.limit, pagination.total)}
+                  </span>
+                  {' '}of{' '}
+                  <span className="font-medium">{pagination.total}</span>
+                  {' '}results
+                </p>
+              </div>
+              <div>
+                <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                  <button
+                    onClick={() => setPagination(prev => ({ ...prev, page: Math.max(1, prev.page - 1) }))}
+                    disabled={pagination.page === 1}
+                    className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+                  >
+                    <span className="sr-only">Previous</span>
+                    ‹
+                  </button>
+                  {[...Array(Math.min(pagination.pages, 5))].map((_, index) => {
+                    const page = index + 1;
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setPagination(prev => ({ ...prev, page }))}
+                        className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                          pagination.page === page
+                            ? 'z-10 bg-primary-600 text-white focus:z-20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600'
+                            : 'text-gray-900 dark:text-gray-100 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-none focus:ring-2 focus:ring-primary-500'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => setPagination(prev => ({ ...prev, page: Math.min(prev.pages, prev.page + 1) }))}
+                    disabled={pagination.page === pagination.pages}
+                    className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 dark:ring-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 focus:z-20 focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+                  >
+                    <span className="sr-only">Next</span>
+                    ›
+                  </button>
+                </nav>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -495,6 +653,7 @@ const TeamsManagement = () => {
           handleFormSubmit(teamData);
         }}
         title={editingTeam ? 'Edit Team' : 'Create New Team'}
+        dataOptions={formDataOptions}
       />
 
       {/* Team Details Modal */}

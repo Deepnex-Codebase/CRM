@@ -33,7 +33,7 @@ function validatePasswordPolicy(password, policy = {}) {
 }
 
 // @desc    Register user (Admin only)
-// @route   POST /api/v1/auth/register
+// @route   POST /api/auth/register
 // @access  Private/Admin
 exports.register = asyncHandler(async (req, res, next) => {
   const { first_name, last_name, email, phone, role_name, password } = req.body;
@@ -143,7 +143,7 @@ exports.register = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Verify email
-// @route   GET /api/v1/auth/verify-email/:token
+// @route   GET /api/auth/verify-email/:token
 // @access  Public
 exports.verifyEmail = asyncHandler(async (req, res, next) => {
   // Get hashed token
@@ -175,7 +175,7 @@ exports.verifyEmail = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Login user
-// @route   POST /api/v1/auth/login
+// @route   POST /api/auth/login
 // @access  Public
 exports.login = asyncHandler(async (req, res, next) => {
   const { email, phone, password } = req.body;
@@ -235,7 +235,7 @@ exports.login = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Login with OTP
-// @route   POST /api/v1/auth/login/otp
+// @route   POST /api/auth/login/otp
 // @access  Public
 exports.loginWithOTP = asyncHandler(async (req, res, next) => {
   const { phone, email } = req.body;
@@ -296,7 +296,7 @@ exports.loginWithOTP = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Verify OTP and login
-// @route   POST /api/v1/auth/verify-otp
+// @route   POST /api/auth/verify-otp
 // @access  Public
 exports.verifyOTP = asyncHandler(async (req, res, next) => {
   const { phone, email, otp } = req.body;
@@ -352,7 +352,7 @@ exports.verifyOTP = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Log user out / clear cookie
-// @route   GET /api/v1/auth/logout
+// @route   GET /api/auth/logout
 // @access  Private
 exports.logout = asyncHandler(async (req, res, next) => {
   // Get token from req.user which is set by the protect middleware
@@ -378,7 +378,7 @@ exports.logout = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Get current logged in user
-// @route   GET /api/v1/auth/me
+// @route   GET /api/auth/me
 // @access  Private
 exports.getMe = asyncHandler(async (req, res, next) => {
   // Get user with role assignment
@@ -412,7 +412,7 @@ exports.getMe = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Update user details
-// @route   PUT /api/v1/auth/updatedetails
+// @route   PUT /api/auth/updatedetails
 // @access  Private
 exports.updateDetails = asyncHandler(async (req, res, next) => {
   const fieldsToUpdate = {
@@ -437,7 +437,7 @@ exports.updateDetails = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Update password
-// @route   PUT /api/v1/auth/updatepassword
+// @route   PUT /api/auth/updatepassword
 // @access  Private
 exports.updatePassword = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user.id).select('+password');
@@ -459,7 +459,7 @@ exports.updatePassword = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Forgot password
-// @route   POST /api/v1/auth/forgotpassword
+// @route   POST /api/auth/forgotpassword
 // @access  Public
 exports.forgotPassword = asyncHandler(async (req, res, next) => {
   const user = await User.findOne({ email: req.body.email });
@@ -616,7 +616,7 @@ exports.forgotPassword = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Reset password
-// @route   PUT /api/v1/auth/resetpassword/:resettoken
+// @route   PUT /api/auth/resetpassword/:resettoken
 // @access  Public
 exports.resetPassword = asyncHandler(async (req, res, next) => {
   // Get hashed token
@@ -649,7 +649,7 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Get all users (Admin only)
-// @route   GET /api/v1/auth/users
+// @route   GET /api/auth/users
 // @access  Private/Admin
 exports.getUsers = asyncHandler(async (req, res, next) => {
   const page = parseInt(req.query.page, 10) || 1;
@@ -683,6 +683,7 @@ exports.getUsers = asyncHandler(async (req, res, next) => {
 
   const total = await User.countDocuments(query);
   const users = await User.find(query)
+    .populate('role_id', 'role_name description permissions')
     .sort({ created_at: -1 })
     .limit(limit)
     .skip(startIndex)
@@ -715,7 +716,7 @@ exports.getUsers = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Get single user (Admin only)
-// @route   GET /api/v1/auth/users/:id
+// @route   GET /api/auth/users/:id
 // @access  Private/Admin
 exports.getUser = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id).select('-password');
@@ -745,7 +746,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Update user (Admin only)
-// @route   PUT /api/v1/auth/users/:id
+// @route   PUT /api/auth/users/:id
 // @access  Private/Admin
 exports.updateUser = asyncHandler(async (req, res, next) => {
   let user = await User.findById(req.params.id);
@@ -799,7 +800,7 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Deactivate user (Admin only)
-// @route   PUT /api/v1/auth/users/:id/deactivate
+// @route   PUT /api/auth/users/:id/deactivate
 // @access  Private/Admin
 exports.deactivateUser = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id);
@@ -829,7 +830,7 @@ exports.deactivateUser = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Activate user (Admin only)
-// @route   PUT /api/v1/auth/users/:id/activate
+// @route   PUT /api/auth/users/:id/activate
 // @access  Private/Admin
 exports.activateUser = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id);
@@ -848,7 +849,7 @@ exports.activateUser = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Delete user (Admin only)
-// @route   DELETE /api/v1/auth/users/:id
+// @route   DELETE /api/auth/users/:id
 // @access  Private/Admin
 exports.deleteUser = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id);
@@ -871,7 +872,7 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Get user login history (Admin only)
-// @route   GET /api/v1/auth/users/:id/login-history
+// @route   GET /api/auth/users/:id/login-history
 // @access  Private/Admin
 exports.getUserLoginHistory = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id);
@@ -916,8 +917,73 @@ exports.getUserLoginHistory = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get all login attempts (Admin only)
+// @route   GET /api/auth/login-attempts
+// @access  Private/Admin
+exports.getLoginAttempts = asyncHandler(async (req, res, next) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 25;
+  const startIndex = (page - 1) * limit;
+
+  // Build query filters
+  let query = {};
+  
+  if (req.query.status) {
+    query.status = req.query.status;
+  }
+  
+  if (req.query.search) {
+    query.$or = [
+      { email: { $regex: req.query.search, $options: 'i' } },
+      { ip_address: { $regex: req.query.search, $options: 'i' } }
+    ];
+  }
+  
+  if (req.query.start_date || req.query.end_date) {
+    query.timestamp = {};
+    if (req.query.start_date) {
+      query.timestamp.$gte = new Date(req.query.start_date);
+    }
+    if (req.query.end_date) {
+      query.timestamp.$lte = new Date(req.query.end_date);
+    }
+  }
+
+  const total = await LoginAttempt.countDocuments(query);
+  const loginAttempts = await LoginAttempt.find(query)
+    .populate('user_id', 'name email role')
+    .sort({ timestamp: -1 })
+    .limit(limit)
+    .skip(startIndex);
+
+  // Pagination result
+  const pagination = {};
+
+  if (startIndex + limit < total) {
+    pagination.next = {
+      page: page + 1,
+      limit
+    };
+  }
+
+  if (startIndex > 0) {
+    pagination.prev = {
+      page: page - 1,
+      limit
+    };
+  }
+
+  res.status(200).json({
+    success: true,
+    count: loginAttempts.length,
+    total,
+    pagination,
+    data: loginAttempts
+  });
+});
+
 // @desc    Get active sessions (Admin only)
-// @route   GET /api/v1/auth/sessions
+// @route   GET /api/auth/sessions
 // @access  Private/Admin
 exports.getActiveSessions = asyncHandler(async (req, res, next) => {
   const page = parseInt(req.query.page, 10) || 1;
@@ -958,7 +1024,7 @@ exports.getActiveSessions = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Revoke session (Admin only)
-// @route   PUT /api/v1/auth/sessions/:id/revoke
+// @route   PUT /api/auth/sessions/:id/revoke
 // @access  Private/Admin
 exports.revokeSession = asyncHandler(async (req, res, next) => {
   const session = await Session.findById(req.params.id);

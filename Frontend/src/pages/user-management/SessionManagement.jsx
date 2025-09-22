@@ -19,113 +19,110 @@ import {
   XCircle
 } from 'lucide-react';
 import SessionDetails from './components/SessionDetails';
+import sessionService from '../../services/user_management/sessionService';
+import { SessionValidation } from '../../utils/sessionValidation';
 
 const SessionManagement = () => {
   const [sessions, setSessions] = useState([]);
   const [loginAttempts, setLoginAttempts] = useState([]);
+  const [activeTab, setActiveTab] = useState('sessions');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [activeTab, setActiveTab] = useState('sessions');
-  const [showSessionDetails, setShowSessionDetails] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
+  const [showSessionDetails, setShowSessionDetails] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  });
 
-  // Mock data for active sessions
-  const mockSessions = [
-    {
-      session_id: 'sess_001',
-      user_id: 1,
-      username: 'admin',
-      device_type: 'Desktop',
-      browser: 'Chrome 120.0',
-      ip_address: '192.168.1.100',
-      location: 'Mumbai, India',
-      login_time: '2024-01-20 09:30:00',
-      last_activity: '2024-01-20 14:45:00',
-      status: 'Active',
-      is_current: true
-    },
-    {
-      session_id: 'sess_002',
-      user_id: 2,
-      username: 'manager1',
-      device_type: 'Mobile',
-      browser: 'Safari 17.0',
-      ip_address: '192.168.1.101',
-      location: 'Delhi, India',
-      login_time: '2024-01-20 08:15:00',
-      last_activity: '2024-01-20 14:30:00',
-      status: 'Active',
-      is_current: false
-    },
-    {
-      session_id: 'sess_003',
-      user_id: 3,
-      username: 'staff1',
-      device_type: 'Tablet',
-      browser: 'Firefox 121.0',
-      ip_address: '192.168.1.102',
-      location: 'Bangalore, India',
-      login_time: '2024-01-20 10:00:00',
-      last_activity: '2024-01-20 12:00:00',
-      status: 'Expired',
-      is_current: false
-    }
-  ];
-
-  // Mock data for login attempts
-  const mockLoginAttempts = [
-    {
-      attempt_id: 1,
-      username: 'admin',
-      ip_address: '192.168.1.100',
-      location: 'Mumbai, India',
-      device_type: 'Desktop',
-      browser: 'Chrome 120.0',
-      attempt_time: '2024-01-20 09:30:00',
-      status: 'Success',
-      failure_reason: null
-    },
-    {
-      attempt_id: 2,
-      username: 'hacker123',
-      ip_address: '203.0.113.1',
-      location: 'Unknown',
-      device_type: 'Desktop',
-      browser: 'Chrome 119.0',
-      attempt_time: '2024-01-20 14:20:00',
-      status: 'Failed',
-      failure_reason: 'Invalid credentials'
-    },
-    {
-      attempt_id: 3,
-      username: 'manager1',
-      ip_address: '192.168.1.101',
-      location: 'Delhi, India',
-      device_type: 'Mobile',
-      browser: 'Safari 17.0',
-      attempt_time: '2024-01-20 08:15:00',
-      status: 'Success',
-      failure_reason: null
-    },
-    {
-      attempt_id: 4,
-      username: 'admin',
-      ip_address: '198.51.100.1',
-      location: 'Unknown Location',
-      device_type: 'Desktop',
-      browser: 'Chrome 120.0',
-      attempt_time: '2024-01-20 13:45:00',
-      status: 'Failed',
-      failure_reason: 'Suspicious location'
-    }
-  ];
-
+  // Load initial data
   useEffect(() => {
-    setSessions(mockSessions);
-    setLoginAttempts(mockLoginAttempts);
-  }, []);
+    loadSessions();
+    loadLoginAttempts();
+  }, [pagination.page, pagination.limit]);
+
+  // Load sessions from API
+  const loadSessions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const params = {
+        page: pagination.page,
+        limit: pagination.limit,
+        search: searchTerm,
+        status: filterStatus !== 'all' ? filterStatus : undefined
+      };
+
+      const response = await sessionService.getActiveSessions(params);
+      
+      setSessions(response.sessions || []);
+      setPagination(prev => ({
+        ...prev,
+        total: response.total || 0,
+        totalPages: response.totalPages || 0
+      }));
+    } catch (err) {
+      console.error('Failed to load sessions:', err);
+      setError('Failed to load sessions. Please try again.');
+      setSessions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load login attempts from API
+  const loadLoginAttempts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const params = {
+        page: pagination.page,
+        limit: pagination.limit,
+        search: searchTerm,
+        status: filterStatus !== 'all' ? filterStatus : undefined
+      };
+
+      const response = await sessionService.getLoginAttempts(params);
+      
+      setLoginAttempts(response.loginAttempts || []);
+      setPagination(prev => ({
+        ...prev,
+        total: response.total || 0,
+        totalPages: response.totalPages || 0
+      }));
+    } catch (err) {
+      console.error('Failed to load login attempts:', err);
+      setError('Failed to load login attempts. Please try again.');
+      setLoginAttempts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Refresh data when search or filter changes
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (activeTab === 'sessions') {
+        loadSessions();
+      } else {
+        loadLoginAttempts();
+      }
+    }, 300); // Debounce search
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, filterStatus, activeTab]);
 
   const getDeviceIcon = (deviceType) => {
+    if (!deviceType) {
+      return <Globe className="h-5 w-5 text-gray-600" />;
+    }
+    
     switch(deviceType.toLowerCase()) {
       case 'desktop': return <Monitor className="h-5 w-5 text-gray-600" />;
       case 'mobile': return <Smartphone className="h-5 w-5 text-blue-600" />;
@@ -151,46 +148,78 @@ const SessionManagement = () => {
   };
 
   // CRUD handlers
-  const handleViewSession = (session) => {
-    setSelectedSession(session);
-    setShowSessionDetails(true);
+  const handleViewSession = async (session) => {
+    try {
+      setLoading(true);
+      const sessionDetails = await sessionService.getSessionDetails(session.session_id);
+      
+      if (SessionValidation.validateSessionData(sessionDetails)) {
+        setSelectedSession(sessionDetails);
+        setShowSessionDetails(true);
+      } else {
+        throw new Error('Invalid session details received');
+      }
+    } catch (err) {
+      console.error('Failed to load session details:', err);
+      setError('Failed to load session details. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleTerminateSession = (sessionId) => {
+  const handleTerminateSession = async (sessionId) => {
     const session = sessions.find(s => s.session_id === sessionId);
     if (window.confirm(`Are you sure you want to terminate the session for ${session?.username}?`)) {
-      setSessions(sessions.map(session => 
-        session.session_id === sessionId 
-          ? { ...session, status: 'Terminated', last_activity: new Date().toISOString() }
-          : session
-      ));
-      alert('Session terminated successfully');
-      
-      // Close details modal if the terminated session is currently being viewed
-      if (selectedSession?.session_id === sessionId) {
-        setShowSessionDetails(false);
-        setSelectedSession(null);
+      try {
+        setLoading(true);
+        await sessionService.revokeSession(sessionId);
+        
+        setSessions(sessions.map(session => 
+          session.session_id === sessionId 
+            ? { ...session, status: 'Terminated', last_activity: new Date().toISOString() }
+            : session
+        ));
+        alert('Session terminated successfully');
+        
+        // Close details modal if the terminated session is currently being viewed
+        if (selectedSession?.session_id === sessionId) {
+          setShowSessionDetails(false);
+          setSelectedSession(null);
+        }
+      } catch (err) {
+        console.error('Failed to terminate session:', err);
+        setError('Failed to terminate session. Please try again.');
+      } finally {
+        setLoading(false);
       }
     }
   };
 
-  const handleRefreshSession = (sessionId) => {
-    // Simulate refreshing session data
-    setSessions(sessions.map(session => 
-      session.session_id === sessionId 
-        ? { ...session, last_activity: new Date().toISOString() }
-        : session
-    ));
-    
-    // Update selected session if it's the one being refreshed
-    if (selectedSession?.session_id === sessionId) {
-      const updatedSession = sessions.find(s => s.session_id === sessionId);
-      if (updatedSession) {
-        setSelectedSession({ ...updatedSession, last_activity: new Date().toISOString() });
+  const handleRefreshSession = async (sessionId) => {
+    try {
+      setLoading(true);
+      const refreshedSession = await sessionService.refreshSession(sessionId);
+      
+      if (SessionValidation.validateSessionData(refreshedSession)) {
+        setSessions(sessions.map(session => 
+          session.session_id === sessionId ? refreshedSession : session
+        ));
+        
+        // Update selected session if it's the one being refreshed
+        if (selectedSession?.session_id === sessionId) {
+          setSelectedSession(refreshedSession);
+        }
+        
+        alert('Session data refreshed successfully');
+      } else {
+        throw new Error('Invalid refreshed session data received');
       }
+    } catch (err) {
+      console.error('Failed to refresh session:', err);
+      setError('Failed to refresh session. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    
-    alert('Session data refreshed successfully');
   };
 
   const handleCloseSessionDetails = () => {
@@ -199,18 +228,19 @@ const SessionManagement = () => {
   };
 
   const filteredSessions = sessions.filter(session => {
-    const matchesSearch = session.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         session.ip_address.includes(searchTerm) ||
-                         session.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || session.status.toLowerCase() === filterStatus.toLowerCase();
+    const matchesSearch = (session.userName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (session.ipAddress || '').includes(searchTerm) ||
+                         (session.location || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const sessionStatus = session.isActive ? 'active' : 'inactive';
+    const matchesFilter = filterStatus === 'all' || sessionStatus === filterStatus;
     return matchesSearch && matchesFilter;
   });
 
   const filteredAttempts = loginAttempts.filter(attempt => {
-    const matchesSearch = attempt.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         attempt.ip_address.includes(searchTerm) ||
-                         attempt.location.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || attempt.status.toLowerCase() === filterStatus.toLowerCase();
+    const matchesSearch = (attempt.userName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (attempt.ipAddress || '').includes(searchTerm) ||
+                         (attempt.location || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filterStatus === 'all' || (attempt.status || '').toLowerCase() === filterStatus.toLowerCase();
     return matchesSearch && matchesFilter;
   });
 
@@ -239,13 +269,47 @@ const SessionManagement = () => {
           </p>
         </div>
         <button
-          onClick={() => window.location.reload()}
-          className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+          onClick={() => {
+            if (activeTab === 'sessions') {
+              loadSessions();
+            } else {
+              loadLoginAttempts();
+            }
+          }}
+          disabled={loading}
+          className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <RefreshCw className="h-4 w-4 mr-2" />
+          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </button>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-5 w-5 text-red-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
+                Error
+              </h3>
+              <div className="mt-2 text-sm text-red-700 dark:text-red-300">
+                {error}
+              </div>
+              <div className="mt-3">
+                <button
+                  onClick={() => setError(null)}
+                  className="text-sm font-medium text-red-800 dark:text-red-200 hover:text-red-600 dark:hover:text-red-400"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -420,11 +484,31 @@ const SessionManagement = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredSessions.map((session) => (
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center">
+                      <div className="flex items-center justify-center">
+                        <RefreshCw className="h-6 w-6 animate-spin text-gray-400 mr-2" />
+                        <span className="text-gray-500 dark:text-gray-400">Loading sessions...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredSessions.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center">
+                      <div className="text-gray-500 dark:text-gray-400">
+                        <Activity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p className="text-lg font-medium">No sessions found</p>
+                        <p className="text-sm">Try adjusting your search or filter criteria</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredSessions.map((session) => (
                   <tr key={session.session_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        {getDeviceIcon(session.device_type)}
+                        {getDeviceIcon(session.deviceType)}
                         <div className="ml-3">
                           <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center">
                             {session.username}
@@ -490,7 +574,8 @@ const SessionManagement = () => {
                           </div>
                         </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           ) : (
@@ -515,11 +600,31 @@ const SessionManagement = () => {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredAttempts.map((attempt) => (
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center">
+                      <div className="flex items-center justify-center">
+                        <RefreshCw className="h-6 w-6 animate-spin text-gray-400 mr-2" />
+                        <span className="text-gray-500 dark:text-gray-400">Loading login attempts...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredAttempts.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="px-6 py-12 text-center">
+                      <div className="text-gray-500 dark:text-gray-400">
+                        <Shield className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                        <p className="text-lg font-medium">No login attempts found</p>
+                        <p className="text-sm">Try adjusting your search or filter criteria</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAttempts.map((attempt) => (
                   <tr key={attempt.attempt_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        {getDeviceIcon(attempt.device_type)}
+                        {getDeviceIcon(attempt.deviceType)}
                         <div className="ml-3">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
                             {attempt.username}
@@ -560,7 +665,8 @@ const SessionManagement = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           )}
