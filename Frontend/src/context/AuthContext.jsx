@@ -42,21 +42,42 @@ export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
   useEffect(() => {
-    // Check for existing token in localStorage
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
-    
-    if (token && user) {
-      dispatch({
-        type: 'LOGIN',
-        payload: {
-          token,
-          user: JSON.parse(user)
+    const initializeAuth = async () => {
+      // Check for existing token in localStorage
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      
+      if (token && user) {
+        try {
+          // Validate token by making a test API call
+          const isValid = await authService.validateToken();
+          
+          if (isValid) {
+            dispatch({
+              type: 'LOGIN',
+              payload: {
+                token,
+                user: JSON.parse(user)
+              }
+            });
+          } else {
+            // Token is invalid, clear storage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            dispatch({ type: 'SET_LOADING', payload: false });
+          }
+        } catch (error) {
+          // If validation fails, clear storage
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          dispatch({ type: 'SET_LOADING', payload: false });
         }
-      });
-    } else {
-      dispatch({ type: 'SET_LOADING', payload: false });
-    }
+      } else {
+        dispatch({ type: 'SET_LOADING', payload: false });
+      }
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (credentials) => {

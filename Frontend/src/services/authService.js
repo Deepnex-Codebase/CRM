@@ -22,6 +22,10 @@ class AuthService {
       const response = await api.post('/auth/login', payload);
 
       if (response.data.success) {
+        // Store token and user data in localStorage for persistence
+        localStorage.setItem('token', response.data.token);
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+
         return {
           success: true,
           user: response.data.user,
@@ -350,6 +354,21 @@ class AuthService {
   // Get stored token
   getStoredToken() {
     return localStorage.getItem('token');
+  }
+
+  // Validate token by making a test API call
+  async validateToken() {
+    try {
+      const token = this.getStoredToken();
+      if (!token) return false;
+
+      // Make a simple API call to validate token
+      const response = await api.get('/auth/me');
+      return response.data.success;
+    } catch (error) {
+      // If token is invalid, API will return 401
+      return false;
+    }
   }
 }
 
