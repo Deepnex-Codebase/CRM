@@ -952,7 +952,7 @@ exports.getLoginAttempts = asyncHandler(async (req, res, next) => {
   const total = await LoginAttempt.countDocuments(query);
   const loginAttempts = await LoginAttempt.find(query)
     .populate('user_id', 'name email role')
-    .sort({ timestamp: -1 })
+    .sort({ attempted_at: -1 })
     .limit(limit)
     .skip(startIndex);
 
