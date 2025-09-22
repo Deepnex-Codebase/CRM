@@ -460,7 +460,10 @@ class TeamService {
       description: frontendTeam.description || '',
       department: frontendTeam.department,
       team_type: frontendTeam.team_type || 'other',
-      is_active: frontendTeam.status === 'Active' || frontendTeam.is_active !== false
+      is_active: frontendTeam.status === 'Active' || frontendTeam.is_active !== false,
+      team_lead: frontendTeam.team_lead || frontendTeam.team_lead_name,
+      team_lead_id: frontendTeam.team_lead_id,
+      territory: frontendTeam.territory
     };
   }
 
@@ -583,13 +586,15 @@ class TeamService {
       errors.push('Invalid department selected');
     }
     
-    // Team lead validation
-    if (!teamData.team_lead || typeof teamData.team_lead !== 'string') {
-      errors.push('Team lead is required');
-    } else if (teamData.team_lead.trim().length < 2) {
-      errors.push('Team lead name must be at least 2 characters long');
-    } else if (teamData.team_lead.trim().length > 100) {
-      errors.push('Team lead name must be less than 100 characters');
+    // Team lead validation - check for either team_lead_id or team_lead name
+    if (!teamData.team_lead_id && !teamData.team_lead) {
+      errors.push('Team Lead is required');
+    } else if (teamData.team_lead && typeof teamData.team_lead === 'string') {
+      if (teamData.team_lead.trim().length < 2) {
+        errors.push('Team lead name must be at least 2 characters long');
+      } else if (teamData.team_lead.trim().length > 100) {
+        errors.push('Team lead name must be less than 100 characters');
+      }
     }
     
     // Description validation

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, User, Mail, Phone, Shield, Users, Building } from 'lucide-react';
+import { X, Eye, EyeOff, User, Mail, Phone, Shield, Users, Building, AlertCircle } from 'lucide-react';
+import roleService from '../../../services/user_management/roleService';
 
 const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
   const [formData, setFormData] = useState({
@@ -20,10 +21,41 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const roles = ['Admin', 'Manager', 'Staff', 'Viewer'];
+  const [roles, setRoles] = useState([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [rolesError, setRolesError] = useState(null);
   const teams = ['Management', 'Sales', 'Support', 'Marketing', 'Development', 'HR'];
   const departments = ['IT', 'Sales', 'Marketing', 'HR', 'Finance', 'Operations'];
+
+  // Load roles from API
+  const loadRoles = async () => {
+    try {
+      setRolesLoading(true);
+      setRolesError(null);
+      const response = await roleService.getRoles();
+      if (response.success && response.data) {
+        setRoles(response.data);
+      } else {
+        throw new Error('Failed to fetch roles');
+      }
+    } catch (error) {
+      console.error('Error loading roles:', error);
+      setRolesError(error.message || 'Failed to load roles');
+      // Fallback to default roles if API fails
+      setRoles([
+        { role_id: 'admin', role_name: 'Admin' },
+        { role_id: 'manager', role_name: 'Manager' },
+        { role_id: 'staff', role_name: 'Staff' },
+        { role_id: 'viewer', role_name: 'Viewer' }
+      ]);
+    } finally {
+      setRolesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRoles();
+  }, []);
 
   useEffect(() => {
     if (user) {
@@ -33,7 +65,7 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
         phone: user.phone || '',
         password: '',
         confirmPassword: '',
-        role: user.role || 'Staff',
+        role: user.role_id || user.role || '',
         team: user.team || '',
         status: user.status || 'Active',
         firstName: user.firstName || '',
@@ -47,7 +79,7 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
         phone: '',
         password: '',
         confirmPassword: '',
-        role: 'Staff',
+        role: '',
         team: '',
         status: 'Active',
         firstName: '',
@@ -102,6 +134,11 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
     // Last name validation
     if (!formData.lastName.trim()) {
       newErrors.lastName = 'Last name is required';
+    }
+
+    // Role validation
+    if (!formData.role) {
+      newErrors.role = 'Role is required';
     }
 
     // Team validation
@@ -384,16 +421,42 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Role *
                 </label>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  {roles.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    disabled={rolesLoading}
+                    className={`w-full px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                      rolesLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    } ${
+                      errors.role ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                  >
+                    <option value="">
+                      {rolesLoading ? 'Loading roles...' : 'Select Role'}
+                    </option>
+                    {roles.map(role => (
+                      <option key={role.role_id || role._id} value={role.role_id || role._id}>
+                        {role.role_name}
+                      </option>
+                    ))}
+                  </select>
+                  {rolesLoading && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                    </div>
+                  )}
+                </div>
+                {rolesError && (
+                  <div className="mt-1 flex items-center text-sm text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    <span>Using fallback roles due to: {rolesError}</span>
+                  </div>
+                )}
+                {errors.role && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.role}</p>
+                )}
               </div>
 
               <div>

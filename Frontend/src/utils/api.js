@@ -32,9 +32,21 @@ api.interceptors.response.use(
   (error) => {
     // Handle 401 errors (unauthorized)
     if (error.response?.status === 401) {
+      const errorMessage = error.response?.data?.message || '';
+      
       // Clear local storage and redirect to login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      
+      // Show specific message for session termination
+      if (errorMessage.includes('session has been terminated')) {
+        // Store the message to show on login page
+        localStorage.setItem('sessionMessage', 'Your session has been terminated by an administrator. Please login again.');
+      } else if (errorMessage.includes('session has expired')) {
+        localStorage.setItem('sessionMessage', 'Your session has expired. Please login again.');
+      } else if (errorMessage.includes('Session not found')) {
+        localStorage.setItem('sessionMessage', 'Your session is invalid. Please login again.');
+      }
       
       // Only redirect if not already on auth pages
       if (!window.location.pathname.includes('/login') && 

@@ -5,6 +5,7 @@ const User = require('../models/profile/User');
 const Role = require('../models/auth/Role');
 const ModulePermission = require('../models/auth/ModulePermission');
 const EmployeeRoleAssignment = require('../models/auth/EmployeeRoleAssignment');
+const Session = require('../models/auth/Session');
 
 // Protect routes
 exports.protect = asyncHandler(async (req, res, next) => {
@@ -39,7 +40,26 @@ exports.protect = asyncHandler(async (req, res, next) => {
       return next(new ErrorResponse('Your account is not verified. Please check your email for verification link.', 401));
     }
 
+    // Check if session is active
+    const session = await Session.findOne({ token, user_id: user._id });
+    if (!session) {
+      return next(new ErrorResponse('Session not found - please login again', 401));
+    }
+
+    if (!session.is_active) {
+      return next(new ErrorResponse('Your session has been terminated. Please login again.', 401));
+    }
+
+    // Check if session has expired
+    if (session.expires_at < new Date()) {
+      // Mark session as inactive
+      session.is_active = false;
+      await session.save();
+      return next(new ErrorResponse('Your session has expired. Please login again.', 401));
+    }
+
     req.user = user;
+    req.session = session; // Add session to request for potential future use
     next();
   } catch (err) {
     return next(new ErrorResponse('Not authorized to access this route', 401));

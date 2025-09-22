@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Users, Building2, MapPin, User, Mail, Phone, Calendar, Save, AlertTriangle } from 'lucide-react';
+import userService from '../../../services/user_management/userService';
 
 const TeamForm = ({ team, isOpen, onClose, onSubmit, title }) => {
   const [formData, setFormData] = useState({
@@ -18,25 +19,75 @@ const TeamForm = ({ team, isOpen, onClose, onSubmit, title }) => {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [teamLeads, setTeamLeads] = useState([]);
+  const [teamLeadsLoading, setTeamLeadsLoading] = useState(true);
+  const [teamLeadsError, setTeamLeadsError] = useState(null);
 
-  // Mock data for departments and team leads
+  // Mock data for departments
   const departments = [
     'Sales', 'Marketing', 'Engineering', 'HR', 'Finance', 
     'Operations', 'Customer Support', 'Product', 'Legal', 'IT'
-  ];
-
-  const teamLeads = [
-    { id: 'user_001', name: 'John Smith', email: 'john@company.com' },
-    { id: 'user_002', name: 'Sarah Johnson', email: 'sarah@company.com' },
-    { id: 'user_003', name: 'Mike Wilson', email: 'mike@company.com' },
-    { id: 'user_004', name: 'Lisa Brown', email: 'lisa@company.com' },
-    { id: 'user_005', name: 'David Lee', email: 'david@company.com' }
   ];
 
   const territories = [
     'North India', 'South India', 'East India', 'West India', 
     'Central India', 'Pan India', 'International', 'Remote', 'Global'
   ];
+
+  // Load team leads from user database
+  const loadTeamLeads = async () => {
+    try {
+      setTeamLeadsLoading(true);
+      setTeamLeadsError(null);
+      
+      const response = await userService.getUsers({
+        is_active: true, // Only get active users
+        limit: 100 // Get enough users for team lead selection
+      });
+      
+      if (response.success) {
+        const transformedUsers = response.data.map(user => {
+          const transformed = userService.transformUserData(user);
+          return {
+            id: transformed.user_id || transformed._id,
+            name: `${transformed.firstName || transformed.first_name} ${transformed.lastName || transformed.last_name}`,
+            email: transformed.email,
+            role: transformed.role_assignment?.role_name || transformed.role
+          };
+        });
+        setTeamLeads(transformedUsers);
+      } else {
+        throw new Error(response.message || 'Failed to load users');
+      }
+    } catch (error) {
+      console.error('Error loading team leads:', error);
+      setTeamLeadsError(error.message);
+      // Fallback to empty array
+      setTeamLeads([]);
+    } finally {
+      setTeamLeadsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      loadTeamLeads();
+    }
+  }, [isOpen]);
+
+  // Clear team lead error when team leads are loaded and a valid selection exists
+  useEffect(() => {
+    if (!teamLeadsLoading && teamLeads.length > 0 && formData.team_lead_id) {
+      const selectedLead = teamLeads.find(lead => lead.id.toString() === formData.team_lead_id.toString());
+      if (selectedLead && errors.team_lead_id) {
+        setErrors(prev => {
+          const newErrors = { ...prev };
+          delete newErrors.team_lead_id;
+          return newErrors;
+        });
+      }
+    }
+  }, [teamLeadsLoading, teamLeads, formData.team_lead_id]);
 
   useEffect(() => {
     if (team) {
@@ -86,8 +137,15 @@ const TeamForm = ({ team, isOpen, onClose, onSubmit, title }) => {
       newErrors.description = 'Description is required';
     }
 
-    if (!formData.team_lead_id) {
+    // Simplified team lead validation
+    if (!formData.team_lead_id || formData.team_lead_id.trim() === '') {
       newErrors.team_lead_id = 'Team lead is required';
+    } else if (teamLeads.length > 0) {
+      // Only validate if team leads are loaded
+      const selectedLead = teamLeads.find(lead => lead.id.toString() === formData.team_lead_id.toString());
+      if (!selectedLead) {
+        newErrors.team_lead_id = 'Please select a valid team lead';
+      }
     }
 
     if (!formData.territory) {
@@ -108,22 +166,47 @@ const TeamForm = ({ team, isOpen, onClose, onSubmit, title }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    
+    // Special handling for team_lead_id to also populate team_lead field
+    if (name === 'team_lead_id') {
+      const selectedLead = teamLeads.find(lead => lead.id.toString() === value.toString());
+      setFormData(prev => ({
+        ...prev,
+        [name]: value,
+        team_lead: selectedLead ? selectedLead.name : ''
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
 
-    // Clear error when user starts typing
+    // Clear error when user makes a selection/input
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
         [name]: ''
       }));
     }
+
+    // Special handling for team_lead_id to immediately clear error when valid selection is made
+    if (name === 'team_lead_id' && value && value.trim() !== '') {
+      setErrors(prev => ({
+        ...prev,
+        team_lead_id: ''
+      }));
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent submission if team leads are still loading
+    if (teamLeadsLoading) {
+      setErrors({ submit: 'Please wait for team leads to load before submitting.' });
+      return;
+    }
     
     if (!validateForm()) {
       return;
@@ -247,20 +330,36 @@ const TeamForm = ({ team, isOpen, onClose, onSubmit, title }) => {
                     name="team_lead_id"
                     value={formData.team_lead_id}
                     onChange={handleInputChange}
+                    disabled={teamLeadsLoading}
                     className={`block w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                      teamLeadsLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    } ${
                       errors.team_lead_id 
                         ? 'border-red-300 dark:border-red-600' 
                         : 'border-gray-300 dark:border-gray-600'
                     } bg-white dark:bg-gray-700 text-gray-900 dark:text-white`}
                   >
-                    <option value="">Select Team Lead</option>
+                    <option value="">
+                      {teamLeadsLoading ? 'Loading team leads...' : 'Select Team Lead'}
+                    </option>
                     {teamLeads.map(lead => (
                       <option key={lead.id} value={lead.id}>
-                        {lead.name} ({lead.email})
+                        {lead.name} ({lead.email}) - {lead.role}
                       </option>
                     ))}
                   </select>
+                  {teamLeadsLoading && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                    </div>
+                  )}
                 </div>
+                {teamLeadsError && (
+                  <div className="mt-1 flex items-center text-sm text-amber-600 dark:text-amber-400">
+                    <AlertTriangle className="h-4 w-4 mr-1" />
+                    <span>Failed to load team leads: {teamLeadsError}</span>
+                  </div>
+                )}
                 {errors.team_lead_id && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.team_lead_id}</p>
                 )}
@@ -443,13 +542,18 @@ const TeamForm = ({ team, isOpen, onClose, onSubmit, title }) => {
               </button>
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || teamLeadsLoading}
                 className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Saving...
+                  </>
+                ) : teamLeadsLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Loading...
                   </>
                 ) : (
                   <>

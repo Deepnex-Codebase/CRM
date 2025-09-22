@@ -370,6 +370,36 @@ class AuthService {
       return false;
     }
   }
+
+  // Check session status specifically
+  async validateSession() {
+    try {
+      const token = this.getStoredToken();
+      if (!token) return { valid: false, reason: 'No token found' };
+
+      // Make API call to validate session
+      const response = await api.get('/auth/me');
+      
+      if (response.data.success) {
+        return { valid: true, user: response.data.data };
+      }
+      
+      return { valid: false, reason: 'Invalid response' };
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Unknown error';
+      
+      // Return specific reason for session invalidation
+      if (errorMessage.includes('session has been terminated')) {
+        return { valid: false, reason: 'session_terminated' };
+      } else if (errorMessage.includes('session has expired')) {
+        return { valid: false, reason: 'session_expired' };
+      } else if (errorMessage.includes('Session not found')) {
+        return { valid: false, reason: 'session_not_found' };
+      }
+      
+      return { valid: false, reason: 'authentication_failed' };
+    }
+  }
 }
 
 // Export a singleton instance

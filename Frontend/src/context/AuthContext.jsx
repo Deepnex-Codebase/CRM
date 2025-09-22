@@ -80,6 +80,51 @@ export const AuthProvider = ({ children }) => {
     initializeAuth();
   }, []);
 
+  // Session monitoring effect
+  useEffect(() => {
+    let sessionCheckInterval;
+
+    if (state.isAuthenticated) {
+      // Check session status every 5 minutes
+      sessionCheckInterval = setInterval(async () => {
+        try {
+          const sessionStatus = await authService.validateSession();
+          
+          if (!sessionStatus.valid) {
+            // Session is no longer valid, logout user
+            dispatch({ type: 'LOGOUT' });
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            // Set appropriate message based on reason
+            let message = 'Your session is no longer valid. Please login again.';
+            if (sessionStatus.reason === 'session_terminated') {
+              message = 'Your session has been terminated by an administrator. Please login again.';
+            } else if (sessionStatus.reason === 'session_expired') {
+              message = 'Your session has expired. Please login again.';
+            }
+            
+            localStorage.setItem('sessionMessage', message);
+            
+            // Redirect to login if not already there
+            if (!window.location.pathname.includes('/login')) {
+              window.location.href = '/login';
+            }
+          }
+        } catch (error) {
+          console.error('Session validation error:', error);
+          // Don't logout on network errors, let the API interceptor handle it
+        }
+      }, 5 * 60 * 1000); // 5 minutes
+    }
+
+    return () => {
+      if (sessionCheckInterval) {
+        clearInterval(sessionCheckInterval);
+      }
+    };
+  }, [state.isAuthenticated]);
+
   const login = async (credentials) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     
