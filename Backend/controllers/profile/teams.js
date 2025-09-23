@@ -50,15 +50,63 @@ exports.createTeam = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // Validate territory field
+  if (req.body.territory && req.body.territory.length > 100) {
+    return next(
+      new ErrorResponse('Territory cannot exceed 100 characters', 400)
+    );
+  }
+
+  // Validate target_goals field
+  if (req.body.target_goals && req.body.target_goals.length > 500) {
+    return next(
+      new ErrorResponse('Target Goals cannot exceed 500 characters', 400)
+    );
+  }
+
+  // Validate budget field
+  if (req.body.budget && req.body.budget < 0) {
+    return next(
+      new ErrorResponse('Budget cannot be negative', 400)
+    );
+  }
+
+  // Validate location field
+  if (req.body.location && req.body.location.length > 100) {
+    return next(
+      new ErrorResponse('Location cannot exceed 100 characters', 400)
+    );
+  }
+
+  // Validate contact_email field
+  if (req.body.contact_email) {
+    const emailRegex = /^([\w-\.]+@([\w-]+\.)+[\w-]{2,4})?$/;
+    if (!emailRegex.test(req.body.contact_email)) {
+      return next(
+        new ErrorResponse('Please provide a valid email address', 400)
+      );
+    }
+  }
+
+  // Validate contact_phone field
+  if (req.body.contact_phone) {
+    const phoneRegex = /^[0-9]{10,15}$/;
+    if (!phoneRegex.test(req.body.contact_phone)) {
+      return next(
+        new ErrorResponse('Please provide a valid phone number (10-15 digits)', 400)
+      );
+    }
+  }
+
+  // Create team with all fields
   const team = await Team.create(req.body);
 
-  // If team created successfully, create a TeamUserMap entry for team lead
-  if (team && req.body.team_lead) {
+  // Create TeamUserMap entry for team lead if provided
+  if (req.body.team_lead) {
     await TeamUserMap.create({
       user_id: req.body.team_lead,
       team_id: team._id,
       role_within_team: 'team_lead',
-      active_flag: true,
       created_by: req.user.id
     });
   }
@@ -102,6 +150,54 @@ exports.updateTeam = asyncHandler(async (req, res, next) => {
     }
   }
 
+  // Validate territory field
+  if (req.body.territory && req.body.territory.length > 100) {
+    return next(
+      new ErrorResponse('Territory cannot exceed 100 characters', 400)
+    );
+  }
+
+  // Validate target_goals field
+  if (req.body.target_goals && req.body.target_goals.length > 500) {
+    return next(
+      new ErrorResponse('Target Goals cannot exceed 500 characters', 400)
+    );
+  }
+
+  // Validate budget field
+  if (req.body.budget && req.body.budget < 0) {
+    return next(
+      new ErrorResponse('Budget cannot be negative', 400)
+    );
+  }
+
+  // Validate location field
+  if (req.body.location && req.body.location.length > 100) {
+    return next(
+      new ErrorResponse('Location cannot exceed 100 characters', 400)
+    );
+  }
+
+  // Validate contact_email field
+  if (req.body.contact_email) {
+    const emailRegex = /^([\w-\.]+@([\w-]+\.)+[\w-]{2,4})?$/;
+    if (!emailRegex.test(req.body.contact_email)) {
+      return next(
+        new ErrorResponse('Please provide a valid email address', 400)
+      );
+    }
+  }
+
+  // Validate contact_phone field
+  if (req.body.contact_phone) {
+    const phoneRegex = /^[0-9]{10,15}$/;
+    if (!phoneRegex.test(req.body.contact_phone)) {
+      return next(
+        new ErrorResponse('Please provide a valid phone number (10-15 digits)', 400)
+      );
+    }
+  }
+
   // Store previous state for activity log
   const previousState = { ...team.toObject() };
 
@@ -110,27 +206,19 @@ exports.updateTeam = asyncHandler(async (req, res, next) => {
     runValidators: true
   });
 
-  // If team_lead is being updated, update TeamUserMap
-  if (req.body.team_lead && team.team_lead.toString() !== req.body.team_lead) {
-    // Find existing team lead mapping
-    const existingTeamLead = await TeamUserMap.findOne({
-      team_id: team._id,
-      role_within_team: 'team_lead',
-      active_flag: true
-    });
-
-    // If there's an existing team lead, update their role
-    if (existingTeamLead) {
-      existingTeamLead.active_flag = false;
-      await existingTeamLead.save();
-    }
+  // Update TeamUserMap for team lead if changed
+  if (req.body.team_lead && (!team.team_lead || team.team_lead.toString() !== req.body.team_lead)) {
+    // Remove existing team lead role
+    await TeamUserMap.updateMany(
+      { team_id: team._id, role_within_team: 'team_lead', active_flag: true },
+      { active_flag: false }
+    );
 
     // Create new team lead mapping
     await TeamUserMap.create({
       user_id: req.body.team_lead,
       team_id: team._id,
       role_within_team: 'team_lead',
-      active_flag: true,
       created_by: req.user.id
     });
   }
