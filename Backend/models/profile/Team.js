@@ -21,6 +21,47 @@ const TeamSchema = new mongoose.Schema({
     type: String,
     maxlength: [500, 'Description cannot be more than 500 characters']
   },
+  team_lead: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: [true, 'Team Lead is required']
+  },
+  territory: {
+    type: String,
+    required: [true, 'Territory is required'],
+    trim: true,
+    maxlength: [100, 'Territory cannot be more than 100 characters']
+  },
+  target_goals: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Target Goals cannot be more than 500 characters']
+  },
+  budget: {
+    type: Number,
+    min: [0, 'Budget cannot be negative']
+  },
+  location: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Location cannot be more than 100 characters']
+  },
+  contact_email: {
+    type: String,
+    trim: true,
+    match: [
+      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+      'Please add a valid email'
+    ]
+  },
+  contact_phone: {
+    type: String,
+    trim: true,
+    match: [
+      /^\+?[1-9]\d{9,14}$/,
+      'Please add a valid phone number'
+    ]
+  },
   department: {
     type: String,
     required: [true, 'Department is required'],

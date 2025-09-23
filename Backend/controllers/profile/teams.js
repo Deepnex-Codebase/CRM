@@ -40,7 +40,28 @@ exports.createTeam = asyncHandler(async (req, res, next) => {
   // Add user to req.body
   req.body.created_by = req.user.id;
 
+  // Validate team_lead exists
+  if (req.body.team_lead) {
+    const teamLead = await User.findById(req.body.team_lead);
+    if (!teamLead) {
+      return next(
+        new ErrorResponse(`Team Lead not found with id of ${req.body.team_lead}`, 404)
+      );
+    }
+  }
+
   const team = await Team.create(req.body);
+
+  // If team created successfully, create a TeamUserMap entry for team lead
+  if (team && req.body.team_lead) {
+    await TeamUserMap.create({
+      user_id: req.body.team_lead,
+      team_id: team._id,
+      role_within_team: 'team_lead',
+      active_flag: true,
+      created_by: req.user.id
+    });
+  }
 
   // Log the activity
   await UserActivityLog.create({
@@ -71,6 +92,16 @@ exports.updateTeam = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Validate team_lead exists if being updated
+  if (req.body.team_lead) {
+    const teamLead = await User.findById(req.body.team_lead);
+    if (!teamLead) {
+      return next(
+        new ErrorResponse(`Team Lead not found with id of ${req.body.team_lead}`, 404)
+      );
+    }
+  }
+
   // Store previous state for activity log
   const previousState = { ...team.toObject() };
 
@@ -78,6 +109,31 @@ exports.updateTeam = asyncHandler(async (req, res, next) => {
     new: true,
     runValidators: true
   });
+
+  // If team_lead is being updated, update TeamUserMap
+  if (req.body.team_lead && team.team_lead.toString() !== req.body.team_lead) {
+    // Find existing team lead mapping
+    const existingTeamLead = await TeamUserMap.findOne({
+      team_id: team._id,
+      role_within_team: 'team_lead',
+      active_flag: true
+    });
+
+    // If there's an existing team lead, update their role
+    if (existingTeamLead) {
+      existingTeamLead.active_flag = false;
+      await existingTeamLead.save();
+    }
+
+    // Create new team lead mapping
+    await TeamUserMap.create({
+      user_id: req.body.team_lead,
+      team_id: team._id,
+      role_within_team: 'team_lead',
+      active_flag: true,
+      created_by: req.user.id
+    });
+  }
 
   // Log the activity
   await UserActivityLog.create({
