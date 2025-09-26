@@ -18,6 +18,11 @@ const advancedResults = (model, populate) => async (req, res, next) => {
 
   // Finding resource
   query = model.find(JSON.parse(queryStr));
+  
+  // Add member count for teams if applicable
+  if (model.modelName === 'Team') {
+    query = query.populate('member_count');
+  }
 
   // Handle search parameter
   if (req.query.search) {

@@ -16,10 +16,12 @@ exports.getTeams = asyncHandler(async (req, res, next) => {
 // @route   GET /api/v1/teams/:id
 // @access  Private
 exports.getTeam = asyncHandler(async (req, res, next) => {
-  const team = await Team.findById(req.params.id).populate({
-    path: 'created_by',
-    select: 'name email'
-  });
+  const team = await Team.findById(req.params.id)
+    .populate({
+      path: 'created_by',
+      select: 'name email'
+    })
+    .populate('member_count');
 
   if (!team) {
     return next(
@@ -557,7 +559,23 @@ exports.removeTeamMember = asyncHandler(async (req, res, next) => {
 // @route   GET /api/v1/users/:userId/teams
 // @access  Private
 exports.getUserTeams = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.params.userId);
+  const mongoose = require('mongoose');
+  let userId = req.params.userId;
+  
+  // Ensure userId is a valid ObjectId
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    // If userId is not a valid ObjectId, try to find the user by user_id
+    const userByDisplayId = await User.findOne({ user_id: userId });
+    if (userByDisplayId) {
+      userId = userByDisplayId._id;
+    } else {
+      return next(
+        new ErrorResponse(`User not found with id of ${req.params.userId}`, 404)
+      );
+    }
+  }
+  
+  const user = await User.findById(userId);
 
   if (!user) {
     return next(

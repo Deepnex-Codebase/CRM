@@ -32,7 +32,8 @@ router
   .get(
     protect,
     advancedResults(Team, [
-      { path: 'created_by', select: 'name email' }
+      { path: 'created_by', select: 'name email' },
+      { path: 'member_count' }
     ]),
     getTeams
   )

@@ -69,7 +69,6 @@ const UserManagement = () => {
           total: response.total,
           totalPages: Math.ceil(response.total / pagination.limit)
         }));
-        console.log(transformedUsers)
       }
     } catch (err) {
       setError(err.message || 'Failed to fetch users');

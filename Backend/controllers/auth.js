@@ -726,6 +726,7 @@ exports.getUsers = asyncHandler(async (req, res, next) => {
   const total = await User.countDocuments(query);
   const users = await User.find(query)
     .populate('role_id', 'role_name description permissions')
+    .populate('team_id', 'name team_id')
     .sort({ created_at: -1 })
     .limit(limit)
     .skip(startIndex)
@@ -770,8 +771,24 @@ exports.getUser = asyncHandler(async (req, res, next) => {
   // Get role assignment details
   const assignment = await EmployeeRoleAssignment.getActiveAssignment(user._id);
 
+  // Convert user data to object and ensure team_id is properly handled
+  const userObj = user.toObject();
+  
+  // If team_id exists, ensure it's returned as ObjectId
+  if (userObj.team_id) {
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(userObj.team_id)) {
+      // If somehow team_id is not a valid ObjectId, try to find the correct one
+      const Team = require('../models/profile/Team');
+      const team = await Team.findOne({ team_id: userObj.team_id });
+      if (team) {
+        userObj.team_id = team._id;
+      }
+    }
+  }
+  
   const userData = {
-    ...user.toObject(),
+    ...userObj,
     role_assignment: assignment ? {
       assignment_id: assignment.assignment_id,
       role_name: assignment.role_id.role_name,
@@ -797,7 +814,27 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse(`User not found with id of ${req.params.id}`, 404));
   }
 
-  const { role_name, ...otherFields } = req.body;
+  const { role_name, team_id, ...otherFields } = req.body;
+  
+  // Ensure team_id is properly handled - use MongoDB ObjectId (_id) instead of display ID
+  if (team_id === '' || team_id === null || team_id === undefined) {
+    otherFields.team_id = null;
+  } else if (team_id) {
+    const mongoose = require('mongoose');
+    // If team_id is a valid MongoDB ObjectId, use it directly
+    if (mongoose.Types.ObjectId.isValid(team_id) && team_id.match(/^[0-9a-fA-F]{24}$/)) {
+      otherFields.team_id = mongoose.Types.ObjectId(team_id);
+    } else {
+      // If team_id is provided as a display ID (like TEM-20250926-0001), find the actual ObjectId
+      const Team = require('../models/profile/Team');
+      const team = await Team.findOne({ team_id: team_id });
+      if (team) {
+        otherFields.team_id = team._id;
+      } else {
+        return next(new ErrorResponse(`Invalid team ID: ${team_id}`, 400));
+      }
+    }
+  }
 
   // Update user fields
   user = await User.findByIdAndUpdate(req.params.id, otherFields, {

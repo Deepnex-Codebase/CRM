@@ -72,12 +72,12 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
       setTeamsError(error.message || 'Failed to load teams');
       // Fallback to default teams if API fails
       setTeams([
-        { team_id: 'management', team_name: 'Management' },
-        { team_id: 'sales', team_name: 'Sales' },
-        { team_id: 'support', team_name: 'Support' },
-        { team_id: 'marketing', team_name: 'Marketing' },
-        { team_id: 'development', team_name: 'Development' },
-        { team_id: 'hr', team_name: 'HR' }
+        { _id: 'management', name: 'Management' },
+        { _id: 'sales', name: 'Sales' },
+        { _id: 'support', name: 'Support' },
+        { _id: 'marketing', name: 'Marketing' },
+        { _id: 'development', name: 'Development' },
+        { _id: 'hr', name: 'HR' }
       ]);
     } finally {
       setTeamsLoading(false);
@@ -98,12 +98,13 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
         password: '',
         confirmPassword: '',
         role: user.role_name || user.role || '',
-        team: user.team_id || user.team || '',
+        team: user.team_id?._id || user.team_id || '',
         status: user.status || 'Active',
         firstName: user.firstName || '',
         lastName: user.lastName || '',
         department: user.department || ''
       });
+      console.log('User data loaded:', user);
     } else {
       setFormData({
         username: '',
@@ -511,8 +512,8 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
                       {teamsLoading ? 'Loading teams...' : 'Select Team'}
                     </option>
                     {teams.map(team => (
-                      <option key={team.team_id || team._id} value={team.team_id || team._id}>
-                        {team.team_name || team.name}
+                      <option key={team._id} value={team._id}>
+                        {team.name}
                       </option>
                     ))}
                   </select>

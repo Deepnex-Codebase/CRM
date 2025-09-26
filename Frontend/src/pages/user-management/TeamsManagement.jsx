@@ -22,6 +22,7 @@ import {
 import TeamForm from './components/TeamForm';
 import TeamDetails from './components/TeamDetails';
 import teamService from '../../services/user_management/teamService';
+import userService from '../../services/user_management/userService';
 
 const TeamsManagement = () => {
   const [teams, setTeams] = useState([]);
@@ -94,7 +95,32 @@ const TeamsManagement = () => {
           teamService.transformTeamData(team)
         );
         
-        setTeams(transformedTeams);
+        // Fetch team lead details for each team
+        const teamsWithLeadDetails = await Promise.all(
+          transformedTeams.map(async (team) => {
+            if (team.team_lead_id) {
+              try {
+                const userResponse = await userService.getUser(team.team_lead_id);
+                
+                if (userResponse.success) {
+                  return {
+                    ...team,
+                    team_lead: {
+                      _id: team.team_lead_id,
+                      name: `${userResponse.data.first_name || ''} ${userResponse.data.last_name || ''}`.trim() || userResponse.data.email,
+                      email: userResponse.data.email
+                    }
+                  };
+                }
+              } catch (error) {
+                console.error(`Error fetching team lead details for team ${team.team_id}:`, error);
+              }
+            }
+            return team;
+          })
+        );
+        
+        setTeams(teamsWithLeadDetails);
         
         // Update pagination if available
         if (response.pagination) {
@@ -550,7 +576,7 @@ const TeamsManagement = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {team.team_lead}
+                      {typeof team.team_lead === 'object' ? team.team_lead.name : team.team_lead}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">

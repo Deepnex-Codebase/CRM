@@ -184,6 +184,24 @@ class UserService {
   }
 
   /**
+   * Get login attempts for a specific user
+   * @param {string} userId - User ID to fetch login attempts for
+   * @returns {Promise} API response with login attempt data
+   */
+  async getLoginAttempts(userId) {
+    try {
+      const response = await api.get(`/login-attempts?userId=${userId}`);
+      return response.data; // Should contain login count and timestamps
+    } catch (error) {
+      console.error("Error fetching login attempts:", error);
+      return { 
+        count: 0,
+        last_login: null
+      };
+    }
+  }
+
+  /**
    * Transform backend user data to frontend format
    * @param {Object} backendUser - User data from backend
    * @returns {Object} Transformed user data
@@ -192,10 +210,14 @@ class UserService {
     // Extract role information from populated role_id field
     const roleData = backendUser.role_id || {};
     const roleName = roleData.role_name || 'Unknown';
+
+    // Extract team information from populated team_id field
+    const teamData = backendUser.team_id || {};
+    const teamName = teamData.name || (typeof backendUser.team_id === 'string' ? 'Team ' + backendUser.team_id : 'Not assigned');
     
     return {
       user_id: backendUser._id,
-      username: `${backendUser.first_name} ${backendUser.last_name}`.toLowerCase().replace(/\s+/g, ''),
+      username: backendUser.username || `${backendUser.first_name}${backendUser.last_name}`.toLowerCase(),
       email: backendUser.email,
       phone: backendUser.phone,
       status: backendUser.is_active ? 'Active' : 'Inactive',
@@ -212,7 +234,8 @@ class UserService {
       firstName: backendUser.first_name,
       lastName: backendUser.last_name,
       department: backendUser.department || 'Not specified',
-      team: backendUser.team || 'Not assigned',
+      team: teamName,
+      team_id: backendUser.team_id?._id || backendUser.team_id || null,
       twoFactorEnabled: backendUser.two_factor_enabled || false,
       loginCount: backendUser.login_count || 0,
       // Additional fields for compatibility
@@ -244,8 +267,13 @@ class UserService {
       roleName = frontendUser.role_id.role_name;
     }
 
+    console.log(frontendUser);
+    
+    // Handle team_id from either team_id or team property
+    const teamId = frontendUser.team_id || frontendUser.team || null;
     
     return {
+      username: frontendUser.username,
       first_name: frontendUser.firstName || frontendUser.first_name,
       last_name: frontendUser.lastName || frontendUser.last_name,
       email: frontendUser.email,
@@ -253,7 +281,7 @@ class UserService {
       role_name: roleName,
       password: frontendUser.password,
       department: frontendUser.department,
-      team: frontendUser.team
+      team_id: teamId
     };
   }
 
