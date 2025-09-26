@@ -95,7 +95,7 @@ class SessionService {
       issuedAt: new Date(session.issued_at),
       expiresAt: new Date(session.expires_at),
       isActive: session.is_active,
-      location: this.extractLocationFromIP(session.ip_address),
+      location: this.extractLocationFromIP(session.ip_address, session.location),
       deviceType: this.extractDeviceType(session.device_info),
       browser: this.extractBrowser(session.device_info),
       lastActivity: new Date(session.issued_at),
@@ -127,7 +127,7 @@ class SessionService {
       status: attempt.status,
       reason: attempt.reason || null,
       timestamp: new Date(attempt.timestamp || attempt.attempted_at),
-      location: this.extractLocationFromIP(attempt.ip_address),
+      location: this.extractLocationFromIP(attempt.ip_address, attempt.location),
       deviceType: this.extractDeviceType(attempt.device_info),
       browser: this.extractBrowser(attempt.device_info),
       success: attempt.status === 'success'
@@ -166,9 +166,26 @@ class SessionService {
   }
 
   /**
-   * Extract location from IP address (placeholder - would need IP geolocation service)
+   * Extract location from device info or use location data from backend
    */
-  extractLocationFromIP(ipAddress) {
+  extractLocationFromIP(ipAddress, locationData) {
+    // If location data is directly provided from backend, use it
+    if (locationData && typeof locationData === 'object') {
+      const { country, region, city } = locationData;
+      
+      if (city && region && country) {
+        return `${city}, ${region}, ${country}`;
+      } else if (city && country) {
+        return `${city}, ${country}`;
+      } else if (region && country) {
+        return `${region}, ${country}`;
+      } else if (country) {
+        return country;
+      } else if (city) {
+        return city;
+      }
+    }
+    
     if (!ipAddress || ipAddress === 'Unknown IP') return 'Unknown Location';
     
     // For localhost/development
@@ -176,7 +193,6 @@ class SessionService {
       return 'Local Development';
     }
     
-    // Placeholder - in real implementation, use IP geolocation service
     return 'Unknown Location';
   }
 

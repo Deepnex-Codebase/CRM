@@ -23,6 +23,17 @@ import {
 
 const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) => {
   if (!isOpen || !session) return null;
+  
+  // Debug session data
+  console.log("Session Details Data:", session);
+  console.log("Session Fields:", {
+    id: session.id || session._id || session.session_id,
+    deviceType: session.deviceType || session.device_type,
+    browser: session.browser || session.browserInfo || (session.deviceInfo && session.deviceInfo.browser),
+    issuedAt: session.issuedAt || session.issued_at || session.login_time,
+    lastActivity: session.lastActivity || session.last_activity,
+    status: session.status || (session.isActive ? 'Active' : 'Inactive')
+  });
 
   const getDeviceIcon = (deviceType) => {
     switch(deviceType?.toLowerCase()) {
@@ -34,72 +45,109 @@ const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) =>
   };
 
   const getStatusBadge = (status) => {
-    const statusConfig = {
-      'Active': { 
-        color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
-        icon: CheckCircle
-      },
-      'Expired': { 
-        color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400',
-        icon: Clock
-      },
-      'Terminated': { 
-        color: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400',
-        icon: XCircle
-      }
-    };
+    const isActive = session.isActive || session.status === 'Active';
     
-    const config = statusConfig[status] || statusConfig['Expired'];
-    const Icon = config.icon;
-    
-    return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>
-        <Icon className="h-4 w-4 mr-1" />
-        {status}
-      </span>
-    );
+    if (isActive) {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
+          <CheckCircle className="h-3 w-3 mr-1" />
+          Active
+        </span>
+      );
+    } else {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">
+          <XCircle className="h-3 w-3 mr-1" />
+          {status || "Ended"}
+        </span>
+      );
+    }
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+    try {
+      if (!dateString) return "Unknown";
+      
+      const date = new Date(dateString);
+      
+      if (isNaN(date.getTime())) {
+        return "Unknown";
+      }
+      
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Unknown";
+    }
   };
 
   const getTimeAgo = (timestamp) => {
-    const now = new Date();
-    const time = new Date(timestamp);
-    const diffInMinutes = Math.floor((now - time) / (1000 * 60));
-    
-    if (diffInMinutes < 1) {
-      return 'Just now';
-    } else if (diffInMinutes < 60) {
-      return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
-    } else if (diffInMinutes < 1440) {
-      const hours = Math.floor(diffInMinutes / 60);
-      return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
-    } else {
-      const days = Math.floor(diffInMinutes / 1440);
-      return `${days} day${days !== 1 ? 's' : ''} ago`;
+    try {
+      if (!timestamp) return "Unknown";
+      
+      const now = new Date();
+      const time = new Date(timestamp);
+      
+      if (isNaN(time.getTime())) {
+        return "Unknown";
+      }
+      
+      const diffInMinutes = Math.floor((now - time) / (1000 * 60));
+      
+      if (diffInMinutes < 1) {
+        return 'Just now';
+      } else if (diffInMinutes < 60) {
+        return `${diffInMinutes} minute${diffInMinutes !== 1 ? 's' : ''} ago`;
+      } else if (diffInMinutes < 1440) {
+        const hours = Math.floor(diffInMinutes / 60);
+        return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+      } else {
+        const days = Math.floor(diffInMinutes / 1440);
+        return `${days} day${days !== 1 ? 's' : ''} ago`;
+      }
+    } catch (error) {
+      console.error("Error calculating time ago:", error);
+      return "Unknown";
     }
   };
 
   const getSessionDuration = () => {
-    const loginTime = new Date(session.login_time);
-    const lastActivity = new Date(session.last_activity);
-    const durationMs = lastActivity - loginTime;
-    const hours = Math.floor(durationMs / (1000 * 60 * 60));
-    const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes}m`;
-    } else {
-      return `${minutes}m`;
+    try {
+      // Check if duration is directly available
+      if (session.duration) {
+        return session.duration;
+      }
+      
+      // Use issuedAt and lastActivity fields from the transformed session data
+      const loginTime = new Date(session.issuedAt || session.issued_at || session.login_time);
+      const lastActivity = new Date(session.lastActivity || session.last_activity || Date.now());
+      
+      if (isNaN(loginTime.getTime()) || isNaN(lastActivity.getTime())) {
+        return "Unknown";
+      }
+      
+      const durationMs = lastActivity - loginTime;
+      const days = Math.floor(durationMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((durationMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (days > 0) {
+        return `${days}d ${hours}h ${minutes}m`;
+      } else if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+      } else {
+        return `${minutes}m`;
+      }
+    } catch (error) {
+      console.error("Error calculating session duration:", error);
+      return "Unknown";
     }
   };
 
@@ -107,7 +155,7 @@ const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) =>
     // Simple security risk assessment
     const suspiciousIPs = ['203.0.113.1', '198.51.100.1'];
     const unknownLocation = session.location.includes('Unknown');
-    return suspiciousIPs.includes(session.ip_address) || unknownLocation;
+    return suspiciousIPs.includes(session.ipAddress || session.ip_address) || unknownLocation;
   };
 
   return (
@@ -116,27 +164,27 @@ const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) =>
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center">
-            {getDeviceIcon(session.device_type)}
+            {getDeviceIcon(session.deviceType || session.device_type)}
             <div className="ml-3">
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Session Details
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                {session.username} • {session.device_type}
+                {session.userName || session.username} • {session.deviceType || session.device_type}
               </p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
             {onRefresh && (
               <button
-                onClick={() => onRefresh(session.session_id)}
+                onClick={() => onRefresh(session.id || session.session_id)}
                 className="px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500 flex items-center"
               >
                 <RefreshCw className="h-4 w-4 mr-1" />
                 Refresh
               </button>
             )}
-            {session.status === 'Active' && !session.is_current && onTerminate && (
+            {(session.isActive || session.status === 'Active') && !(session.is_current) && onTerminate && (
               <button
                 onClick={() => onTerminate(session.session_id)}
                 className="px-3 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 flex items-center"
@@ -193,7 +241,7 @@ const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) =>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Session ID</span>
                   <span className="text-sm text-gray-900 dark:text-white font-mono">
-                    {session.session_id}
+                    {session.id || session.session_id}
                   </span>
                 </div>
 
@@ -202,7 +250,7 @@ const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) =>
                   <div className="flex items-center">
                     <User className="h-4 w-4 text-gray-400 mr-1" />
                     <span className="text-sm text-gray-900 dark:text-white">
-                      {session.username}
+                      {session.userName || session.username}
                     </span>
                   </div>
                 </div>
@@ -213,6 +261,16 @@ const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) =>
                     <Clock className="h-4 w-4 text-gray-400 mr-1" />
                     <span className="text-sm text-gray-900 dark:text-white">
                       {getSessionDuration()}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Expires On</span>
+                  <div className="flex items-center">
+                    <Calendar className="h-4 w-4 text-gray-400 mr-1" />
+                    <span className="text-sm text-gray-900 dark:text-white">
+                      {formatDate(session.expiresAt || session.expires_at) || "Not specified"}
                     </span>
                   </div>
                 </div>
@@ -229,17 +287,21 @@ const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) =>
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Device Type</span>
                   <div className="flex items-center">
-                    {getDeviceIcon(session.device_type)}
-                    <span className="text-sm text-gray-900 dark:text-white ml-2">
-                      {session.device_type}
-                    </span>
-                  </div>
+                  {getDeviceIcon(session.deviceInfo?.device?.type || session.deviceType || session.device_type)}
+                  <span className="text-sm text-gray-900 dark:text-white ml-2">
+                    {session.deviceInfo && session.deviceInfo.device && session.deviceInfo.device.type ? 
+                    session.deviceInfo.device.type.charAt(0).toUpperCase() + session.deviceInfo.device.type.slice(1) : 
+                    (session.deviceType || session.device_type || "Unknown")}
+                  </span>
+                </div>
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Browser</span>
                   <span className="text-sm text-gray-900 dark:text-white">
-                    {session.browser}
+                    {session.deviceInfo && session.deviceInfo.browser && session.deviceInfo.browser.name ? 
+                      `${session.deviceInfo.browser.name} ${session.deviceInfo.browser.version || ''}` : 
+                      (session.browser || "Unknown")}
                   </span>
                 </div>
 
@@ -248,7 +310,7 @@ const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) =>
                   <div className="flex items-center">
                     <Wifi className="h-4 w-4 text-gray-400 mr-1" />
                     <span className="text-sm text-gray-900 dark:text-white font-mono">
-                      {session.ip_address}
+                      {session.ipAddress || session.ip_address}
                     </span>
                   </div>
                 </div>
@@ -282,18 +344,18 @@ const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) =>
                         Session Started
                       </span>
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {getTimeAgo(session.login_time)}
+                        {getTimeAgo(session.issuedAt || session.login_time)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(session.login_time)}
+                      {formatDate(session.issuedAt || session.login_time)}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center">
                   <div className={`flex-shrink-0 w-2 h-2 rounded-full ${
-                    session.status === 'Active' ? 'bg-blue-500' : 'bg-gray-400'
+                    session.isActive || session.status === 'Active' ? 'bg-blue-500' : 'bg-gray-400'
                   }`}></div>
                   <div className="ml-4 flex-1">
                     <div className="flex items-center justify-between">
@@ -301,29 +363,31 @@ const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) =>
                         Last Activity
                       </span>
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {getTimeAgo(session.last_activity)}
+                        {getTimeAgo(session.lastActivity || session.last_activity)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(session.last_activity)}
+                      {formatDate(session.lastActivity || session.last_activity)}
                     </p>
                   </div>
                 </div>
 
-                {session.status !== 'Active' && (
+                {!(session.isActive || session.status === 'Active') && (
                   <div className="flex items-center">
                     <div className="flex-shrink-0 w-2 h-2 bg-red-500 rounded-full"></div>
                     <div className="ml-4 flex-1">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-gray-900 dark:text-white">
-                          Session {session.status}
+                          Session {session.status || "Ended"}
                         </span>
                         <span className="text-sm text-gray-500 dark:text-gray-400">
-                          {getTimeAgo(session.last_activity)}
+                          {getTimeAgo(session.lastActivity || session.last_activity)}
                         </span>
                       </div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Session was {session.status.toLowerCase()}
+                        {session.expiresAt || session.expires_at ? 
+                          `Expires on ${formatDate(session.expiresAt || session.expires_at)}` : 
+                          `Session was ${session.status ? session.status.toLowerCase() : 'ended'}`}
                       </p>
                     </div>
                   </div>

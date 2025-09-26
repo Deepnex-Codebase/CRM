@@ -146,7 +146,7 @@ const SessionManagement = () => {
 
   // Update statistics based on current data
   const updateStatistics = (sessionsData, attemptsData) => {
-    const activeSessions = sessionsData.filter(s => s.status === 'Active' || s.is_active).length;
+    const activeSessions = sessionsData.filter(s => s.isActive || s.status === 'Active' || s.is_active).length;
     const successfulLogins = attemptsData.filter(a => a.status === 'success' || a.success === true).length;
     const failedAttempts = attemptsData.filter(a => a.status === 'Failed' || a.success === false).length;
     const securityAlerts = attemptsData.filter(a =>
@@ -583,7 +583,7 @@ const SessionManagement = () => {
                       <tr key={session.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            {getDeviceIcon(session.deviceType)}
+                            {getDeviceIcon(session.deviceInfo?.device?.type || session.deviceType)}
                             <div className="ml-3">
                               <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center">
                                 {session.userName}
@@ -594,7 +594,9 @@ const SessionManagement = () => {
                                 )}
                               </div>
                               <div className="text-sm text-gray-500 dark:text-gray-400">
-                                {session.browser}
+                                {session.deviceInfo?.browser?.name ? 
+                                  `${session.deviceInfo.browser.name} ${session.deviceInfo.browser.version || ''}` : 
+                                  session.browser}
                               </div>
                             </div>
                           </div>

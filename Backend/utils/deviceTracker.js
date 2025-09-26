@@ -118,20 +118,37 @@ const extractRealIP = (req) => {
 };
 
 /**
- * Get complete device and location information from request
+ * Get device and location information from request
  * @param {object} req - Express request object
- * @returns {object} Complete device and location info
+ * @returns {object} Combined device and location information
  */
-const getDeviceAndLocationInfo = (req) => {
-  const userAgent = req.headers['user-agent'];
+const getDeviceAndLocationInfo = async (req) => {
   const ipAddress = extractRealIP(req);
+  const userAgent = req.headers['user-agent'];
   
   const deviceInfo = extractDeviceInfo(userAgent);
-  const locationInfo = getLocationFromIP(ipAddress);
-
+  
+  // Check if location data is provided from frontend
+  let locationInfo;
+  if (req.body && req.body.current_location) {
+    // Use location data from frontend
+    locationInfo = {
+      country: req.body.current_location.country || 'Unknown',
+      region: req.body.current_location.state || 'Unknown',
+      city: req.body.current_location.city || 'Unknown',
+      timezone: null,
+      latitude: req.body.current_location.latitude || null,
+      longitude: req.body.current_location.longitude || null,
+      isp: 'Unknown'
+    };
+  } else {
+    // Fallback to IP-based location
+    locationInfo = getLocationFromIP(ipAddress);
+  }
+  
   return {
-    device_info: deviceInfo,
     ip_address: ipAddress,
+    device_info: deviceInfo,
     location: locationInfo
   };
 };

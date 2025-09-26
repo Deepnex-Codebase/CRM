@@ -20,6 +20,7 @@ const {
   getUserLoginHistory,
   getLoginAttempts,
   getActiveSessions,
+  getSessionById,
   revokeSession
 } = require('../controllers/auth');
 
@@ -66,6 +67,7 @@ router.get('/login-attempts', getLoginAttempts);
 
 // Session management
 router.get('/sessions', getActiveSessions);
+router.get('/sessions/:id', getSessionById);
 router.put('/sessions/:id/revoke', revokeSession);
 
 module.exports = router;

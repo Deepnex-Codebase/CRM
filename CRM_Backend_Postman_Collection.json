@@ -1,0 +1,3641 @@
+{
+  "info": {
+    "name": "CRM Backend API Collection",
+    "description": "Complete API collection for CRM Backend with Authentication, Enquiry Management, Profile Management, and all other modules",
+    "version": "1.0.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{authToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('authToken', response.token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register User (Admin Only)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"9876543210\",\n  \"role_name\": \"Telecaller\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users"]
+            }
+          }
+        },
+        {
+          "name": "Login with OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login/otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login", "otp"]
+            }
+          }
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"otp\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "verify-otp"]
+            }
+          }
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "me"]
+            }
+          }
+        },
+        {
+          "name": "Update User Details",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Updated Name\",\n  \"phone\": \"9876543211\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/updatedetails",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "updatedetails"]
+            }
+          }
+        },
+        {
+          "name": "Update Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"password123\",\n  \"newPassword\": \"newpassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/updatepassword",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "updatepassword"]
+            }
+          }
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgotpassword",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "forgotpassword"]
+            }
+          }
+        },
+        {
+          "name": "Get All Users (Admin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/auth/users?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID (Admin)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/auth/users/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "USER_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update User (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Updated Name\",\n  \"role_name\": \"Sales Head\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/users/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "USER_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Activate User (Admin)",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/auth/users/:id/activate",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users", ":id", "activate"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "USER_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Deactivate User (Admin)",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/auth/users/:id/deactivate",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users", ":id", "deactivate"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "USER_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete User (Admin)",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/auth/users/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "users", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "USER_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Enquiries",
+      "item": [
+        {
+          "name": "Get All Enquiries",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries?page=1&limit=10&status=New&source_type=Website",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "status",
+                  "value": "New"
+                },
+                {
+                  "key": "source_type",
+                  "value": "Website"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Enquiry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Rajesh Kumar\",\n  \"mobile\": \"9876543210\",\n  \"email\": \"rajesh@example.com\",\n  \"type_of_lead\": \"B2C\",\n  \"source_type\": \"Website\",\n  \"pv_capacity_kw\": 5,\n  \"category\": \"Residential\",\n  \"connection_type\": \"Yes\",\n  \"subsidy_type\": \"Subsidy\",\n  \"pincode\": \"110001\",\n  \"state\": \"Delhi\",\n  \"district\": \"New Delhi\",\n  \"project_location\": \"Delhi\",\n  \"add_remarks\": \"Interested in solar installation\",\n  \"need_loan\": false,\n  \"priority\": \"MEDIUM\",\n  \"enquiry_profile\": \"Project\",\n  \"business_model\": \"Capex\",\n  \"metering\": \"Net Metering\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/enquiries",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries"]
+            }
+          }
+        },
+        {
+          "name": "Get Enquiry by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ENQUIRY_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Enquiry",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"In Progress\",\n  \"priority\": \"HIGH\",\n  \"add_remarks\": \"Updated remarks\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ENQUIRY_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Enquiry Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Quoted\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/:id/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", ":id", "status"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ENQUIRY_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Assign Enquiry",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assigned_to\": \"USER_ID_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/:id/assign",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", ":id", "assign"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ENQUIRY_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Remark to Enquiry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Customer is interested and wants a site visit\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/:id/remarks",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", ":id", "remarks"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ENQUIRY_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Enquiry Remarks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/:id/remarks",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", ":id", "remarks"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ENQUIRY_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Enquiries by Status",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/status/:status",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "status", ":status"],
+              "variable": [
+                {
+                  "key": "status",
+                  "value": "New"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Enquiries by Stage",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/stage/:stage",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "stage", ":stage"],
+              "variable": [
+                {
+                  "key": "stage",
+                  "value": "Captured"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Assigned Enquiries",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/assigned/:userId",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "assigned", ":userId"],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "USER_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Telecaller Queue",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/telecaller-queue",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "telecaller-queue"]
+            }
+          }
+        },
+        {
+          "name": "Get Telecaller Dashboard",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/telecaller/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "telecaller", "dashboard"]
+            }
+          }
+        },
+        {
+          "name": "Check Duplicate Enquiry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mobile\": \"9876543210\",\n  \"email\": \"rajesh@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/check-duplicate",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "check-duplicate"]
+            }
+          }
+        },
+        {
+          "name": "Get Enquiry Filters",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/filters",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "filters"]
+            }
+          }
+        },
+        {
+          "name": "Get Form Configuration",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/form-config",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "form-config"]
+            }
+          }
+        },
+        {
+          "name": "Export Template",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/export-template",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "export-template"]
+            }
+          }
+        },
+        {
+          "name": "Get Enquiry History",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "history"]
+            }
+          }
+        },
+        {
+          "name": "Export Enquiries",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/export",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "export"]
+            }
+          }
+        },
+        {
+          "name": "Start Call",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enquiry_id\": \"ENQUIRY_ID_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/calls/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "calls", "start"]
+            }
+          }
+        },
+        {
+          "name": "End Call",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"enquiry_id\": \"ENQUIRY_ID_HERE\",\n  \"call_status\": \"Call Successful\",\n  \"notes\": \"Customer is interested\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/calls/end",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", "calls", "end"]
+            }
+          }
+        },
+        {
+          "name": "Get Enquiry Calls",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/:id/calls",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", ":id", "calls"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ENQUIRY_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Enquiry",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/enquiries/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["enquiries", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ENQUIRY_ID_HERE"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile Management",
+      "item": [
+        {
+          "name": "Project Profiles",
+          "item": [
+            {
+              "name": "Get All Project Profiles",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/project",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "project"]
+                }
+              }
+            },
+            {
+              "name": "Create Project Profile",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Residential Solar Installation Project\",\n  \"customer\": \"CUSTOMER_ID_HERE\",\n  \"project_type\": \"Residential\",\n  \"capacity_kw\": 10,\n  \"budget\": 500000,\n  \"start_date\": \"2024-02-01\",\n  \"estimated_completion_date\": \"2024-04-01\",\n  \"status\": \"Planning\",\n  \"description\": \"Residential solar installation project\",\n  \"location\": {\n    \"address\": \"123 Green Street, Sector 15, Andheri West\",\n    \"city\": \"Mumbai\",\n    \"state\": \"Maharashtra\",\n    \"pincode\": \"400058\"\n  }\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/project",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "project"]
+                }
+              }
+            },
+            {
+              "name": "Get Project Profile by ID",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/project/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "project", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "PROJECT_ID_HERE"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Project Profile",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"status\": \"In Progress\",\n  \"actual_cost\": 480000\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/project/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "project", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "PROJECT_ID_HERE"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Add Project Milestone",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Site Survey Completed\",\n  \"description\": \"Initial site survey and assessment completed\",\n  \"due_date\": \"2024-02-15\",\n  \"status\": \"Completed\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/project/:id/milestones",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "project", ":id", "milestones"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "PROJECT_ID_HERE"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Assign Project",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"project_manager\": \"USER_ID_HERE\",\n  \"assigned_team\": \"TEAM_ID_HERE\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/project/:id/assign",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "project", ":id", "assign"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "PROJECT_ID_HERE"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Get Projects by Status",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/project/status/:status",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "project", "status", ":status"],
+                  "variable": [
+                    {
+                      "key": "status",
+                      "value": "In Progress"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Product Profiles",
+          "item": [
+            {
+              "name": "Get All Product Profiles",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/product",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "product"]
+                }
+              }
+            },
+            {
+              "name": "Create Product Profile",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"product_name\": \"Solar Panel 320W\",\n  \"product_code\": \"SP320W\",\n  \"category\": \"Solar Panels\",\n  \"brand\": \"SolarTech\",\n  \"specifications\": {\n    \"power\": \"320W\",\n    \"efficiency\": \"19.5%\",\n    \"warranty\": \"25 years\"\n  },\n  \"price\": 15000,\n  \"stock_quantity\": 100,\n  \"description\": \"High efficiency monocrystalline solar panel\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/product",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "product"]
+                }
+              }
+            },
+            {
+              "name": "Get Product Profile by ID",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/product/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "product", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "PRODUCT_ID_HERE"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Update Product Profile",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"price\": 14500,\n  \"stock_quantity\": 95\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/product/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "product", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "PRODUCT_ID_HERE"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "AMC Profiles",
+          "item": [
+            {
+              "name": "Get All AMC Profiles",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/amc",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "amc"]
+                }
+              }
+            },
+            {
+              "name": "Create AMC Profile",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_id\": \"CUSTOMER_ID_HERE\",\n  \"amc_type\": \"Annual Maintenance\",\n  \"start_date\": \"2024-01-01\",\n  \"end_date\": \"2024-12-31\",\n  \"amount\": 25000,\n  \"service_frequency\": \"Quarterly\",\n  \"description\": \"Annual maintenance contract for solar installation\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/amc",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "amc"]
+                }
+              }
+            },
+            {
+              "name": "Get AMC Profile by ID",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/amc/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "amc", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "AMC_ID_HERE"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Add Service Record",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"service_date\": \"2024-01-15\",\n  \"service_type\": \"Routine Maintenance\",\n  \"technician_id\": \"USER_ID_HERE\",\n  \"work_done\": \"Cleaned panels, checked connections\",\n  \"next_service_date\": \"2024-04-15\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/amc/:id/service-records",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "amc", ":id", "service-records"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "AMC_ID_HERE"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Complaint Profiles",
+          "item": [
+            {
+              "name": "Get All Complaint Profiles",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/complaint",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "complaint"]
+                }
+              }
+            },
+            {
+              "name": "Create Complaint Profile",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_id\": \"CUSTOMER_ID_HERE\",\n  \"complaint_type\": \"Technical Issue\",\n  \"severity\": \"High\",\n  \"subject\": \"Solar panel not generating power\",\n  \"description\": \"Customer reports that solar panels stopped generating power after recent storm\",\n  \"priority\": \"High\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/complaint",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "complaint"]
+                }
+              }
+            },
+            {
+              "name": "Get Complaint Profile by ID",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/complaint/:id",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "complaint", ":id"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "COMPLAINT_ID_HERE"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "name": "Assign Complaint",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"assigned_to\": \"USER_ID_HERE\",\n  \"assigned_team\": \"TEAM_ID_HERE\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/complaint/:id/assign",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "complaint", ":id", "assign"],
+                  "variable": [
+                    {
+                      "key": "id",
+                      "value": "COMPLAINT_ID_HERE"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Job Profiles",
+          "item": [
+            {
+              "name": "Get All Job Profiles",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/job",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "job"]
+                }
+              }
+            },
+            {
+              "name": "Create Job Profile",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"job_title\": \"Solar Installation Technician\",\n  \"department\": \"Technical\",\n  \"location\": \"Delhi\",\n  \"employment_type\": \"Full-time\",\n  \"experience_required\": \"2-3 years\",\n  \"salary_range\": \"25000-35000\",\n  \"description\": \"Looking for experienced solar installation technician\",\n  \"requirements\": [\"ITI/Diploma in Electrical\", \"2+ years experience\", \"Good communication skills\"]\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/job",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "job"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Info Profiles",
+          "item": [
+            {
+              "name": "Get All Info Profiles",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/info",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "info"]
+                }
+              }
+            },
+            {
+              "name": "Create Info Profile",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_id\": \"CUSTOMER_ID_HERE\",\n  \"request_type\": \"Product Information\",\n  \"subject\": \"Solar panel specifications\",\n  \"description\": \"Customer wants detailed specifications of available solar panels\",\n  \"priority\": \"MEDIUM\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/info",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "info"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Site Visit Schedules",
+          "item": [
+            {
+              "name": "Get All Site Visit Schedules",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/site-visit",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "site-visit"]
+                }
+              }
+            },
+            {
+              "name": "Create Site Visit Schedule",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"customer_id\": \"CUSTOMER_ID_HERE\",\n  \"visit_date\": \"2024-02-15\",\n  \"visit_time\": \"10:00\",\n  \"purpose\": \"Site Survey\",\n  \"address\": \"123 Main Street, Delhi\",\n  \"assigned_engineer\": \"USER_ID_HERE\",\n  \"estimated_duration\": 120\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/profiles/site-visit",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["profiles", "site-visit"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Customer Management",
+      "item": [
+        {
+          "name": "Get All Customers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"]
+            }
+          }
+        },
+        {
+          "name": "Create Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_type\": \"Individual\",\n  \"full_name\": \"Rajesh Kumar\",\n  \"contact_details\": {\n    \"primary_contact_name\": \"Rajesh Kumar\",\n    \"email\": \"rajesh@example.com\",\n    \"phone\": \"9876543210\",\n    \"alternate_phone\": \"9876543211\",\n    \"whatsapp\": \"9876543210\"\n  },\n  \"address\": {\n    \"billing\": {\n      \"address_line1\": \"123 Main Street\",\n      \"address_line2\": \"Near City Center\",\n      \"city\": \"Delhi\",\n      \"state\": \"Delhi\",\n      \"country\": \"India\",\n      \"pincode\": \"110001\"\n    },\n    \"shipping\": {\n      \"is_same_as_billing\": true\n    }\n  },\n  \"tax_information\": {\n    \"gst_number\": \"07AABCU9603R1ZX\",\n    \"pan_number\": \"AABCU9603R\"\n  },\n  \"financial_details\": {\n    \"credit_limit\": 100000,\n    \"payment_terms\": \"30 days\"\n  },\n  \"status\": \"Active\",\n  \"grade\": \"A\",\n  \"source\": \"Website\",\n  \"created_by\": \"USER_ID_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"]
+            }
+          }
+        },
+        {
+          "name": "Get Customer by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/customers/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "CUSTOMER_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Company Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_type\": \"Company\",\n  \"company_name\": \"Solar Tech Solutions Pvt Ltd\",\n  \"contact_details\": {\n    \"primary_contact_name\": \"Amit Sharma\",\n    \"designation\": \"Purchase Manager\",\n    \"department\": \"Procurement\",\n    \"email\": \"amit@solartech.com\",\n    \"alternate_email\": \"procurement@solartech.com\",\n    \"phone\": \"9876543210\",\n    \"alternate_phone\": \"9876543211\",\n    \"whatsapp\": \"9876543210\"\n  },\n  \"address\": {\n    \"billing\": {\n      \"address_line1\": \"Plot No. 45, Industrial Area\",\n      \"address_line2\": \"Phase-2, Sector 18\",\n      \"city\": \"Gurgaon\",\n      \"state\": \"Haryana\",\n      \"country\": \"India\",\n      \"pincode\": \"122015\"\n    },\n    \"shipping\": {\n      \"is_same_as_billing\": false,\n      \"address_line1\": \"Warehouse 12, Logistics Hub\",\n      \"address_line2\": \"NH-8, Manesar\",\n      \"city\": \"Gurgaon\",\n      \"state\": \"Haryana\",\n      \"country\": \"India\",\n      \"pincode\": \"122050\"\n    }\n  },\n  \"tax_information\": {\n    \"gst_number\": \"06AABCS1234F1ZX\",\n    \"pan_number\": \"AABCS1234F\",\n    \"tax_exemption\": {\n      \"is_exempt\": false\n    }\n  },\n  \"financial_details\": {\n    \"credit_limit\": 500000,\n    \"payment_terms\": \"45 days\",\n    \"bank_name\": \"HDFC Bank\",\n    \"account_number\": \"12345678901234\",\n    \"ifsc_code\": \"HDFC0001234\"\n  },\n  \"status\": \"Active\",\n  \"grade\": \"A\",\n  \"source\": \"Direct\",\n  \"created_by\": \"USER_ID_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"]
+            }
+          }
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"contact_details\": {\n    \"phone\": \"9876543211\",\n    \"alternate_phone\": \"9876543212\"\n  },\n  \"address\": {\n    \"billing\": {\n      \"address_line1\": \"456 New Street\",\n      \"city\": \"Mumbai\",\n      \"state\": \"Maharashtra\",\n      \"pincode\": \"400001\"\n    }\n  },\n  \"status\": \"Active\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "CUSTOMER_ID_HERE"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Team Management",
+      "item": [
+        {
+          "name": "Get All Teams",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/teams",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams"]
+            }
+          }
+        },
+        {
+          "name": "Create Team",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sales Team Delhi\",\n  \"description\": \"Sales team for Delhi region\",\n  \"team_lead\": \"USER_ID_HERE\",\n  \"department\": \"Sales\",\n  \"location\": \"Delhi\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/teams",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams"]
+            }
+          }
+        },
+        {
+          "name": "Get Team by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TEAM_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Team",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Updated team description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TEAM_ID_HERE"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee Management",
+      "item": [
+        {
+          "name": "Get All Employees",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees"]
+            }
+          }
+        },
+        {
+          "name": "Create Employee",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_code\": \"EMP001\",\n  \"first_name\": \"John\",\n  \"last_name\": \"Doe\",\n  \"email\": \"john.doe@company.com\",\n  \"phone\": \"9876543210\",\n  \"department\": \"Sales\",\n  \"designation\": \"Sales Executive\",\n  \"joining_date\": \"2024-01-15\",\n  \"salary\": 30000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/employees",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees"]
+            }
+          }
+        },
+        {
+          "name": "Get Employee by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/employees/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["employees", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "EMPLOYEE_ID_HERE"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Role Management",
+      "item": [
+        {
+          "name": "Get All Roles",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles"]
+            }
+          }
+        },
+        {
+          "name": "Create Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role_name\": \"Sales Executive\",\n  \"description\": \"Handles sales activities and customer interactions\",\n  \"permissions\": [\"enquiry_view\", \"enquiry_create\", \"enquiry_update\", \"call_view\", \"call_create\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles"]
+            }
+          }
+        },
+        {
+          "name": "Get Role by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/roles/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["roles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "ROLE_ID_HERE"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Enquiry Support",
+      "item": [
+        {
+          "name": "Status Types",
+          "item": [
+            {
+              "name": "Get All Status Types",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/status-types",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["status-types"]
+                }
+              }
+            },
+            {
+              "name": "Create Status Type",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Follow-up Required\",\n  \"description\": \"Customer needs follow-up call\",\n  \"color_code\": \"#FFA500\",\n  \"category\": \"lead\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/status-types",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["status-types"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Source Channels",
+          "item": [
+            {
+              "name": "Get All Source Channels",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/source-channels",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["source-channels"]
+                }
+              }
+            },
+            {
+              "name": "Create Source Channel",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"Company Website\",\n  \"source_type\": \"Website\",\n  \"channel_type\": \"Online\",\n  \"description\": \"Leads from company website contact form\",\n  \"is_active\": true\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/source-channels",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["source-channels"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Priority Score Types",
+          "item": [
+            {
+              "name": "Get All Priority Score Types",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/priority-score-types",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["priority-score-types"]
+                }
+              }
+            },
+            {
+              "name": "Create Priority Score Type",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"High Value Customer\",\n  \"description\": \"Customer with high project value\",\n  \"score_range_min\": 80,\n  \"score_range_max\": 100,\n  \"priority_level\": \"HIGH\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/priority-score-types",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["priority-score-types"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Tasks",
+          "item": [
+            {
+              "name": "Get All Tasks",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/tasks",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["tasks"]
+                }
+              }
+            },
+            {
+              "name": "Create Task",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"title\": \"Follow up with customer\",\n  \"description\": \"Call customer to discuss project requirements\",\n  \"enquiry_id\": \"ENQUIRY_ID_HERE\",\n  \"assigned_to\": \"USER_ID_HERE\",\n  \"due_date\": \"2024-02-15\",\n  \"priority\": \"High\",\n  \"task_type\": \"Follow-up Call\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/tasks",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["tasks"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Call Logs",
+          "item": [
+            {
+              "name": "Get All Call Logs",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/call-logs",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["call-logs"]
+                }
+              }
+            },
+            {
+              "name": "Create Call Log",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"enquiry_id\": \"ENQUIRY_ID_HERE\",\n  \"call_type\": \"Outbound\",\n  \"call_status\": \"Call Successful\",\n  \"duration\": 300,\n  \"notes\": \"Customer is interested in 5kW solar installation\",\n  \"next_follow_up\": \"2024-02-20\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/call-logs",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["call-logs"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Communication Logs",
+          "item": [
+            {
+              "name": "Get All Communication Logs",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/communication-logs",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["communication-logs"]
+                }
+              }
+            },
+            {
+              "name": "Create Communication Log",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"enquiry_id\": \"ENQUIRY_ID_HERE\",\n  \"communication_type\": \"Email\",\n  \"direction\": \"Outbound\",\n  \"subject\": \"Solar Installation Quotation\",\n  \"content\": \"Please find attached the quotation for your solar installation project\",\n  \"status\": \"Sent\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/communication-logs",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["communication-logs"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Assignment Logs",
+          "item": [
+            {
+              "name": "Get All Assignment Logs",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/assignment-logs",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["assignment-logs"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Status Logs",
+          "item": [
+            {
+              "name": "Get All Status Logs",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/status-logs",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["status-logs"]
+                }
+              }
+            }
+          ]
+        },
+        {
+          "name": "Audit Logs",
+          "item": [
+            {
+              "name": "Get All Audit Logs",
+              "request": {
+                "method": "GET",
+                "url": {
+                  "raw": "{{baseUrl}}/audit-logs",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["audit-logs"]
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "Get All Notifications",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/notifications",
+              "host": ["{{baseUrl}}"],
+              "path": ["notifications"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "User Activity Logs",
+      "item": [
+        {
+          "name": "Get All User Activity Logs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/user-activity-logs",
+              "host": ["{{baseUrl}}"],
+              "path": ["user-activity-logs"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Site Visit Schedules",
+      "item": [
+        {
+          "name": "Get All Site Visit Schedules",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/site-visit-schedules",
+              "host": ["{{baseUrl}}"],
+              "path": ["site-visit-schedules"]
+            }
+          }
+        },
+        {
+          "name": "Create Site Visit Schedule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Site Survey for Solar Installation\",\n  \"description\": \"Initial site assessment for solar installation project\",\n  \"customer\": \"CUSTOMER_ID_HERE\",\n  \"visit_type\": \"Site Survey\",\n  \"location\": {\n    \"address\": \"123 Main Street, Sector 15\",\n    \"city\": \"Delhi\",\n    \"state\": \"Delhi\",\n    \"pincode\": \"110001\"\n  },\n  \"scheduled_date\": \"2024-02-20\",\n  \"scheduled_time_slot\": {\n    \"start_time\": \"10:00\",\n    \"end_time\": \"12:00\"\n  },\n  \"assigned_technicians\": [\"TECHNICIAN_ID_HERE\"],\n  \"equipment_required\": [\"Measuring tape\", \"Digital camera\", \"Tablet\"]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/site-visit-schedules",
+              "host": ["{{baseUrl}}"],
+              "path": ["site-visit-schedules"]
+            }
+          }
+        },
+        {
+          "name": "Get Site Visit Schedule by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/site-visit-schedules/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["site-visit-schedules", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "SCHEDULE_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Site Visit Schedule",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"visit_date\": \"2024-02-21\",\n  \"visit_time\": \"11:00\",\n  \"status\": \"Confirmed\",\n  \"priority\": \"High\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/site-visit-schedules/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["site-visit-schedules", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "SCHEDULE_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Visit Report",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"visit_report\": {\n    \"site_condition\": \"Good\",\n    \"roof_type\": \"Concrete\",\n    \"shadow_analysis\": \"No shadows\",\n    \"electrical_setup\": \"3-phase connection available\",\n    \"recommendations\": \"Site is suitable for 5kW installation\",\n    \"photos\": [\"photo1.jpg\", \"photo2.jpg\"]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/site-visit-schedules/:id/report",
+              "host": ["{{baseUrl}}"],
+              "path": ["site-visit-schedules", ":id", "report"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "SCHEDULE_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Note to Site Visit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"Customer was very cooperative during the visit\",\n  \"type\": \"General\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/site-visit-schedules/:id/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["site-visit-schedules", ":id", "notes"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "SCHEDULE_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Upcoming Site Visits",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/site-visit-schedules/upcoming/7",
+              "host": ["{{baseUrl}}"],
+              "path": ["site-visit-schedules", "upcoming", "7"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AMC Profiles",
+      "item": [
+        {
+          "name": "Get All AMC Profiles",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/amc-profiles",
+              "host": ["{{baseUrl}}"],
+              "path": ["amc-profiles"]
+            }
+          }
+        },
+        {
+          "name": "Create AMC Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": \"CUSTOMER_ID_HERE\",\n  \"amc_id\": \"AMC-2024-001\",\n  \"contract_type\": \"Comprehensive\",\n  \"start_date\": \"2024-01-01\",\n  \"end_date\": \"2024-12-31\",\n  \"contract_value\": 50000,\n  \"service_frequency\": \"Quarterly\",\n  \"coverage_details\": {\n    \"preventive_maintenance\": true,\n    \"breakdown_support\": true,\n    \"spare_parts\": true,\n    \"performance_monitoring\": true\n  },\n  \"assigned_technician\": \"TECHNICIAN_ID_HERE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/amc-profiles",
+              "host": ["{{baseUrl}}"],
+              "path": ["amc-profiles"]
+            }
+          }
+        },
+        {
+          "name": "Get AMC Profile by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/amc-profiles/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["amc-profiles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "AMC_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update AMC Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Active\",\n  \"contract_value\": 55000,\n  \"service_frequency\": \"Monthly\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/amc-profiles/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["amc-profiles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "AMC_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Service Record",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"service_date\": \"2024-02-15\",\n  \"service_type\": \"Preventive Maintenance\",\n  \"technician\": \"TECHNICIAN_ID_HERE\",\n  \"work_performed\": \"Cleaned panels, checked connections, tested performance\",\n  \"parts_replaced\": [],\n  \"next_service_date\": \"2024-05-15\",\n  \"customer_feedback\": \"Satisfied with service\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/amc-profiles/:id/service-records",
+              "host": ["{{baseUrl}}"],
+              "path": ["amc-profiles", ":id", "service-records"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "AMC_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Expiring AMCs",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/amc-profiles/expiring",
+              "host": ["{{baseUrl}}"],
+              "path": ["amc-profiles", "expiring"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Job Profiles",
+      "item": [
+        {
+          "name": "Get All Job Profiles",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/job-profiles",
+              "host": ["{{baseUrl}}"],
+              "path": ["job-profiles"]
+            }
+          }
+        },
+        {
+          "name": "Create Job Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"job_title\": \"Solar Sales Executive\",\n  \"department\": \"Sales\",\n  \"job_type\": \"Full-time\",\n  \"experience_required\": \"2-5 years\",\n  \"location\": \"Delhi\",\n  \"salary_range\": {\n    \"min\": 300000,\n    \"max\": 500000\n  },\n  \"job_description\": \"Responsible for solar product sales and customer relationship management\",\n  \"requirements\": [\"Bachelor's degree\", \"Sales experience\", \"Good communication skills\"],\n  \"hiring_manager\": \"MANAGER_ID_HERE\",\n  \"status\": \"Open\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/job-profiles",
+              "host": ["{{baseUrl}}"],
+              "path": ["job-profiles"]
+            }
+          }
+        },
+        {
+          "name": "Get Job Profile by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/job-profiles/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["job-profiles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "JOB_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Job Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Closed\",\n  \"salary_range\": {\n    \"min\": 350000,\n    \"max\": 550000\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/job-profiles/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["job-profiles", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "JOB_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Interview Round",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"round_name\": \"Technical Interview\",\n  \"round_type\": \"Technical\",\n  \"interviewer\": \"INTERVIEWER_ID_HERE\",\n  \"scheduled_date\": \"2024-02-20\",\n  \"duration\": 60\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/job-profiles/:id/interview-rounds",
+              "host": ["{{baseUrl}}"],
+              "path": ["job-profiles", ":id", "interview-rounds"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "JOB_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Jobs by Department",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/job-profiles/department/:department",
+              "host": ["{{baseUrl}}"],
+              "path": ["job-profiles", "department", ":department"],
+              "variable": [
+                {
+                  "key": "department",
+                  "value": "Sales"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teams",
+      "item": [
+        {
+          "name": "Get All Teams",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/teams",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams"]
+            }
+          }
+        },
+        {
+          "name": "Create Team",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sales Team Delhi\",\n  \"team_id\": \"TEAM-SALES-DEL-001\",\n  \"department\": \"Sales\",\n  \"team_type\": \"Sales\",\n  \"description\": \"Sales team responsible for Delhi region\",\n  \"team_lead\": \"TEAM_LEAD_ID_HERE\",\n  \"members\": [\"MEMBER_ID_1\", \"MEMBER_ID_2\"],\n  \"target_metrics\": {\n    \"monthly_target\": 1000000,\n    \"quarterly_target\": 3000000\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/teams",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams"]
+            }
+          }
+        },
+        {
+          "name": "Get Team by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TEAM_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Team",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Sales Team Delhi\",\n  \"target_metrics\": {\n    \"monthly_target\": 1200000,\n    \"quarterly_target\": 3600000\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TEAM_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Add Team Member",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"USER_ID_HERE\",\n  \"role\": \"Sales Executive\",\n  \"join_date\": \"2024-02-15\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", ":id", "members"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TEAM_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Team Members",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/teams/:id/members",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", ":id", "members"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TEAM_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Teams by Department",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/teams/department/:department",
+              "host": ["{{baseUrl}}"],
+              "path": ["teams", "department", ":department"],
+              "variable": [
+                {
+                  "key": "department",
+                  "value": "Sales"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer Master",
+      "item": [
+        {
+          "name": "Get All Customers",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"]
+            }
+          }
+        },
+        {
+          "name": "Create Customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": \"CUST-2024-001\",\n  \"full_name\": \"Rajesh Kumar\",\n  \"email\": \"rajesh@example.com\",\n  \"phone\": \"9876543210\",\n  \"company_name\": \"Kumar Enterprises\",\n  \"customer_type\": \"B2C\",\n  \"address\": {\n    \"street\": \"123 Main Street\",\n    \"city\": \"Delhi\",\n    \"state\": \"Delhi\",\n    \"pincode\": \"110001\",\n    \"country\": \"India\"\n  },\n  \"gst_number\": \"07AAACH7409R1ZZ\",\n  \"pan_number\": \"AAACH7409R\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers"]
+            }
+          }
+        },
+        {
+          "name": "Get Customer by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/customers/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "CUSTOMER_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Customer",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543211\",\n  \"email\": \"rajesh.updated@example.com\",\n  \"status\": \"Active\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/customers/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["customers", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "CUSTOMER_ID_HERE"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Automation Rules",
+      "item": [
+        {
+          "name": "Get All Automation Rules",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/automation-rules",
+              "host": ["{{baseUrl}}"],
+              "path": ["automation-rules"]
+            }
+          }
+        },
+        {
+          "name": "Create Automation Rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rule_name\": \"Auto Assign High Priority Leads\",\n  \"rule_type\": \"Assignment\",\n  \"trigger_conditions\": {\n    \"priority\": \"High\",\n    \"source_type\": \"Website\"\n  },\n  \"actions\": {\n    \"assign_to\": \"SALES_HEAD_ID\",\n    \"send_notification\": true\n  },\n  \"is_active\": true,\n  \"description\": \"Automatically assign high priority website leads to sales head\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/automation-rules",
+              "host": ["{{baseUrl}}"],
+              "path": ["automation-rules"]
+            }
+          }
+        },
+        {
+          "name": "Get Automation Rule by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/automation-rules/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["automation-rules", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "RULE_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Automation Rule",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false,\n  \"actions\": {\n    \"assign_to\": \"NEW_SALES_HEAD_ID\",\n    \"send_notification\": true,\n    \"send_email\": true\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/automation-rules/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["automation-rules", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "RULE_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Toggle Rule Status",
+          "request": {
+            "method": "PUT",
+            "url": {
+              "raw": "{{baseUrl}}/automation-rules/:id/toggle-status",
+              "host": ["{{baseUrl}}"],
+              "path": ["automation-rules", ":id", "toggle-status"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "RULE_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Test Automation Rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"test_data\": {\n    \"priority\": \"High\",\n    \"source_type\": \"Website\",\n    \"name\": \"Test Customer\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/automation-rules/:id/test",
+              "host": ["{{baseUrl}}"],
+              "path": ["automation-rules", ":id", "test"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "RULE_ID_HERE"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Source Channels",
+      "item": [
+        {
+          "name": "Get All Source Channels",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/source-channels",
+              "host": ["{{baseUrl}}"],
+              "path": ["source-channels"]
+            }
+          }
+        },
+        {
+          "name": "Create Source Channel",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channel_name\": \"Website Contact Form\",\n  \"source_type\": \"Website\",\n  \"channel_type\": \"Online\",\n  \"description\": \"Leads from website contact form\",\n  \"is_active\": true,\n  \"api_credentials\": {\n    \"api_key\": \"your_api_key\",\n    \"webhook_url\": \"https://yoursite.com/webhook\"\n  },\n  \"field_mapping\": {\n    \"name\": \"full_name\",\n    \"email\": \"email_address\",\n    \"phone\": \"mobile_number\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/source-channels",
+              "host": ["{{baseUrl}}"],
+              "path": ["source-channels"]
+            }
+          }
+        },
+        {
+          "name": "Get Source Channel by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/source-channels/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["source-channels", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "CHANNEL_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Source Channel",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false,\n  \"description\": \"Updated description\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/source-channels/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["source-channels", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "CHANNEL_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Active Source Channels",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/source-channels/active",
+              "host": ["{{baseUrl}}"],
+              "path": ["source-channels", "active"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "Get All Tasks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            }
+          }
+        },
+        {
+          "name": "Create Task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Follow up with customer\",\n  \"description\": \"Call customer to discuss quotation\",\n  \"task_type\": \"Follow-up\",\n  \"priority\": \"High\",\n  \"assigned_to\": \"USER_ID_HERE\",\n  \"due_date\": \"2024-02-20\",\n  \"related_entity\": {\n    \"entity_type\": \"Enquiry\",\n    \"entity_id\": \"ENQUIRY_ID_HERE\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks"]
+            }
+          }
+        },
+        {
+          "name": "Get Task by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TASK_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Task",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Completed\",\n  \"completion_notes\": \"Customer agreed to proceed with installation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/tasks/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "TASK_ID_HERE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get My Tasks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/my-tasks",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "my-tasks"]
+            }
+          }
+        },
+        {
+          "name": "Get Overdue Tasks",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/tasks/overdue",
+              "host": ["{{baseUrl}}"],
+              "path": ["tasks", "overdue"]
+            }
+          }
+        }
+       ]
+     },
+     {
+       "name": "Employees",
+       "item": [
+         {
+           "name": "Get All Employees",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/employees",
+               "host": ["{{baseUrl}}"],
+               "path": ["employees"]
+             }
+           }
+         },
+         {
+           "name": "Create Employee",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"employee_id\": \"EMP-2024-001\",\n  \"full_name\": \"Amit Sharma\",\n  \"email\": \"amit.sharma@company.com\",\n  \"phone\": \"9876543210\",\n  \"department\": \"Sales\",\n  \"designation\": \"Sales Executive\",\n  \"joining_date\": \"2024-01-15\",\n  \"reporting_manager\": \"MANAGER_ID_HERE\",\n  \"salary\": 450000,\n  \"address\": {\n    \"street\": \"123 Employee Street\",\n    \"city\": \"Delhi\",\n    \"state\": \"Delhi\",\n    \"pincode\": \"110001\"\n  },\n  \"emergency_contact\": {\n    \"name\": \"Priya Sharma\",\n    \"relationship\": \"Spouse\",\n    \"phone\": \"9876543211\"\n  }\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/employees",
+               "host": ["{{baseUrl}}"],
+               "path": ["employees"]
+             }
+           }
+         },
+         {
+           "name": "Get Employee by ID",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/employees/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["employees", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "EMPLOYEE_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Update Employee",
+           "request": {
+             "method": "PUT",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"designation\": \"Senior Sales Executive\",\n  \"salary\": 500000,\n  \"status\": \"Active\"\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/employees/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["employees", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "EMPLOYEE_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Get Employees by Department",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/employees/department/:department",
+               "host": ["{{baseUrl}}"],
+               "path": ["employees", "department", ":department"],
+               "variable": [
+                 {
+                   "key": "department",
+                   "value": "Sales"
+                 }
+               ]
+             }
+           }
+         }
+       ]
+     },
+     {
+       "name": "Roles",
+       "item": [
+         {
+           "name": "Get All Roles",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/roles",
+               "host": ["{{baseUrl}}"],
+               "path": ["roles"]
+             }
+           }
+         },
+         {
+           "name": "Create Role",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"role_name\": \"Sales Manager\",\n  \"role_code\": \"SALES_MGR\",\n  \"description\": \"Manages sales team and operations\",\n  \"permissions\": [\n    \"enquiry.read\",\n    \"enquiry.write\",\n    \"enquiry.assign\",\n    \"team.manage\",\n    \"reports.view\"\n  ],\n  \"is_active\": true,\n  \"hierarchy_level\": 3\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/roles",
+               "host": ["{{baseUrl}}"],
+               "path": ["roles"]
+             }
+           }
+         },
+         {
+           "name": "Get Role by ID",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/roles/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["roles", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "ROLE_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Update Role",
+           "request": {
+             "method": "PUT",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"permissions\": [\n    \"enquiry.read\",\n    \"enquiry.write\",\n    \"enquiry.assign\",\n    \"team.manage\",\n    \"reports.view\",\n    \"analytics.view\"\n  ]\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/roles/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["roles", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "ROLE_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Assign Role to User",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"user_id\": \"USER_ID_HERE\",\n  \"effective_date\": \"2024-02-15\"\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/roles/:id/assign",
+               "host": ["{{baseUrl}}"],
+               "path": ["roles", ":id", "assign"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "ROLE_ID_HERE"
+                 }
+               ]
+             }
+           }
+         }
+       ]
+     },
+     {
+       "name": "Status Types",
+       "item": [
+         {
+           "name": "Get All Status Types",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/status-types",
+               "host": ["{{baseUrl}}"],
+               "path": ["status-types"]
+             }
+           }
+         },
+         {
+           "name": "Create Status Type",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"status_name\": \"Qualified Lead\",\n  \"status_code\": \"QUALIFIED\",\n  \"category\": \"Enquiry\",\n  \"description\": \"Lead has been qualified and ready for proposal\",\n  \"color_code\": \"#28a745\",\n  \"is_active\": true,\n  \"sequence_order\": 3,\n  \"is_final_status\": false\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/status-types",
+               "host": ["{{baseUrl}}"],
+               "path": ["status-types"]
+             }
+           }
+         },
+         {
+           "name": "Get Status Type by ID",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/status-types/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["status-types", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "STATUS_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Update Status Type",
+           "request": {
+             "method": "PUT",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"color_code\": \"#007bff\",\n  \"description\": \"Updated description for qualified lead status\"\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/status-types/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["status-types", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "STATUS_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Get Status Types by Category",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/status-types/category/:category",
+               "host": ["{{baseUrl}}"],
+               "path": ["status-types", "category", ":category"],
+               "variable": [
+                 {
+                   "key": "category",
+                   "value": "Enquiry"
+                 }
+               ]
+             }
+           }
+         }
+       ]
+     },
+     {
+       "name": "Priority Score Types",
+       "item": [
+         {
+           "name": "Get All Priority Score Types",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/priority-score-types",
+               "host": ["{{baseUrl}}"],
+               "path": ["priority-score-types"]
+             }
+           }
+         },
+         {
+           "name": "Create Priority Score Type",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"score_name\": \"High Value Customer\",\n  \"score_code\": \"HIGH_VALUE\",\n  \"score_range\": {\n    \"min\": 80,\n    \"max\": 100\n  },\n  \"criteria\": {\n    \"budget_range\": \">500000\",\n    \"decision_timeline\": \"<30 days\",\n    \"authority_level\": \"Decision Maker\"\n  },\n  \"priority_level\": \"High\",\n  \"color_code\": \"#dc3545\",\n  \"is_active\": true\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/priority-score-types",
+               "host": ["{{baseUrl}}"],
+               "path": ["priority-score-types"]
+             }
+           }
+         },
+         {
+           "name": "Get Priority Score Type by ID",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/priority-score-types/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["priority-score-types", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "SCORE_TYPE_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Update Priority Score Type",
+           "request": {
+             "method": "PUT",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"score_range\": {\n    \"min\": 85,\n    \"max\": 100\n  },\n  \"color_code\": \"#ff6b6b\"\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/priority-score-types/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["priority-score-types", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "SCORE_TYPE_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Calculate Priority Score",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"enquiry_data\": {\n    \"budget\": 750000,\n    \"timeline\": \"15 days\",\n    \"authority\": \"Decision Maker\",\n    \"source_quality\": \"High\"\n  }\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/priority-score-types/calculate",
+               "host": ["{{baseUrl}}"],
+               "path": ["priority-score-types", "calculate"]
+             }
+           }
+         }
+       ]
+     },
+     {
+       "name": "Integration Configs",
+       "item": [
+         {
+           "name": "Get All Integration Configs",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/integration-configs",
+               "host": ["{{baseUrl}}"],
+               "path": ["integration-configs"]
+             }
+           }
+         },
+         {
+           "name": "Create Integration Config",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"integration_name\": \"WhatsApp Business API\",\n  \"integration_type\": \"Communication\",\n  \"provider\": \"Meta\",\n  \"config_data\": {\n    \"api_key\": \"your_whatsapp_api_key\",\n    \"phone_number_id\": \"your_phone_number_id\",\n    \"webhook_url\": \"https://yourapp.com/webhook/whatsapp\",\n    \"verify_token\": \"your_verify_token\"\n  },\n  \"is_active\": true,\n  \"description\": \"WhatsApp integration for customer communication\"\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/integration-configs",
+               "host": ["{{baseUrl}}"],
+               "path": ["integration-configs"]
+             }
+           }
+         },
+         {
+           "name": "Get Integration Config by ID",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/integration-configs/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["integration-configs", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "CONFIG_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Update Integration Config",
+           "request": {
+             "method": "PUT",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"is_active\": false,\n  \"config_data\": {\n    \"api_key\": \"updated_api_key\",\n    \"phone_number_id\": \"updated_phone_number_id\"\n  }\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/integration-configs/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["integration-configs", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "CONFIG_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Test Integration",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"test_data\": {\n    \"message\": \"Test message\",\n    \"recipient\": \"919876543210\"\n  }\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/integration-configs/:id/test",
+               "host": ["{{baseUrl}}"],
+               "path": ["integration-configs", ":id", "test"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "CONFIG_ID_HERE"
+                 }
+               ]
+             }
+           }
+         }
+       ]
+     },
+     {
+       "name": "Profile Mappings",
+       "item": [
+         {
+           "name": "Get All Profile Mappings",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/profile-mappings",
+               "host": ["{{baseUrl}}"],
+               "path": ["profile-mappings"]
+             }
+           }
+         },
+         {
+           "name": "Create Profile Mapping",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"source_profile_id\": \"PROJECT_PROFILE_ID\",\n  \"source_profile_type\": \"Project\",\n  \"target_profile_id\": \"PRODUCT_PROFILE_ID\",\n  \"target_profile_type\": \"Product\",\n  \"mapping_type\": \"Project-Product\",\n  \"relationship\": \"Uses\",\n  \"quantity\": 10,\n  \"unit_price\": 25000,\n  \"total_value\": 250000,\n  \"is_active\": true\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/profile-mappings",
+               "host": ["{{baseUrl}}"],
+               "path": ["profile-mappings"]
+             }
+           }
+         },
+         {
+           "name": "Get Profile Mapping by ID",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/profile-mappings/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["profile-mappings", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "MAPPING_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Update Profile Mapping",
+           "request": {
+             "method": "PUT",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"quantity\": 15,\n  \"unit_price\": 24000,\n  \"total_value\": 360000\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/profile-mappings/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["profile-mappings", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "MAPPING_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Get Mappings by Profile",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/profile-mappings/profile/:profileId/:profileType",
+               "host": ["{{baseUrl}}"],
+               "path": ["profile-mappings", "profile", ":profileId", ":profileType"],
+               "variable": [
+                 {
+                   "key": "profileId",
+                   "value": "PROFILE_ID_HERE"
+                 },
+                 {
+                   "key": "profileType",
+                   "value": "Project"
+                 }
+               ]
+             }
+           }
+         }
+       ]
+     },
+     {
+       "name": "Profile to Profile Links",
+       "item": [
+         {
+           "name": "Get All Profile Links",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/profile-to-profile-links",
+               "host": ["{{baseUrl}}"],
+               "path": ["profile-to-profile-links"]
+             }
+           }
+         },
+         {
+           "name": "Create Profile Link",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"source_profile_type\": \"project\",\n  \"source_profile_id\": \"PROJECT_ID_HERE\",\n  \"source_profile_type_ref\": \"ProjectProfile\",\n  \"target_profile_type\": \"amc\",\n  \"target_profile_id\": \"AMC_ID_HERE\",\n  \"target_profile_type_ref\": \"AmcProfile\",\n  \"relationship_type\": \"related\"\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/profile-to-profile-links",
+               "host": ["{{baseUrl}}"],
+               "path": ["profile-to-profile-links"]
+             }
+           }
+         },
+         {
+           "name": "Get Profile Link by ID",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/profile-to-profile-links/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["profile-to-profile-links", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "LINK_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Update Profile Link",
+           "request": {
+             "method": "PUT",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"relationship_type\": \"follow-up\"\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/profile-to-profile-links/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["profile-to-profile-links", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "LINK_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Get Links by Profile",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/profile-to-profile-links/profile/:profileId/:profileType",
+               "host": ["{{baseUrl}}"],
+               "path": ["profile-to-profile-links", "profile", ":profileId", ":profileType"],
+               "variable": [
+                 {
+                   "key": "profileId",
+                   "value": "PROFILE_ID_HERE"
+                 },
+                 {
+                   "key": "profileType",
+                   "value": "Project"
+                 }
+               ]
+             }
+           }
+         }
+       ]
+     },
+     {
+       "name": "Automation Triggers",
+       "item": [
+         {
+           "name": "Get All Automation Triggers",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/automation-triggers",
+               "host": ["{{baseUrl}}"],
+               "path": ["automation-triggers"]
+             }
+           }
+         },
+         {
+           "name": "Create Automation Trigger",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"trigger_name\": \"New High Priority Enquiry\",\n  \"trigger_type\": \"Event\",\n  \"event_type\": \"enquiry.created\",\n  \"conditions\": {\n    \"priority\": \"High\",\n    \"source_type\": [\"Website\", \"Referral\"]\n  },\n  \"actions\": [\n    {\n      \"action_type\": \"notification\",\n      \"target\": \"sales_manager\",\n      \"message_template\": \"New high priority enquiry received from {{source_type}}\"\n    },\n    {\n      \"action_type\": \"assignment\",\n      \"assign_to\": \"SENIOR_SALES_EXEC_ID\"\n    }\n  ],\n  \"is_active\": true\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/automation-triggers",
+               "host": ["{{baseUrl}}"],
+               "path": ["automation-triggers"]
+             }
+           }
+         },
+         {
+           "name": "Get Automation Trigger by ID",
+           "request": {
+             "method": "GET",
+             "url": {
+               "raw": "{{baseUrl}}/automation-triggers/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["automation-triggers", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "TRIGGER_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Update Automation Trigger",
+           "request": {
+             "method": "PUT",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"is_active\": false,\n  \"conditions\": {\n    \"priority\": [\"High\", \"Critical\"],\n    \"source_type\": [\"Website\", \"Referral\", \"Direct\"]\n  }\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/automation-triggers/:id",
+               "host": ["{{baseUrl}}"],
+               "path": ["automation-triggers", ":id"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "TRIGGER_ID_HERE"
+                 }
+               ]
+             }
+           }
+         },
+         {
+           "name": "Test Automation Trigger",
+           "request": {
+             "method": "POST",
+             "header": [
+               {
+                 "key": "Content-Type",
+                 "value": "application/json"
+               }
+             ],
+             "body": {
+               "mode": "raw",
+               "raw": "{\n  \"test_event\": {\n    \"event_type\": \"enquiry.created\",\n    \"data\": {\n      \"priority\": \"High\",\n      \"source_type\": \"Website\",\n      \"name\": \"Test Customer\"\n    }\n  }\n}"
+             },
+             "url": {
+               "raw": "{{baseUrl}}/automation-triggers/:id/test",
+               "host": ["{{baseUrl}}"],
+               "path": ["automation-triggers", ":id", "test"],
+               "variable": [
+                 {
+                   "key": "id",
+                   "value": "TRIGGER_ID_HERE"
+                 }
+               ]
+             }
+           }
+         }
+       ]
+     }
+  ]
+}
