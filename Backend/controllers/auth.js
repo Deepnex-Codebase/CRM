@@ -251,6 +251,7 @@ exports.login = asyncHandler(async (req, res, next) => {
       email: email || user.email,
       ip_address: deviceLocationInfo.ip_address,
       device_info: JSON.stringify(deviceLocationInfo.device_info),
+      location: deviceLocationInfo.location,
       status: 'failed',
       reason: 'Invalid password'
     });
@@ -270,6 +271,7 @@ exports.login = asyncHandler(async (req, res, next) => {
     email: email || user.email,
     ip_address: deviceLocationInfo.ip_address,
     device_info: JSON.stringify(deviceLocationInfo.device_info),
+    location: deviceLocationInfo.location,
     status: 'success'
   });
 
@@ -1080,6 +1082,23 @@ exports.getActiveSessions = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get session by ID (Admin only)
+// @route   GET /api/auth/sessions/:id
+// @access  Private/Admin
+exports.getSessionById = asyncHandler(async (req, res, next) => {
+  const session = await Session.findById(req.params.id)
+    .populate('user_id', 'first_name last_name email role');
+
+  if (!session) {
+    return next(new ErrorResponse(`Session not found with id of ${req.params.id}`, 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: session
+  });
+});
+
 // @desc    Revoke session (Admin only)
 // @route   PUT /api/auth/sessions/:id/revoke
 // @access  Private/Admin
@@ -1123,6 +1142,8 @@ const sendTokenResponse = async (user, statusCode, res, req = null) => {
       isp: null
     }
   };
+  
+  // Store location data properly in the session
 
   // Check for existing active sessions for this user
   const existingSessions = await Session.find({ 
