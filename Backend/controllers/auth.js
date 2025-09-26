@@ -53,10 +53,24 @@ exports.register = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('User with this email or phone already exists', 400));
   }
 
-  // Find the role (case-insensitive)
-  const role = await Role.findOne({ 
-    role_name: { $regex: new RegExp(`^${role_name}$`, 'i') } 
-  });
+  // Find the role by role_id, role_name, or MongoDB _id
+  let role;
+  
+  // First try to find by role_id
+  role = await Role.findOne({ role_id: role_name });
+  
+  // If not found, try to find by role_name (case-insensitive)
+  if (!role) {
+    role = await Role.findOne({ 
+      role_name: { $regex: new RegExp(`^${role_name}$`, 'i') } 
+    });
+  }
+  
+  // If still not found, try to find by MongoDB _id
+  if (!role && role_name.match(/^[0-9a-fA-F]{24}$/)) {
+    role = await Role.findById(role_name);
+  }
+  
   if (!role) {
     console.log(`Role lookup failed for: "${role_name}"`);
     const availableRoles = await Role.find({}, 'role_name');
@@ -772,9 +786,24 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
 
   // Handle role change if specified
   if (role_name) {
-    const role = await Role.findOne({ role_name });
+    // Check if the provided value is a role_id or role_name
+    let role;
+    
+    // First try to find by role_id
+    role = await Role.findOne({ role_id: role_name });
+    
+    // If not found, try to find by role_name
     if (!role) {
-      return next(new ErrorResponse('Invalid role specified', 400));
+      role = await Role.findOne({ role_name });
+    }
+    
+    // If still not found, try to find by MongoDB _id
+    if (!role && role_name.match(/^[0-9a-fA-F]{24}$/)) {
+      role = await Role.findById(role_name);
+    }
+    
+    if (!role) {
+      return next(new ErrorResponse(`Invalid role specified: "${role_name}"`, 400));
     }
 
     // Check if role is actually changing

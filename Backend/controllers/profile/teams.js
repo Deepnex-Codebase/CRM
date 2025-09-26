@@ -265,7 +265,7 @@ exports.deleteTeam = asyncHandler(async (req, res, next) => {
   // Store the team data for activity log
   const deletedTeam = { ...team.toObject() };
 
-  await team.remove();
+  await team.deleteOne();
 
   // Log the activity
   await UserActivityLog.create({
@@ -533,7 +533,7 @@ exports.removeTeamMember = asyncHandler(async (req, res, next) => {
   // Store the mapping data for activity log
   const deletedMapping = { ...teamUserMap.toObject() };
 
-  await teamUserMap.remove();
+  await teamUserMap.deleteOne();
 
   // Log the activity
   await UserActivityLog.create({
