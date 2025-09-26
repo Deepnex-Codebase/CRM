@@ -37,20 +37,38 @@ function validatePasswordPolicy(password, policy = {}) {
 // @route   POST /api/auth/register
 // @access  Private/Admin
 exports.register = asyncHandler(async (req, res, next) => {
-  const { first_name, last_name, email, phone, role_name, password } = req.body;
+  const { first_name, last_name, email, phone, role_name, password, team_id, department } = req.body;
+  let { username } = req.body;
 
   // Validate required fields
   if (!first_name || !last_name || !email || !role_name) {
     return next(new ErrorResponse('Please provide first name, last name, email, and role', 400));
   }
+   
+  // Generate username if not provided
+  if (!username) {
+    username = `${first_name}${last_name}`.toLowerCase().replace(/\s+/g, '');
+  }
 
   // Check if user already exists
+  const existingUserQuery = [{ email }];
+  
+  // Only check phone if it's provided
+  if (phone) {
+    existingUserQuery.push({ phone });
+  }
+  
+  // Only check username if it's provided
+  if (username) {
+    existingUserQuery.push({ username });
+  }
+  
   const existingUser = await User.findOne({ 
-    $or: [{ email }, { phone: phone || null }] 
+    $or: existingUserQuery
   });
 
   if (existingUser) {
-    return next(new ErrorResponse('User with this email or phone already exists', 400));
+    return next(new ErrorResponse('User with this email, phone, or username already exists', 400));
   }
 
   // Find the role by role_id, role_name, or MongoDB _id
@@ -89,6 +107,9 @@ exports.register = asyncHandler(async (req, res, next) => {
     last_name,
     email,
     phone,
+    username,
+    team_id,
+    department,
     role_id: role._id,
     is_active: false, // User needs email verification
     created_by: req.user._id
