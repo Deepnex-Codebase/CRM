@@ -219,7 +219,7 @@ const UserDetails = ({ user, isOpen, onClose, onEdit }) => {
                       Login Count
                     </label>
                     <p className="text-sm text-gray-900 dark:text-white">
-                      {user.login_count || user.loginCount || 0} times
+                      {user.loginCount || 0} times
                     </p>
                   </div>
                   <div>

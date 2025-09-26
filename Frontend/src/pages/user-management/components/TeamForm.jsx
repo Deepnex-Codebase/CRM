@@ -167,14 +167,37 @@ const TeamForm = ({ team, isOpen, onClose, onSubmit, title }) => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    // Special handling for team_lead_id to also populate team_lead field
+    // Special handling for team_lead_id to also populate team_lead field and contact details
     if (name === 'team_lead_id') {
       const selectedLead = teamLeads.find(lead => lead.id.toString() === value.toString());
-      setFormData(prev => ({
-        ...prev,
-        [name]: value,
-        team_lead: selectedLead ? selectedLead.name : ''
-      }));
+      
+      if (selectedLead) {
+        // Auto-populate contact details from the selected team lead
+        userService.getUser(selectedLead.id)
+          .then(response => {
+            if (response.success) {
+              const userData = response.data;
+              setFormData(prev => ({
+                ...prev,
+                [name]: value,
+                team_lead: selectedLead.name,
+                contact_email: userData.email || prev.contact_email,
+                contact_phone: userData.phone || prev.contact_phone
+              }));
+            } else {
+              console.error('Failed to fetch user details:', response.message);
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching user details:', error);
+          });
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          [name]: value,
+          team_lead: ''
+        }));
+      }
     } else {
       setFormData(prev => ({
         ...prev,

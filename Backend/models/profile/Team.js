@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const TeamUserMap = require('./TeamUserMap');
 
 const TeamSchema = new mongoose.Schema({
   team_id: {
@@ -109,6 +110,17 @@ const TeamSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   }
+}, {
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
+});
+
+// Virtual field for member count
+TeamSchema.virtual('member_count', {
+  ref: 'TeamUserMap',
+  localField: '_id',
+  foreignField: 'team_id',
+  count: true
 });
 
 // Pre-save hook to generate sequential team_id
