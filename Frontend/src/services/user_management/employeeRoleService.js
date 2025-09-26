@@ -246,7 +246,7 @@ class EmployeeRoleService {
 
     return this.withRetry(async () => {
       try {
-        const response = await api.get('/profile/employees', { params });
+        const response = await api.get('/employees', { params });
         
         // Validate response structure
         const validation = this.validateResponseData(response.data);
@@ -275,7 +275,7 @@ class EmployeeRoleService {
   async getEmployee(employeeId) {
     return this.withRetry(async () => {
       try {
-        const response = await api.get(`/profile/employees/${employeeId}`);
+        const response = await api.get(`/employees/${employeeId}`);
         return {
           success: true,
           data: this.transformEmployeeData(response.data.data)
@@ -303,7 +303,7 @@ class EmployeeRoleService {
     return this.withRetry(async () => {
       try {
         const transformedData = this.transformEmployeeDataForBackend(employeeData);
-        const response = await api.put(`/profile/employees/${employeeId}`, transformedData);
+        const response = await api.put(`/employees/${employeeId}`, transformedData);
         
         // Validate response
         const responseValidation = this.validateResponseData(response.data);
@@ -332,7 +332,7 @@ class EmployeeRoleService {
   async getRoles() {
     return this.withRetry(async () => {
       try {
-        const response = await api.get('/profile/roles');
+        const response = await api.get('/roles');
         return {
           success: true,
           data: response.data.data.map(role => this.transformRoleData(role)),
@@ -353,7 +353,7 @@ class EmployeeRoleService {
   async getRole(roleId) {
     return this.withRetry(async () => {
       try {
-        const response = await api.get(`/profile/roles/${roleId}`);
+        const response = await api.get(`/roles/${roleId}`);
         return {
           success: true,
           data: this.transformRoleData(response.data.data)
@@ -372,7 +372,7 @@ class EmployeeRoleService {
   async getAvailablePermissions() {
     return this.withRetry(async () => {
       try {
-        const response = await api.get('/profile/roles/permissions');
+        const response = await api.get('/roles/permissions');
         return {
           success: true,
           data: response.data.data
@@ -399,7 +399,7 @@ class EmployeeRoleService {
 
     return this.withRetry(async () => {
       try {
-        const response = await api.get('/profile/teams', { params });
+        const response = await api.get('/teams', { params });
         return {
           success: true,
           data: response.data.data.map(team => this.transformTeamData(team)),
@@ -420,7 +420,7 @@ class EmployeeRoleService {
   async getTeamsByDepartment(department) {
     return this.withRetry(async () => {
       try {
-        const response = await api.get(`/profile/teams/department/${department}`);
+        const response = await api.get(`/teams/department/${department}`);
         return {
           success: true,
           data: response.data.data.map(team => this.transformTeamData(team))

@@ -219,7 +219,7 @@ const UserDetails = ({ user, isOpen, onClose, onEdit }) => {
                       Login Count
                     </label>
                     <p className="text-sm text-gray-900 dark:text-white">
-                      {user.loginCount || 0} times
+                      {user.login_count || user.loginCount || 0} times
                     </p>
                   </div>
                   <div>
@@ -227,7 +227,7 @@ const UserDetails = ({ user, isOpen, onClose, onEdit }) => {
                       Last Updated
                     </label>
                     <p className="text-sm text-gray-900 dark:text-white">
-                      {formatDateTime(user.updated_at) || 'Never'}
+                      {user.updated_at ? formatDateTime(user.updated_at) : 'Never'}
                     </p>
                   </div>
                 </div>

@@ -146,6 +146,42 @@ const TeamsManagement = () => {
     setShowTeamModal(true);
   };
 
+  // Handle CSV export
+  const handleExportCSV = () => {
+    // Create CSV content
+    const headers = ['Team Name', 'Department', 'Team Lead', 'Territory', 'Members', 'Status', 'Created Date'];
+    
+    const csvRows = [
+      headers.join(','), // Header row
+      ...teams.map(team => [
+        `"${team.team_name || ''}"`,
+        `"${team.department || ''}"`,
+        `"${team.team_lead || ''}"`,
+        `"${team.territory || ''}"`,
+        team.member_count || 0,
+        `"${team.status || 'Inactive'}"`,
+        `"${new Date().toLocaleDateString() || ''}"`,
+      ].join(','))
+    ];
+    
+    const csvContent = csvRows.join('\n');
+    
+    // Create a blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    // Set up download attributes
+    link.setAttribute('href', url);
+    link.setAttribute('download', `teams-export-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    // Append to document, trigger download, and clean up
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleEditTeam = (team) => {
     setEditingTeam(team);
     setShowTeamModal(true);
@@ -283,7 +319,10 @@ const TeamsManagement = () => {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
-          <button className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+          <button 
+            onClick={handleExportCSV}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
             <Download className="h-4 w-4 mr-2" />
             Export
           </button>

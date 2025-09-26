@@ -29,7 +29,7 @@ class TeamService {
       const response = await api.get('/teams', { params });
       return {
         success: true,
-        data: response.data.teams || [],
+        data: response.data.teams || response.data.data || [],
         pagination: response.data.pagination || {},
         message: 'Teams retrieved successfully'
       };
@@ -217,7 +217,7 @@ class TeamService {
         };
       }
 
-      await api.delete(`/teams/${teamId}/members/${memberId}`);
+      await api.delete(`/teams/members/${memberId}`);
       return {
         success: true,
         message: 'Member removed successfully'
@@ -256,7 +256,7 @@ class TeamService {
         };
       }
 
-      const response = await api.put(`/teams/${teamId}/members/${memberId}`, roleData);
+      const response = await api.put(`/teams/members/${memberId}`, roleData);
       return {
         success: true,
         data: response.data,
@@ -330,7 +330,7 @@ class TeamService {
    */
   async getTeamsByDepartment(department, params = {}) {
     try {
-      const response = await api.get(`/profile/teams/department/${department}`, { params });
+      const response = await api.get(`/teams/department/${department}`, { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching teams by department:', error);
@@ -346,7 +346,7 @@ class TeamService {
    */
   async getTeamsByType(type, params = {}) {
     try {
-      const response = await api.get(`/profile/teams/type/${type}`, { params });
+      const response = await api.get(`/teams/type/${type}`, { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching teams by type:', error);
@@ -362,7 +362,7 @@ class TeamService {
    */
   async getUserTeams(userId, params = {}) {
     try {
-      const response = await api.get(`/profile/teams/user/${userId}`, { params });
+      const response = await api.get(`/teams/user/${userId}`, { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching user teams:', error);
@@ -380,7 +380,7 @@ class TeamService {
    */
   async assignTeamToProfile(assignmentData) {
     try {
-      const response = await api.post('/profile/teams/assign', assignmentData);
+      const response = await api.post('/teams/assign', assignmentData);
       return response.data;
     } catch (error) {
       console.error('Error assigning team to profile:', error);
@@ -396,7 +396,7 @@ class TeamService {
    */
   async getTeamAssignments(teamId, params = {}) {
     try {
-      const response = await api.get(`/profile/teams/${teamId}/assignments`, { params });
+      const response = await api.get(`/teams/${teamId}/assignments`, { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching team assignments:', error);
@@ -412,7 +412,7 @@ class TeamService {
    */
   async unassignTeamFromProfile(profileType, profileId) {
     try {
-      const response = await api.delete(`/profile/teams/assign/${profileType}/${profileId}`);
+      const response = await api.delete(`/teams/assign/${profileType}/${profileId}`);
       return response.data;
     } catch (error) {
       console.error('Error unassigning team from profile:', error);
@@ -429,7 +429,7 @@ class TeamService {
     if (!backendTeam) return null;
 
     return {
-      team_id: backendTeam.team_id || backendTeam._id,
+      team_id: backendTeam._id || backendTeam.id, // Use MongoDB _id or id as the primary identifier
       team_name: backendTeam.name,
       department: backendTeam.department,
       description: backendTeam.description || '',
@@ -440,9 +440,15 @@ class TeamService {
       created_by: backendTeam.created_by,
       // Additional computed fields for frontend compatibility
       member_count: backendTeam.member_count || 0,
-      team_lead: backendTeam.team_lead || 'Not Assigned',
-      team_lead_id: backendTeam.team_lead_id || null,
+      team_lead: typeof backendTeam.team_lead === 'object' ? backendTeam.team_lead.name : backendTeam.team_lead || 'Not Assigned',
+      team_lead_id: typeof backendTeam.team_lead === 'object' ? backendTeam.team_lead._id : backendTeam.team_lead_id || null,
       territory: backendTeam.territory || 'Not Specified',
+      // New fields from Team model
+      target_goals: backendTeam.target_goals || '',
+      budget: backendTeam.budget || 0,
+      location: backendTeam.location || '',
+      contact_email: backendTeam.contact_email || '',
+      contact_phone: backendTeam.contact_phone || '',
       members: backendTeam.members || []
     };
   }
@@ -455,16 +461,30 @@ class TeamService {
   transformTeamDataForBackend(frontendTeam) {
     if (!frontendTeam) return null;
 
-    return {
+    // Include _id field if it exists in the frontend data
+    const result = {
       name: frontendTeam.team_name || frontendTeam.name,
       description: frontendTeam.description || '',
       department: frontendTeam.department,
       team_type: frontendTeam.team_type || 'other',
       is_active: frontendTeam.status === 'Active' || frontendTeam.is_active !== false,
-      team_lead: frontendTeam.team_lead || frontendTeam.team_lead_name,
-      team_lead_id: frontendTeam.team_lead_id,
-      territory: frontendTeam.territory
+      // Use team_lead_id instead of name to prevent "Resource not found" errors
+      team_lead: frontendTeam.team_lead_id,
+      territory: frontendTeam.territory,
+      // New fields from Team model
+      target_goals: frontendTeam.target_goals || '',
+      budget: frontendTeam.budget ? Number(frontendTeam.budget) : 0,
+      location: frontendTeam.location || '',
+      contact_email: frontendTeam.contact_email || '',
+      contact_phone: frontendTeam.contact_phone || ''
     };
+    
+    // If we have the team_id, include it as _id for backend operations
+    if (frontendTeam.team_id) {
+      result._id = frontendTeam.team_id;
+    }
+    
+    return result;
   }
 
   /**
@@ -616,6 +636,47 @@ class TeamService {
       errors.push('Territory must be a string');
     } else if (teamData.territory && teamData.territory.length > 100) {
       errors.push('Territory must be less than 100 characters');
+    }
+    
+    // Target goals validation
+    if (teamData.target_goals && typeof teamData.target_goals !== 'string') {
+      errors.push('Target goals must be a string');
+    } else if (teamData.target_goals && teamData.target_goals.length > 500) {
+      errors.push('Target goals must be less than 500 characters');
+    }
+    
+    // Budget validation
+    if (teamData.budget && typeof teamData.budget !== 'number') {
+      errors.push('Budget must be a number');
+    } else if (teamData.budget && teamData.budget < 0) {
+      errors.push('Budget cannot be negative');
+    }
+    
+    // Location validation
+    if (teamData.location && typeof teamData.location !== 'string') {
+      errors.push('Location must be a string');
+    } else if (teamData.location && teamData.location.length > 100) {
+      errors.push('Location must be less than 100 characters');
+    }
+    
+    // Contact email validation
+    if (teamData.contact_email && typeof teamData.contact_email !== 'string') {
+      errors.push('Contact email must be a string');
+    } else if (teamData.contact_email) {
+      const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+      if (!emailRegex.test(teamData.contact_email)) {
+        errors.push('Please provide a valid email address');
+      }
+    }
+    
+    // Contact phone validation
+    if (teamData.contact_phone && typeof teamData.contact_phone !== 'string') {
+      errors.push('Contact phone must be a string');
+    } else if (teamData.contact_phone) {
+      const phoneRegex = /^\+?[1-9]\d{9,14}$/;
+      if (!phoneRegex.test(teamData.contact_phone)) {
+        errors.push('Please provide a valid phone number');
+      }
     }
     
     return {

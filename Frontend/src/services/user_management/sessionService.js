@@ -138,7 +138,7 @@ class SessionService {
    * Extract device type from user agent string
    */
   extractDeviceType(userAgent) {
-    if (!userAgent) return 'Unknown';
+    if (!userAgent || typeof userAgent !== 'string') return 'Unknown';
     
     const ua = userAgent.toLowerCase();
     if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
@@ -154,7 +154,7 @@ class SessionService {
    * Extract browser from user agent string
    */
   extractBrowser(userAgent) {
-    if (!userAgent) return 'Unknown';
+    if (!userAgent || typeof userAgent !== 'string') return 'Unknown';
     
     const ua = userAgent.toLowerCase();
     if (ua.includes('chrome')) return 'Chrome';

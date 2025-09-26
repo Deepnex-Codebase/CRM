@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Eye, EyeOff, User, Mail, Phone, Shield, Users, Building, AlertCircle } from 'lucide-react';
 import roleService from '../../../services/user_management/roleService';
+import teamService from '../../../services/user_management/teamService';
 
 const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
   const [formData, setFormData] = useState({
@@ -9,7 +10,7 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
     phone: '',
     password: '',
     confirmPassword: '',
-    role: 'Staff',
+    role: '',
     team: '',
     status: 'Active',
     firstName: '',
@@ -24,7 +25,9 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
   const [roles, setRoles] = useState([]);
   const [rolesLoading, setRolesLoading] = useState(true);
   const [rolesError, setRolesError] = useState(null);
-  const teams = ['Management', 'Sales', 'Support', 'Marketing', 'Development', 'HR'];
+  const [teams, setTeams] = useState([]);
+  const [teamsLoading, setTeamsLoading] = useState(true);
+  const [teamsError, setTeamsError] = useState(null);
   const departments = ['IT', 'Sales', 'Marketing', 'HR', 'Finance', 'Operations'];
 
   // Load roles from API
@@ -52,9 +55,38 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
       setRolesLoading(false);
     }
   };
+  
+  // Load teams from API
+  const loadTeams = async () => {
+    try {
+      setTeamsLoading(true);
+      setTeamsError(null);
+      const response = await teamService.getTeams();
+      if (response.success && response.data) {
+        setTeams(response.data);
+      } else {
+        throw new Error('Failed to fetch teams');
+      }
+    } catch (error) {
+      console.error('Error loading teams:', error);
+      setTeamsError(error.message || 'Failed to load teams');
+      // Fallback to default teams if API fails
+      setTeams([
+        { team_id: 'management', team_name: 'Management' },
+        { team_id: 'sales', team_name: 'Sales' },
+        { team_id: 'support', team_name: 'Support' },
+        { team_id: 'marketing', team_name: 'Marketing' },
+        { team_id: 'development', team_name: 'Development' },
+        { team_id: 'hr', team_name: 'HR' }
+      ]);
+    } finally {
+      setTeamsLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadRoles();
+    loadTeams();
   }, []);
 
   useEffect(() => {
@@ -65,8 +97,8 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
         phone: user.phone || '',
         password: '',
         confirmPassword: '',
-        role: user.role_id || user.role || '',
-        team: user.team || '',
+        role: user.role_name || user.role || '',
+        team: user.team_id || user.team || '',
         status: user.status || 'Active',
         firstName: user.firstName || '',
         lastName: user.lastName || '',
@@ -463,19 +495,39 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Team *
                 </label>
-                <select
-                  name="team"
-                  value={formData.team}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                    errors.team ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                >
-                  <option value="">Select Team</option>
-                  {teams.map(team => (
-                    <option key={team} value={team}>{team}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    name="team"
+                    value={formData.team}
+                    onChange={handleChange}
+                    disabled={teamsLoading}
+                    className={`w-full px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                      teamsLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    } ${
+                      errors.team ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                  >
+                    <option value="">
+                      {teamsLoading ? 'Loading teams...' : 'Select Team'}
+                    </option>
+                    {teams.map(team => (
+                      <option key={team.team_id || team._id} value={team.team_id || team._id}>
+                        {team.team_name || team.name}
+                      </option>
+                    ))}
+                  </select>
+                  {teamsLoading && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                    </div>
+                  )}
+                </div>
+                {teamsError && (
+                  <div className="mt-1 flex items-center text-sm text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    <span>Using fallback teams due to: {teamsError}</span>
+                  </div>
+                )}
                 {errors.team && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.team}</p>
                 )}

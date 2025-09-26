@@ -175,7 +175,7 @@ class UserService {
    */
   async getRoles() {
     try {
-      const response = await api.get('/profile/roles');
+      const response = await api.get('/api/roles');
       return response.data;
     } catch (error) {
       console.error('Error fetching roles:', error);
@@ -208,6 +208,7 @@ class UserService {
       },
       created_at: backendUser.created_at ? new Date(backendUser.created_at).toISOString().split('T')[0] : null,
       last_login: backendUser.last_login ? new Date(backendUser.last_login).toLocaleString() : 'Never',
+      updated_at: backendUser.updated_at ? new Date(backendUser.updated_at).toISOString() : null,
       firstName: backendUser.first_name,
       lastName: backendUser.last_name,
       department: backendUser.department || 'Not specified',
@@ -229,12 +230,27 @@ class UserService {
    * @returns {Object} Transformed user data for backend
    */
   transformUserDataForBackend(frontendUser) {
+    // Extract role name from frontendUser data with improved handling
+    let roleName = null;
+    
+    // Check all possible role formats in priority order
+    if (frontendUser.role_assignment && frontendUser.role_assignment.role_name) {
+      roleName = frontendUser.role_assignment.role_name;
+    } else if (frontendUser.role && typeof frontendUser.role === 'object' && frontendUser.role.role_name) {
+      roleName = frontendUser.role.role_name;
+    } else if (frontendUser.role && typeof frontendUser.role === 'string') {
+      roleName = frontendUser.role;
+    } else if (frontendUser.role_id && typeof frontendUser.role_id === 'object' && frontendUser.role_id.role_name) {
+      roleName = frontendUser.role_id.role_name;
+    }
+
+    
     return {
       first_name: frontendUser.firstName || frontendUser.first_name,
       last_name: frontendUser.lastName || frontendUser.last_name,
       email: frontendUser.email,
       phone: frontendUser.phone,
-      role_name: frontendUser.role,
+      role_name: roleName,
       password: frontendUser.password,
       department: frontendUser.department,
       team: frontendUser.team
@@ -251,13 +267,39 @@ class UserService {
       // Server responded with error status
       const message = error.response.data?.message || error.response.data?.error || 'An error occurred';
       const status = error.response.status;
-      return new Error(`${message} (Status: ${status})`);
+      const errorObj = new Error(`${message} (Status: ${status})`);
+      
+      // Add additional context for specific error codes
+      if (status === 400) {
+        errorObj.userMessage = 'Invalid request data. Please check your input and try again.';
+      } else if (status === 401) {
+        errorObj.userMessage = 'Authentication required. Please log in again.';
+      } else if (status === 403) {
+        errorObj.userMessage = 'You do not have permission to perform this action.';
+      } else if (status === 404) {
+        errorObj.userMessage = 'The requested resource was not found.';
+      } else if (status === 409) {
+        errorObj.userMessage = 'This operation caused a conflict. The resource may already exist.';
+      } else if (status >= 500) {
+        errorObj.userMessage = 'A server error occurred. Please try again later or contact support.';
+      } else {
+        errorObj.userMessage = 'An error occurred while processing your request.';
+      }
+      
+      // Add response data for debugging
+      errorObj.responseData = error.response.data;
+      return errorObj;
     } else if (error.request) {
       // Request was made but no response received
-      return new Error('Network error: Unable to connect to server');
+      const errorObj = new Error('Network error: Unable to connect to server');
+      errorObj.userMessage = 'Connection to server failed. Please check your internet connection and try again.';
+      errorObj.isNetworkError = true;
+      return errorObj;
     } else {
       // Something else happened
-      return new Error(error.message || 'An unexpected error occurred');
+      const errorObj = new Error(error.message || 'An unexpected error occurred');
+      errorObj.userMessage = 'Something went wrong. Please try again or contact support.';
+      return errorObj;
     }
   }
 }
