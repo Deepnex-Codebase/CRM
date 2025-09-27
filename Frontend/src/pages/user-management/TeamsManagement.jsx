@@ -161,7 +161,9 @@ const TeamsManagement = () => {
   const filteredTeams = teams.filter(team => {
     const matchesSearch = team.team_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          team.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         team.team_lead.toLowerCase().includes(searchTerm.toLowerCase());
+                         (team.team_lead && typeof team.team_lead === 'string' 
+                           ? team.team_lead.toLowerCase().includes(searchTerm.toLowerCase())
+                           : team.team_lead?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
     const matchesDepartment = filterDepartment === 'all' || team.department === filterDepartment;
     return matchesSearch && matchesDepartment;
   });

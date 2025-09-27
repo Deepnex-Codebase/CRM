@@ -825,7 +825,7 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
     const mongoose = require('mongoose');
     // If team_id is a valid MongoDB ObjectId, use it directly
     if (mongoose.Types.ObjectId.isValid(team_id) && team_id.match(/^[0-9a-fA-F]{24}$/)) {
-      otherFields.team_id = mongoose.Types.ObjectId(team_id);
+      otherFields.team_id = new mongoose.Types.ObjectId(team_id);
     } else {
       // If team_id is provided as a display ID (like TEM-20250926-0001), find the actual ObjectId
       const Team = require('../models/profile/Team');
@@ -1023,6 +1023,10 @@ exports.getLoginAttempts = asyncHandler(async (req, res, next) => {
 
   // Build query filters
   let query = {};
+
+  if (req.query.userId) {
+  query.user_id = req.query.userId;
+}
   
   if (req.query.status) {
     query.status = req.query.status;
