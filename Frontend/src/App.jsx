@@ -12,8 +12,6 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 
 // Main Pages
 import Dashboard from './pages/Dashboard';
-import Enquiries from './pages/Enquiries';
-import Customers from './pages/Customers';
 
 // User Management Pages
 import UserManagement from './pages/user-management/UserManagement';
@@ -47,9 +45,7 @@ function App() {
                 {/* Dashboard */}
                 <Route index element={<Dashboard />} />
                 
-                {/* CRM Routes */}
-                <Route path="enquiries" element={<Enquiries />} />
-                <Route path="customers" element={<Customers />} />
+                
                 
                 {/* User Management Routes */}
               <Route path="/user-management/users" element={<UserManagement />} />

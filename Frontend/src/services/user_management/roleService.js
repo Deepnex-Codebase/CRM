@@ -104,6 +104,50 @@ class RoleService {
   }
 
   /**
+   * Get all available permissions from backend
+   * @returns {Promise} API response with available permissions
+   */
+  async getAvailablePermissions() {
+    try {
+      const response = await api.get('/roles/permissions');
+      return {
+        success: true,
+        data: response.data.data,
+        count: response.data.count
+      };
+    } catch (error) {
+      console.error('Error fetching available permissions:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
+   * Update role permissions
+   * @param {string} roleId - Role ID
+   * @param {Object} permissions - Permissions object with module-based structure
+   * @returns {Promise} API response with updated role data
+   */
+  async updateRolePermissions(roleId, permissions) {
+    try {
+      // Convert permissions object to array format expected by backend
+      const permissionsArray = this.transformPermissionsToArray(permissions);
+      
+      const response = await api.put(`/roles/${roleId}`, {
+        permissions: permissionsArray
+      });
+      
+      return {
+        success: true,
+        data: this.transformRoleData(response.data.data),
+        message: response.data.message || 'Permissions updated successfully'
+      };
+    } catch (error) {
+      console.error('Error updating role permissions:', error);
+      throw this.handleError(error);
+    }
+  }
+
+  /**
    * Transform backend role data to frontend format
    * @param {Object} backendRole - Role data from backend
    * @returns {Object} Transformed role data for frontend

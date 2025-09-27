@@ -1,29 +1,39 @@
+// React and Router imports
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
+
+// Icon imports
 import { 
-  Home, 
+  // Navigation icons
+  LayoutDashboard,
+  MessageSquare,
   Users, 
   Building2, 
   FileText, 
   BarChart3, 
   Settings,
+  Phone,
+  Mail,
+  Calendar,
+  ClipboardList,
+  
+  // User management icons
   Shield,
+  UserCheck,
+  UserPlus,
   Monitor,
+  Smartphone,
+  Key,
+  Activity,
+  Lock,
+  
+  // UI control icons
   ChevronRight,
   ChevronLeft,
   ChevronDown,
   ChevronUp,
   Menu,
-  X,
-  LayoutDashboard,
-  UserCheck,
-  Activity,
-  Smartphone,
-  Key,
-  Lock,
-  AlertTriangle,
-  UserPlus,
-  Clock
+  X
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
@@ -46,6 +56,8 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
     { name: 'Analytics', href: '/analytics', icon: BarChart3, current: location.pathname === '/analytics' },
     { name: 'Settings', href: '/settings', icon: Settings, current: location.pathname === '/settings' },
   ];
+  
+  // User management related state and items
 
   const userManagementItems = [
     { name: 'Users', href: '/user-management/users', icon: Users, current: location.pathname === '/user-management/users' },
@@ -169,6 +181,8 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
               );
             })}
 
+            {/* User Management section starts below */}
+            
             {/* User Management Dropdown */}
             <div className="space-y-1">
               {isCollapsed ? (

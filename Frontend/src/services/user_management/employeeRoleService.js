@@ -37,7 +37,7 @@ class EmployeeRoleService {
 
     // Check if user has admin role or specific permissions
     const adminRoles = ['admin', 'super_admin', 'hr_admin'];
-    if (adminRoles.includes(user.role?.toLowerCase())) {
+    if (adminRoles.includes(user.role?.role_name?.toLowerCase())) {
       return true;
     }
 
@@ -246,7 +246,7 @@ class EmployeeRoleService {
 
     return this.withRetry(async () => {
       try {
-        const response = await api.get('/profile/employees', { params });
+        const response = await api.get('/employees', { params });
         
         // Validate response structure
         const validation = this.validateResponseData(response.data);
@@ -275,7 +275,7 @@ class EmployeeRoleService {
   async getEmployee(employeeId) {
     return this.withRetry(async () => {
       try {
-        const response = await api.get(`/profile/employees/${employeeId}`);
+        const response = await api.get(`/employees/${employeeId}`);
         return {
           success: true,
           data: this.transformEmployeeData(response.data.data)
@@ -303,7 +303,7 @@ class EmployeeRoleService {
     return this.withRetry(async () => {
       try {
         const transformedData = this.transformEmployeeDataForBackend(employeeData);
-        const response = await api.put(`/profile/employees/${employeeId}`, transformedData);
+        const response = await api.put(`/employees/${employeeId}`, transformedData);
         
         // Validate response
         const responseValidation = this.validateResponseData(response.data);
@@ -972,12 +972,12 @@ class EmployeeRoleService {
     
     // Admin can assign any role
     const adminRoles = ['admin', 'super_admin', 'hr_admin'];
-    if (adminRoles.includes(currentUser.role?.toLowerCase())) {
+    if (adminRoles.includes(currentUser.role?.role_name?.toLowerCase())) {
       return true;
     }
     
     // Users can only assign roles at their level or below
-    const currentUserLevel = this.getRoleLevel(currentUser.role);
+    const currentUserLevel = this.getRoleLevel(currentUser.role?.role_name);
     const roleLevel = this.getRoleLevel(role.role_name);
     
     return currentUserLevel <= roleLevel;

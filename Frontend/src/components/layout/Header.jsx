@@ -1,5 +1,30 @@
+// React imports
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, Search, Bell, User, Sun, Moon, LogOut, Settings, ChevronDown, X } from 'lucide-react';
+
+// Icon imports
+import { 
+  // Navigation icons
+  Menu, 
+  Search, 
+  
+  // Notification icons
+  Bell, 
+  
+  // User menu icons
+  User, 
+  Settings,
+  LogOut,
+  ChevronDown,
+  
+  // Theme icons
+  Sun, 
+  Moon,
+  
+  // UI control icons
+  X 
+} from 'lucide-react';
+
+// Context imports
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 

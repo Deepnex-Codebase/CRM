@@ -951,7 +951,7 @@ exports.getLoginAttempts = asyncHandler(async (req, res, next) => {
 
   const total = await LoginAttempt.countDocuments(query);
   const loginAttempts = await LoginAttempt.find(query)
-    .populate('user_id', 'name email role')
+    .populate('user_id', 'first_name last_name email role')
     .sort({ timestamp: -1 })
     .limit(limit)
     .skip(startIndex);
@@ -992,7 +992,7 @@ exports.getActiveSessions = asyncHandler(async (req, res, next) => {
 
   const total = await Session.countDocuments({ is_active: true });
   const sessions = await Session.find({ is_active: true })
-    .populate('user_id', 'name email role')
+    .populate('user_id', 'first_name last_name email role')
     .sort({ issued_at: -1 })
     .limit(limit)
     .skip(startIndex);

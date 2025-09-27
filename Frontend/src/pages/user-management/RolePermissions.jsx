@@ -19,9 +19,12 @@ import {
 import RoleForm from './components/RoleForm';
 import RoleDetails from './components/RoleDetails';
 import roleService from '../../services/user_management/roleService';
+import { toast } from 'react-hot-toast';
 
 const RolePermissions = () => {
   const [roles, setRoles] = useState([]);
+  const [modules, setModules] = useState([]);
+  const [availablePermissions, setAvailablePermissions] = useState([]);
   const [selectedRole, setSelectedRole] = useState(null);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showPermissionModal, setShowPermissionModal] = useState(false);
@@ -31,38 +34,142 @@ const RolePermissions = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Load roles on component mount
+  // Load roles and permissions on component mount
   useEffect(() => {
-    loadRoles();
+    loadInitialData();
   }, []);
 
   /**
-   * Load all roles from the backend
+   * Load initial data (roles and permissions) from the backend
    */
-  const loadRoles = async () => {
+  const loadInitialData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await roleService.getRoles();
-      setRoles(response.data);
+      
+      // Load roles and permissions in parallel
+      const [rolesResponse, permissionsResponse] = await Promise.all([
+        roleService.getRoles(),
+        roleService.getAvailablePermissions()
+      ]);
+      
+      setRoles(rolesResponse.data);
+      setAvailablePermissions(permissionsResponse.data);
+      
+      // Extract unique modules from permissions
+      const moduleMap = new Map();
+      permissionsResponse.data.forEach(permission => {
+        const parts = permission.split('_');
+        if (parts.length >= 2) {
+          const moduleKey = parts[0];
+          const moduleName = moduleKey.charAt(0).toUpperCase() + moduleKey.slice(1);
+          
+          if (!moduleMap.has(moduleKey)) {
+            moduleMap.set(moduleKey, {
+              key: moduleKey,
+              name: getModuleDisplayName(moduleKey),
+              icon: getModuleIcon(moduleKey),
+              description: getModuleDescription(moduleKey)
+            });
+          }
+        }
+      });
+      
+      setModules(Array.from(moduleMap.values()));
     } catch (error) {
-      console.error('Error loading roles:', error);
-      setError(error.message || 'Failed to load roles');
+      console.error('Error loading initial data:', error);
+      setError(error.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
   };
 
-  // Module definitions
-  const modules = [
-    { key: 'dashboard', name: 'Dashboard', icon: BarChart3, description: 'Main dashboard and overview' },
-    { key: 'users', name: 'User Management', icon: Users, description: 'Manage system users and roles' },
-    { key: 'leads', name: 'Leads', icon: Users, description: 'Lead management and tracking' },
-    { key: 'companies', name: 'Companies', icon: Building2, description: 'Company and client management' },
-    { key: 'reports', name: 'Reports', icon: FileText, description: 'Generate and view reports' },
-    { key: 'analytics', name: 'Analytics', icon: BarChart3, description: 'Data analytics and insights' },
-    { key: 'settings', name: 'Settings', icon: Settings, description: 'System configuration' }
-  ];
+  /**
+   * Get display name for module
+   */
+  const getModuleDisplayName = (moduleKey) => {
+    const displayNames = {
+      dashboard: 'Dashboard',
+      user: 'User Management',
+      users: 'User Management',
+      enquiry: 'Enquiry Management',
+      enquiries: 'Enquiry Management',
+      lead: 'Lead Management',
+      leads: 'Lead Management',
+      company: 'Company Management',
+      companies: 'Company Management',
+      report: 'Reports',
+      reports: 'Reports',
+      analytics: 'Analytics',
+      setting: 'Settings',
+      settings: 'Settings',
+      profile: 'Profile Management',
+      profiles: 'Profile Management',
+      call: 'Call Management',
+      calls: 'Call Management',
+      role: 'Role Management',
+      roles: 'Role Management'
+    };
+    return displayNames[moduleKey] || moduleKey.charAt(0).toUpperCase() + moduleKey.slice(1);
+  };
+
+  /**
+   * Get icon for module
+   */
+  const getModuleIcon = (moduleKey) => {
+    const iconMap = {
+      dashboard: BarChart3,
+      user: Users,
+      users: Users,
+      enquiry: FileText,
+      enquiries: FileText,
+      lead: Users,
+      leads: Users,
+      company: Building2,
+      companies: Building2,
+      report: FileText,
+      reports: FileText,
+      analytics: BarChart3,
+      setting: Settings,
+      settings: Settings,
+      profile: Users,
+      profiles: Users,
+      call: FileText,
+      calls: FileText,
+      role: Shield,
+      roles: Shield
+    };
+    return iconMap[moduleKey] || Settings;
+  };
+
+  /**
+   * Get description for module
+   */
+  const getModuleDescription = (moduleKey) => {
+    const descriptions = {
+      dashboard: 'Main dashboard and overview',
+      user: 'Manage system users and roles',
+      users: 'Manage system users and roles',
+      enquiry: 'Enquiry management and tracking',
+      enquiries: 'Enquiry management and tracking',
+      lead: 'Lead management and tracking',
+      leads: 'Lead management and tracking',
+      company: 'Company and client management',
+      companies: 'Company and client management',
+      report: 'Generate and view reports',
+      reports: 'Generate and view reports',
+      analytics: 'Data analytics and insights',
+      setting: 'System configuration',
+      settings: 'System configuration',
+      profile: 'Profile management',
+      profiles: 'Profile management',
+      call: 'Call logs and management',
+      calls: 'Call logs and management',
+      role: 'Role and permission management',
+      roles: 'Role and permission management'
+    };
+    return descriptions[moduleKey] || `${moduleKey.charAt(0).toUpperCase() + moduleKey.slice(1)} management`;
+  };
 
   const filteredRoles = roles.filter(role =>
     role.role_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -166,66 +273,141 @@ const RolePermissions = () => {
     }
   };
 
-  const PermissionMatrix = ({ role }) => (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-        <thead className="bg-gray-50 dark:bg-gray-900">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Module
-            </th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Read
-            </th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Write
-            </th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Delete
-            </th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-              Approve
-            </th>
-          </tr>
-        </thead>
-        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-          {modules.map((module) => {
-            const permissions = role.permissions[module.key] || {};
-            const Icon = module.icon;
-            return (
-              <tr key={module.key} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <Icon className="h-5 w-5 text-gray-400 mr-3" />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">
-                        {module.name}
-                      </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {module.description}
+  const PermissionMatrix = ({ role, isEditable = false, onPermissionChange }) => {
+    // Get available permission types for each module
+    const getModulePermissions = (moduleKey) => {
+      const modulePermissions = availablePermissions.filter(permission => 
+        permission.startsWith(`${moduleKey}_`)
+      );
+      
+      const permissions = {
+        view: modulePermissions.some(p => p.includes('_view')),
+        create: modulePermissions.some(p => p.includes('_create')),
+        update: modulePermissions.some(p => p.includes('_update')),
+        delete: modulePermissions.some(p => p.includes('_delete')),
+        manage: modulePermissions.some(p => p.includes('_manage')),
+        generate: modulePermissions.some(p => p.includes('_generate'))
+      };
+      
+      return permissions;
+    };
+
+    // Check if role has specific permission
+    const hasPermission = (moduleKey, permissionType) => {
+      return role.permissions && 
+             role.permissions[moduleKey] && 
+             role.permissions[moduleKey][permissionType] === true;
+    };
+
+    // Handle permission toggle
+    const handlePermissionToggle = (moduleKey, permissionType) => {
+      if (!isEditable || !onPermissionChange) return;
+      
+      const currentPermissions = role.permissions || {};
+      const newPermissions = { ...currentPermissions };
+      
+      // Initialize module if it doesn't exist
+      if (!newPermissions[moduleKey]) {
+        newPermissions[moduleKey] = {};
+      }
+      
+      // Toggle the specific permission
+      newPermissions[moduleKey][permissionType] = !hasPermission(moduleKey, permissionType);
+      
+      onPermissionChange(newPermissions);
+    };
+
+    return (
+      <div className="overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-900">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Module
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                View
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Create
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Update
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Delete
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Manage
+              </th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Generate
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            {modules.map((module) => {
+              const modulePermissions = getModulePermissions(module.key);
+              const Icon = module.icon;
+              
+              return (
+                <tr key={module.key} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <Icon className="h-5 w-5 text-gray-400 mr-3" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
+                          {module.name}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {module.description}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center">
-                  {getPermissionIcon(permissions.read)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center">
-                  {getPermissionIcon(permissions.write)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center">
-                  {getPermissionIcon(permissions.delete)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-center">
-                  {getPermissionIcon(permissions.approve)}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
+                  </td>
+                  {['view', 'create', 'update', 'delete', 'manage', 'generate'].map(permissionType => {
+                    const isAvailable = modulePermissions[permissionType];
+                    const hasCurrentPermission = hasPermission(module.key, permissionType);
+                    
+                    if (!isAvailable) {
+                      return (
+                        <td key={permissionType} className="px-6 py-4 whitespace-nowrap text-center">
+                          <span className="text-gray-300 dark:text-gray-600">-</span>
+                        </td>
+                      );
+                    }
+                    
+                    return (
+                      <td key={permissionType} className="px-6 py-4 whitespace-nowrap text-center">
+                        {isEditable ? (
+                          <button
+                            onClick={() => handlePermissionToggle(module.key, permissionType)}
+                            className="focus:outline-none"
+                          >
+                            {hasCurrentPermission ? (
+                              <Check className="h-4 w-4 text-green-600 hover:text-green-700" />
+                            ) : (
+                              <X className="h-4 w-4 text-red-600 hover:text-red-700" />
+                            )}
+                          </button>
+                        ) : (
+                          hasCurrentPermission ? (
+                            <Check className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <X className="h-4 w-4 text-red-600" />
+                          )
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -410,17 +592,20 @@ const RolePermissions = () => {
                   Key Permissions
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {Object.entries(role.permissions).slice(0, 4).map(([module, perms]) => {
-                    const hasAnyPermission = Object.values(perms).some(p => p);
-                    if (hasAnyPermission) {
+                  {role.permissions && typeof role.permissions === 'object' && Object.keys(role.permissions).slice(0, 4).map((moduleKey) => {
+                    const moduleName = modules.find(m => m.key === moduleKey)?.name || moduleKey;
+                    const modulePermissions = role.permissions[moduleKey];
+                    const activePermissions = Object.keys(modulePermissions).filter(action => modulePermissions[action]);
+                    
+                    if (activePermissions.length > 0) {
                       return (
-                        <span key={module} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900/20 dark:text-primary-400">
-                          {modules.find(m => m.key === module)?.name || module}
+                        <span key={moduleKey} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800 dark:bg-primary-900/20 dark:text-primary-400">
+                          {moduleName} ({activePermissions.length})
                         </span>
                       );
                     }
                     return null;
-                  })}
+                  }).filter(Boolean)}
                 </div>
               </div>
 
