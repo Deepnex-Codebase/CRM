@@ -46,10 +46,10 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
       setRolesError(error.message || 'Failed to load roles');
       // Fallback to default roles if API fails
       setRoles([
-        { role_id: 'admin', role_name: 'Admin' },
-        { role_id: 'manager', role_name: 'Manager' },
-        { role_id: 'staff', role_name: 'Staff' },
-        { role_id: 'viewer', role_name: 'Viewer' }
+        { _id: 'admin', role_id: 'admin', role_name: 'Admin' },
+        { _id: 'manager', role_id: 'manager', role_name: 'Manager' },
+        { _id: 'staff', role_id: 'staff', role_name: 'Staff' },
+        { _id: 'viewer', role_id: 'viewer', role_name: 'Viewer' }
       ]);
     } finally {
       setRolesLoading(false);
@@ -91,20 +91,38 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
 
   useEffect(() => {
     if (user) {
+      // Determine the correct role value with multiple fallbacks
+      let roleValue = '';
+      
+      // Handle different role data structures
+      if (user.role_id && user.role_id._id) {
+        // If role_id is an object with _id property
+        roleValue = user.role_id._id;
+      } else if (user.role_assignment && user.role_assignment._id) {
+        // If role_assignment is available
+        roleValue = user.role_assignment._id;
+      } else if (typeof user.role_id === 'string') {
+        // If role_id is a string
+        roleValue = user.role_id;
+      } else if (typeof user.role === 'string') {
+        // Try to find matching role by name
+        const matchingRole = roles.find(r => r.role_name === user.role);
+        roleValue = matchingRole ? matchingRole.role_id || matchingRole._id : '';
+      }
+      
       setFormData({
         username: user.username || '',
         email: user.email || '',
         phone: user.phone || '',
         password: '',
         confirmPassword: '',
-        role: user.role_name || user.role || '',
+        role: roleValue,
         team: user.team_id?._id || user.team_id || '',
         status: user.status || 'Active',
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
+        firstName: user.firstName || user.first_name || '',
+        lastName: user.lastName || user.last_name || '',
         department: user.department || ''
       });
-      console.log('User data loaded:', user);
     } else {
       setFormData({
         username: '',
@@ -470,7 +488,7 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
                       {rolesLoading ? 'Loading roles...' : 'Select Role'}
                     </option>
                     {roles.map(role => (
-                      <option key={role.role_id || role._id} value={role.role_id || role._id}>
+                      <option key={role._id || role.role_id} value={role._id || role.role_id}>
                         {role.role_name}
                       </option>
                     ))}

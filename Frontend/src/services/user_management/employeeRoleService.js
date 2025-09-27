@@ -37,7 +37,9 @@ class EmployeeRoleService {
 
     // Check if user has admin role or specific permissions
     const adminRoles = ['admin', 'super_admin', 'hr_admin'];
-    if (adminRoles.includes(user.role?.toLowerCase())) {
+    // Handle role as either string or object with role_name property
+    const userRole = typeof user.role === 'string' ? user.role : user.role?.role_name;
+    if (userRole && adminRoles.includes(userRole.toLowerCase())) {
       return true;
     }
 
@@ -748,17 +750,22 @@ class EmployeeRoleService {
    * @returns {Object} Transformed team data
    */
   transformTeamData(backendTeam) {
-    if (!backendTeam) return null;
-
+    // Import teamService to use its transformation method
+    const teamService = require('./teamService').default;
+    
+    // Get the full team data from teamService
+    const fullTeamData = teamService.transformTeamData(backendTeam);
+    
+    // Return only the fields needed for employee role service
     return {
-      id: backendTeam._id,
-      name: backendTeam.team_name,
-      description: backendTeam.description || '',
-      department: backendTeam.department || 'General',
-      employee_count: backendTeam.member_count || 0,
+      id: fullTeamData.team_id,
+      name: fullTeamData.team_name,
+      description: fullTeamData.description,
+      department: fullTeamData.department || 'General',
+      employee_count: fullTeamData.member_count,
       manager: backendTeam.team_lead?.name || 'Not Assigned',
-      created_at: backendTeam.created_at,
-      updated_at: backendTeam.updated_at
+      created_at: fullTeamData.created_at,
+      updated_at: fullTeamData.updated_at
     };
   }
 
@@ -972,12 +979,14 @@ class EmployeeRoleService {
     
     // Admin can assign any role
     const adminRoles = ['admin', 'super_admin', 'hr_admin'];
-    if (adminRoles.includes(currentUser.role?.toLowerCase())) {
+    // Handle role as either string or object with role_name property
+    const userRole = typeof currentUser.role === 'string' ? currentUser.role : currentUser.role?.role_name;
+    if (userRole && adminRoles.includes(userRole.toLowerCase())) {
       return true;
     }
     
     // Users can only assign roles at their level or below
-    const currentUserLevel = this.getRoleLevel(currentUser.role);
+    const currentUserLevel = this.getRoleLevel(userRole);
     const roleLevel = this.getRoleLevel(role.role_name);
     
     return currentUserLevel <= roleLevel;

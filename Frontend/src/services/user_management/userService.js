@@ -33,10 +33,17 @@ class UserService {
    */
   async getUser(userId) {
     try {
-      const response = await api.get(`/auth/users/${userId}`);
+      const response = await api.get(`/auth/users/${userId}`);     
+      const loginCount = await this.getLoginCount(userId);
+      
+      if (response.data && response.data.data) {
+        response.data.data.login_count = loginCount;
+      } else if (response.data) {
+        response.data.login_count = loginCount;
+      }
+      
       return response.data;
     } catch (error) {
-      console.error('Error fetching user:', error);
       throw this.handleError(error);
     }
   }
@@ -186,18 +193,48 @@ class UserService {
   /**
    * Get login attempts for a specific user
    * @param {string} userId - User ID to fetch login attempts for
+   * @param {Object} params - Additional query parameters
    * @returns {Promise} API response with login attempt data
    */
-  async getLoginAttempts(userId) {
+  async getLoginAttempts(userId, params = {}) {
     try {
-      const response = await api.get(`/login-attempts?userId=${userId}`);
-      return response.data; // Should contain login count and timestamps
-    } catch (error) {
-      console.error("Error fetching login attempts:", error);
-      return { 
-        count: 0,
-        last_login: null
+      const queryParams = { 
+        ...params,
+        userId,
+        status: 'success'
       };
+      
+      const response = await api.get('/auth/login-attempts', { params: queryParams });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+  
+  /**
+   * Get login count for a specific user
+   * @param {string} userId - User ID to fetch login count for
+   * @returns {Promise<number>} Number of successful login attempts
+   */
+  async getLoginCount(userId) {
+    if (!userId) {
+      return 0;
+    }
+    
+    try {
+      const loginData = await this.getLoginAttempts(userId, { limit: 100 });
+      
+      if (loginData && typeof loginData.total === 'number') {
+        return loginData.total;
+      } else if (loginData && loginData.data && Array.isArray(loginData.data)) {
+        return loginData.data.length;
+      } else if (Array.isArray(loginData)) {
+        return loginData.length;
+      }
+      
+      return 0;
+    } catch (error) {
+      return 0;
     }
   }
 
@@ -266,8 +303,6 @@ class UserService {
     } else if (frontendUser.role_id && typeof frontendUser.role_id === 'object' && frontendUser.role_id.role_name) {
       roleName = frontendUser.role_id.role_name;
     }
-
-    console.log(frontendUser);
     
     // Handle team_id from either team_id or team property
     const teamId = frontendUser.team_id || frontendUser.team || null;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   User, 
@@ -11,14 +11,66 @@ import {
   Users,
   MapPin,
   Activity,
-  Settings
+  Settings,
+  RefreshCw
 } from 'lucide-react';
 import TwoFactorAuth from './TwoFactorAuth';
+import userService from '../../../services/user_management/userService';
 
 const UserDetails = ({ user, isOpen, onClose, onEdit }) => {
   const [showTwoFactorAuth, setShowTwoFactorAuth] = useState(false);
+  const [userData, setUserData] = useState(user);
+  const [refreshing, setRefreshing] = useState(false);
   
-  if (!isOpen || !user) return null;
+  // Fetch login count immediately and refresh periodically
+  useEffect(() => {
+    if (isOpen && user) {
+      setUserData(user);
+      
+      // Fetch login count immediately
+      const fetchLoginCount = async () => {
+        if (user.user_id) {
+          try {
+            const count = await userService.getLoginCount(user.user_id);
+            setUserData(prevData => ({
+              ...prevData,
+              login_count: count
+            }));
+          } catch (error) {
+            console.error("Error fetching login count:", error);
+          }
+        }
+      };
+      
+      // Fetch immediately
+      fetchLoginCount();
+      
+      // Set up periodic refresh of login count
+      const refreshInterval = setInterval(fetchLoginCount, 30000); // Refresh every 30 seconds
+      
+      return () => clearInterval(refreshInterval);
+    }
+  }, [isOpen, user]);
+  
+  // Function to manually refresh login count
+  const refreshLoginCount = async () => {
+    if (!userData || !userData.user_id) return;
+    
+    setRefreshing(true);
+    try {
+      const count = await userService.getLoginCount(userData.user_id);
+      setUserData(prevData => ({
+        ...prevData,
+        login_count: count
+      }));
+    } catch (error) {
+      console.error("Error refreshing login count:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+  
+  if (!isOpen || !userData) return null;
 
   const getStatusBadge = (status) => {
     const statusClasses = {
@@ -218,9 +270,18 @@ const UserDetails = ({ user, isOpen, onClose, onEdit }) => {
                     <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
                       Login Count
                     </label>
-                    <p className="text-sm text-gray-900 dark:text-white">
-                      {user.loginCount || 0} times
-                    </p>
+                    <div className="flex items-center">
+                      <p className="text-sm text-gray-900 dark:text-white mr-2">
+                        {userData.login_count || 0} times
+                      </p>
+                      <button 
+                        onClick={refreshLoginCount}
+                        className="p-1 text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 rounded-full"
+                        title="Refresh login count"
+                      >
+                        <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">
