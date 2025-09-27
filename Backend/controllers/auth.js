@@ -1151,7 +1151,46 @@ exports.revokeSession = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    message: 'Session revoked successfully'
+    message: 'Session revoked successfully',
+    data: session
+  });
+});
+
+// @desc    Block session and create new session ID (Admin only)
+// @route   PUT /api/auth/sessions/:id/block
+// @access  Private/Admin
+exports.blockSession = asyncHandler(async (req, res, next) => {
+  const session = await Session.findById(req.params.id);
+
+  if (!session) {
+    return next(new ErrorResponse(`Session not found with id of ${req.params.id}`, 404));
+  }
+
+  // Block the current session
+  session.is_active = false;
+  await session.save();
+  
+  // Create a new session with the same user data but new session ID
+  const newSession = new Session({
+    token: session.token,
+    user_id: session.user_id,
+    device_info: session.device_info,
+    ip_address: session.ip_address,
+    location: session.location,
+    issued_at: new Date(),
+    expires_at: new Date(Date.now() + process.env.JWT_EXPIRE_TIME * 24 * 60 * 60 * 1000),
+    is_active: true
+  });
+  
+  await newSession.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'Session blocked and new session created',
+    data: {
+      blockedSession: session,
+      newSession: newSession
+    }
   });
 });
 
