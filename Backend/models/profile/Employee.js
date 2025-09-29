@@ -95,6 +95,10 @@ const EmployeeSchema = new mongoose.Schema({
       type: String,
       required: true
     },
+    role: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Role'
+    },
     reporting_manager: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Employee'

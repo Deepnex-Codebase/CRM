@@ -4,6 +4,8 @@ import teamService from '../../../services/user_management/teamService';
 import userService from '../../../services/user_management/userService';
 
 const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
+    if (!isOpen || !team) return null;
+    console.log(team)
   const [activeTab, setActiveTab] = useState('overview');
   const [showMemberActions, setShowMemberActions] = useState(null);
   const [teamData, setTeamData] = useState(null);
@@ -64,7 +66,7 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
         setTeamStats(prev => ({
           ...prev,
           total_members: membersResponse.data?.length || 0,
-          active_members: membersResponse.data?.filter(m => m.user?.role !== 'inactive')?.length || 0
+          active_members: membersResponse.data?.filter(m => m.active_flag !== false && m.user?.role !== 'inactive')?.length || 0
         }));
       }
 
@@ -399,11 +401,13 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                               <User className="h-3 w-3 text-gray-500 dark:text-gray-400" />
                             </div>
                           )}
+                          {console.log(teamData)}
                           <span className="ml-2 text-sm text-gray-900 dark:text-white">
                             {teamData?.lead?.name || teamData?.team_lead || 'No lead assigned'}
                           </span>
                         </div>
                       </div>
+                      {console.log(team)}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
                         <div className="mt-1 flex items-center">
@@ -546,11 +550,11 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                     </h4>
                     <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-700 rounded-lg">
                       <div className="flex items-center">
-                        {teamData.lead?.avatar ? (
+                        {teamLead?.avatar ? (
                           <img
                             className="h-12 w-12 rounded-full"
-                            src={teamData.lead.avatar}
-                            alt={teamData.lead.name}
+                            src={teamLead.avatar}
+                            alt={teamLead.name}
                           />
                         ) : (
                           <div className="h-12 w-12 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
@@ -559,22 +563,22 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                         )}
                         <div className="ml-4">
                           <h5 className="text-sm font-medium text-gray-900 dark:text-white">
-                            {teamData.lead?.name || teamData.team_lead || 'No lead assigned'}
+                            {teamLead?.name || teamData?.team_lead || 'No lead assigned'}
                           </h5>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {teamData.lead?.role || 'Team Lead'}
+                            {teamLead?.role || 'Team Lead'}
                           </p>
                           <div className="flex items-center mt-1 space-x-4">
-                            {teamData.lead?.email && (
+                            {teamLead?.email && (
                               <div className="flex items-center">
                                 <Mail className="h-3 w-3 text-gray-400 mr-1" />
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{teamData.lead.email}</span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{teamLead?.email}</span>
                               </div>
                             )}
-                            {teamData.lead?.phone && (
+                            {teamLead?.phone && (
                               <div className="flex items-center">
                                 <Phone className="h-3 w-3 text-gray-400 mr-1" />
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{teamData.lead.phone}</span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{teamLead?.phone}</span>
                               </div>
                             )}
                           </div>
@@ -600,23 +604,29 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                       <h4 className="text-lg font-medium text-gray-900 dark:text-white">Team Members</h4>
                     </div>
                     <div className="divide-y divide-gray-200 dark:divide-gray-600">
-                      {teamData.members?.map((member) => (
-                        <div key={member.id} className="p-6">
+                      {teamMembers.length > 0 ? teamMembers.map((member, index) => (
+                        <div key={member?.id || index} className="p-6">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center">
-                              <img
-                                className="h-10 w-10 rounded-full"
-                                src={member.avatar}
-                                alt={member.name}
-                              />
+                              {member?.avatar ? (
+                                <img
+                                  className="h-10 w-10 rounded-full"
+                                  src={member.avatar}
+                                  alt={member?.name || 'Team member'}
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                                  <User className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                                </div>
+                              )}
                               <div className="ml-4">
                                 <div className="flex items-center">
-                                  <h5 className="text-sm font-medium text-gray-900 dark:text-white">{member.name}</h5>
-                                  <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member.status)}`}>
-                                    {member.status}
+                                  <h5 className="text-sm font-medium text-gray-900 dark:text-white">{member?.name || 'Unknown'}</h5>
+                                  <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member?.status)}`}>
+                                    {member?.status || 'Unknown'}
                                   </span>
                                 </div>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">{member.role}</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{member?.role || 'Team Member'}</p>
                                 <div className="flex items-center mt-1 space-x-4">
                                   <div className="flex items-center">
                                     <Mail className="h-3 w-3 text-gray-400 mr-1" />
@@ -693,7 +703,7 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                             </div>
                           </div>
                         </div>
-                      ))}
+                      )) : <div className="p-6 text-center text-gray-500">No team members found</div>}
                     </div>
                   </div>
                 </div>

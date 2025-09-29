@@ -98,15 +98,18 @@ const TeamsManagement = () => {
         // Fetch team lead details for each team
         const teamsWithLeadDetails = await Promise.all(
           transformedTeams.map(async (team) => {
-            if (team.team_lead_id) {
+            // Check if team has a team_lead field (string ID) or team_lead_id
+            const leadId = team.team_lead || team.team_lead_id;
+            
+            if (leadId) {
               try {
-                const userResponse = await userService.getUser(team.team_lead_id);
+                const userResponse = await userService.getUser(leadId);
                 
                 if (userResponse.success) {
                   return {
                     ...team,
                     team_lead: {
-                      _id: team.team_lead_id,
+                      _id: leadId,
                       name: `${userResponse.data.first_name || ''} ${userResponse.data.last_name || ''}`.trim() || userResponse.data.email,
                       email: userResponse.data.email
                     }
@@ -159,11 +162,11 @@ const TeamsManagement = () => {
 
   // Filter teams based on search and department
   const filteredTeams = teams.filter(team => {
-    const matchesSearch = team.team_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         team.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch = (team.team_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                         (team.department?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
                          (team.team_lead && typeof team.team_lead === 'string' 
                            ? team.team_lead.toLowerCase().includes(searchTerm.toLowerCase())
-                           : team.team_lead?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
+                           : (team.team_lead?.name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) || false);
     const matchesDepartment = filterDepartment === 'all' || team.department === filterDepartment;
     return matchesSearch && matchesDepartment;
   });
@@ -220,20 +223,52 @@ const TeamsManagement = () => {
       setActionLoading(true);
       setError(null); // Clear any previous errors
       
-      // Fetch detailed team data including members
+      // Fetch detailed team data
       const response = await teamService.getTeam(team.team_id);
       if (response.success) {
         const detailedTeam = teamService.transformTeamData(response.data);
         
-        // Fetch team members
-        const membersResponse = await teamService.getTeamMembers(team.team_id);
+        // Fetch team members with complete user details
+        const membersResponse = await teamService.getTeamMembers(team.team_id, { includeDetails: true });
         if (membersResponse.success) {
-          detailedTeam.members = membersResponse.data;
+          // Process member data to include role information from teamusermaps
+          const enhancedMembers = membersResponse.data.map(member => {
+            return {
+              ...member,
+              // Ensure role information is included from teamusermaps
+              role: member.role || 'Member',
+              // Format name for display
+              display_name: `${member.first_name || ''} ${member.last_name || ''}`.trim() || member.email,
+              // Add joined date if available
+              joined_date: member.joined_date || new Date().toISOString()
+            };
+          });
+          
+          detailedTeam.members = enhancedMembers;
+          
+          // Calculate additional team statistics
+          detailedTeam.active_members_count = enhancedMembers.filter(m => m.status === 'Active').length;
+          detailedTeam.member_count = enhancedMembers.length;
+          
+          // Get team activity metrics if available
+          try {
+            const activityResponse = await teamService.getTeamActivity(team.team_id);
+            if (activityResponse.success) {
+              detailedTeam.activity = activityResponse.data;
+            }
+          } catch (activityError) {
+            console.warn('Failed to fetch team activity:', activityError.message);
+            detailedTeam.activity = { lastActive: new Date().toISOString() };
+          }
         } else {
           // If members fetch fails, still show team details but with empty members
           detailedTeam.members = [];
+          detailedTeam.member_count = 0;
+          detailedTeam.active_members_count = 0;
           console.warn('Failed to fetch team members:', membersResponse.message);
         }
+
+        console.log(`Viewing team with complete details:`, detailedTeam);
         
         setSelectedTeam(detailedTeam);
         setShowTeamDetails(true);
@@ -559,9 +594,10 @@ const TeamsManagement = () => {
                             {getDepartmentIcon(team.department)}
                           </div>
                         </div>
+                        {console.log(team)}
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {team.team_name}
+                            {team.name}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             {team.description}

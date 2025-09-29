@@ -7,8 +7,8 @@ const Employee = require('../../models/profile/Employee');
 // @access  Private
 exports.getEmployees = asyncHandler(async (req, res, next) => {
   const employees = await Employee.find()
-    .populate('user_id', 'name email')
-    .populate('role_id', 'name')
+    .populate('user', 'name email')
+    .populate('employment_details.role', 'name')
     .sort({ created_at: -1 });
 
   res.status(200).json({
@@ -23,8 +23,8 @@ exports.getEmployees = asyncHandler(async (req, res, next) => {
 // @access  Private
 exports.getEmployee = asyncHandler(async (req, res, next) => {
   const employee = await Employee.findById(req.params.id)
-    .populate('user_id', 'name email')
-    .populate('role_id', 'name');
+    .populate('user', 'name email')
+    .populate('employment_details.role', 'name');
 
   if (!employee) {
     return next(new ErrorResponse(`Employee not found with id of ${req.params.id}`, 404));

@@ -640,7 +640,7 @@ class EmployeeRoleService {
         phone: this.sanitizePhone(backendEmployee.user_id?.phone),
         department: backendEmployee.department || 'Not Assigned',
         position: backendEmployee.position || 'Employee',
-        current_role: backendEmployee.role_id?._id || null,
+        current_role: backendEmployee.role_id ? backendEmployee.role_id._id : null,
         current_role_name: backendEmployee.role_id?.role_name || 'No Role',
         hire_date: this.formatDate(backendEmployee.hire_date || backendEmployee.created_at),
         status: this.normalizeStatus(backendEmployee.is_active ? 'active' : 'inactive'),
@@ -750,22 +750,19 @@ class EmployeeRoleService {
    * @returns {Object} Transformed team data
    */
   transformTeamData(backendTeam) {
-    // Import teamService to use its transformation method
-    const teamService = require('./teamService').default;
-    
-    // Get the full team data from teamService
-    const fullTeamData = teamService.transformTeamData(backendTeam);
+    // Direct transformation without requiring teamService
+    if (!backendTeam) return null;
     
     // Return only the fields needed for employee role service
     return {
-      id: fullTeamData.team_id,
-      name: fullTeamData.team_name,
-      description: fullTeamData.description,
-      department: fullTeamData.department || 'General',
-      employee_count: fullTeamData.member_count,
+      id: backendTeam._id || backendTeam.id,
+      name: backendTeam.name || backendTeam.team_name || 'Unknown Team',
+      description: backendTeam.description || '',
+      department: backendTeam.department || 'General',
+      employee_count: backendTeam.member_count || backendTeam.employee_count || 0,
       manager: backendTeam.team_lead?.name || 'Not Assigned',
-      created_at: fullTeamData.created_at,
-      updated_at: fullTeamData.updated_at
+      created_at: backendTeam.created_at || new Date().toISOString(),
+      updated_at: backendTeam.updated_at || new Date().toISOString()
     };
   }
 

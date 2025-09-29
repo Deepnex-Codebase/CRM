@@ -137,8 +137,11 @@ const TeamForm = ({ team, isOpen, onClose, onSubmit, title }) => {
       newErrors.description = 'Description is required';
     }
 
-    // Simplified team lead validation
-    if (!formData.team_lead_id || formData.team_lead_id.trim() === '') {
+    // Improved team lead validation
+    if (teamLeadsLoading) {
+      // Don't validate if still loading
+      console.log('Team leads still loading, skipping validation');
+    } else if (!formData.team_lead_id || formData.team_lead_id.trim() === '') {
       newErrors.team_lead_id = 'Team lead is required';
     } else if (teamLeads.length > 0) {
       // Only validate if team leads are loaded
@@ -237,8 +240,24 @@ const TeamForm = ({ team, isOpen, onClose, onSubmit, title }) => {
 
     setIsSubmitting(true);
     
+    // Prepare data for submission
+    const teamData = {
+      name: formData.team_name,
+      department: formData.department,
+      description: formData.description,
+      team_lead: formData.team_lead_id, // Ensure this is the correct ID
+      team_lead_id: formData.team_lead_id, // Include both formats for compatibility
+      territory: formData.territory,
+      status: formData.status.toLowerCase(),
+      target_goals: formData.target_goals,
+      budget: formData.budget ? parseFloat(formData.budget) : undefined,
+      location: formData.location,
+      contact_email: formData.contact_email,
+      contact_phone: formData.contact_phone
+    };
+    
     try {
-      await onSubmit(formData);
+      await onSubmit(teamData);
     } catch (error) {
       console.error('Error submitting form:', error);
       setErrors({ submit: 'Failed to save team. Please try again.' });

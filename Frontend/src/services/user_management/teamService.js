@@ -87,6 +87,7 @@ class TeamService {
   async getTeam(teamId) {
     try {
       // Validate team ID
+      console.log('teamId:', teamId);
       if (!teamId || typeof teamId !== 'string') {
         return {
           success: false,
@@ -204,6 +205,22 @@ class TeamService {
       }
 
       const response = await api.get(`/teams/${teamId}/members`);
+      
+      // Transform response data to ensure frontend compatibility
+      if (response.data && Array.isArray(response.data)) {
+        response.data = response.data.map(member => {
+          // Add role field for backward compatibility if only role_within_team exists
+          if (member.role_within_team && !member.role) {
+            member.role = member.role_within_team;
+          }
+          
+          // Set is_team_lead based on role_within_team
+          member.is_team_lead = member.role_within_team === 'team_lead';
+          
+          return member;
+        });
+      }
+      
       return {
         success: true,
         data: response.data,
@@ -234,6 +251,17 @@ class TeamService {
           message: 'User ID is required',
           error: 'VALIDATION_ERROR'
         };
+      }
+      
+      // Convert role to role_within_team if present
+      if (memberData.role && !memberData.role_within_team) {
+        memberData.role_within_team = memberData.role;
+        delete memberData.role;
+      }
+      
+      // Ensure active_flag is set
+      if (memberData.active_flag === undefined) {
+        memberData.active_flag = true;
       }
 
       const response = await api.post(`/teams/${teamId}/members`, memberData);
@@ -299,8 +327,16 @@ class TeamService {
         };
       }
 
+      // Convert role to role_within_team if needed
+      const updatedRoleData = { ...roleData };
+      
+      if (roleData.role && !roleData.role_within_team) {
+        updatedRoleData.role_within_team = roleData.role;
+        delete updatedRoleData.role;
+      }
+      
       // Validate role data
-      if (!roleData || !roleData.role) {
+      if (!updatedRoleData.role_within_team) {
         return {
           success: false,
           message: 'Role is required',
@@ -308,7 +344,7 @@ class TeamService {
         };
       }
 
-      const response = await api.put(`/teams/members/${memberId}`, roleData);
+      const response = await api.put(`/teams/members/${memberId}`, updatedRoleData);
       return {
         success: true,
         data: response.data,
@@ -740,6 +776,20 @@ class TeamService {
       isValid: errors.length === 0,
       errors
     };
+  }
+
+  // Transform team data to ensure frontend compatibility
+  transformTeamData(teamData) {
+    if (!teamData) return null;
+    
+    const transformedData = { ...teamData };
+    
+    // Ensure team_lead_id is set for frontend components
+    if (teamData.team_lead && teamData.team_lead._id) {
+      transformedData.team_lead_id = teamData.team_lead._id;
+    }
+    
+    return transformedData;
   }
 
   // Enhanced error handling - Remove this static method as we now have instance method
