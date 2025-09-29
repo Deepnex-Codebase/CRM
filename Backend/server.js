@@ -34,6 +34,7 @@ const userActivityLogRoutes = require('./routes/profile/userActivityLogs');
 const customerMasterRoutes = require('./routes/profile/customerMaster');
 const employeeRoutes = require('./routes/profile/employees');
 const roleRoutes = require('./routes/profile/roles');
+const deviceRegistryRoutes = require('./routes/profile/deviceRegistry');
 
 // Import Info routes
 const infoTypesRoutes = require('./routes/info/infoTypes');
@@ -97,6 +98,7 @@ app.use('/api/user-activity-logs', userActivityLogRoutes);
 app.use('/api/customers', customerMasterRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/roles', roleRoutes);
+app.use('/api/devices', deviceRegistryRoutes);
 
 // Info Management API Routes
 app.use('/api/info/types', infoTypesRoutes);

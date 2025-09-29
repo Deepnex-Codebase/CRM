@@ -53,7 +53,7 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
     { name: 'Teams Management', href: '/user-management/teams', icon: UserCheck, current: location.pathname === '/user-management/teams' },
     { name: 'Employee Roles', href: '/user-management/employee-roles', icon: UserPlus, current: location.pathname === '/user-management/employee-roles' },
     { name: 'Sessions', href: '/user-management/sessions', icon: Monitor, current: location.pathname === '/user-management/sessions' },
-    { name: 'Device Registry', href: '/user-management/devices', icon: Smartphone, current: location.pathname === '/user-management/devices' },
+    // { name: 'Device Registry', href: '/user-management/devices', icon: Smartphone, current: location.pathname === '/user-management/devices' },
     { name: 'API Tokens', href: '/user-management/api-tokens', icon: Key, current: location.pathname === '/user-management/api-tokens' },
     { name: 'Security Logs', href: '/user-management/security-logs', icon: Activity, current: location.pathname === '/user-management/security-logs' },
     { name: 'Security Rules', href: '/user-management/security-rules', icon: Lock, current: location.pathname === '/user-management/security-rules' },

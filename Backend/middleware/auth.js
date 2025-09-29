@@ -76,9 +76,10 @@ exports.authorize = (...roles) => {
       return next(new ErrorResponse('User role not found', 403));
     }
 
-    // Make role check case-insensitive
+    // Check if user role is in allowed roles (case-insensitive)
     const userRole = (user.role_id.role_name || '').toLowerCase();
-    const allowedRoles = roles.map(r => r.toLowerCase());
+    const allowedRoles = roles.map(role => role.toLowerCase());
+    
     if (!allowedRoles.includes(userRole)) {
       return next(
         new ErrorResponse(
