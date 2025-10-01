@@ -1150,12 +1150,18 @@ exports.revokeSession = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse(`Session not found with id of ${req.params.id}`, 404));
   }
 
+  // Mark session as terminated
   session.is_active = false;
+  session.is_terminated = true;
+  session.terminated_at = new Date();
+  session.terminated_by = req.user._id;
+  session.termination_reason = req.body.reason || 'Terminated by administrator';
+  
   await session.save();
 
   res.status(200).json({
     success: true,
-    message: 'Session revoked successfully',
+    message: 'Session terminated successfully',
     data: session
   });
 });
@@ -1172,6 +1178,10 @@ exports.blockSession = asyncHandler(async (req, res, next) => {
 
   // Block the current session
   session.is_active = false;
+  session.is_terminated = true;
+  session.terminated_at = new Date();
+  session.terminated_by = req.user._id;
+  session.termination_reason = req.body.reason || 'Blocked by administrator';
   await session.save();
   
   // Create a new session with the same user data but new session ID
@@ -1231,11 +1241,19 @@ const sendTokenResponse = async (user, statusCode, res, req = null) => {
     is_active: true 
   }).sort({ issued_at: -1 });
 
+  // Check if this device was previously terminated
+  const wasTerminated = req ? await Session.findOne({
+    user_id: user._id,
+    is_terminated: true,
+    device_info: { $elemMatch: { $eq: deviceLocationInfo.device_info } }
+  }).sort({ terminated_at: -1 }) : null;
+
   let sessionToUpdate = null;
   let shouldCreateNewSession = true;
 
   // Check if we should update an existing session or create a new one
-  if (existingSessions.length > 0 && req) {
+  // Always create a new session if the device was previously terminated
+  if (existingSessions.length > 0 && req && !wasTerminated) {
     for (const session of existingSessions) {
       // Check if it's the same device
       if (isSameDevice(session.device_info, deviceLocationInfo.device_info)) {

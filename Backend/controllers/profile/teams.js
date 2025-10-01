@@ -48,13 +48,20 @@ exports.getTeam = asyncHandler(async (req, res, next) => {
       select: 'name email phone profile_image'
     })
     .select('user_id role_within_team created_at');
+    
+  // Calculate actual member count from teamMembers array
+  const actualMemberCount = teamMembers.length;
+  
+  // Create response object with correct member count
+  const responseData = {
+    ...team.toObject(),
+    member_count: actualMemberCount, // Override virtual field with actual count
+    members: teamMembers
+  };
 
   res.status(200).json({
     success: true,
-    data: {
-      ...team.toObject(),
-      members: teamMembers
-    }
+    data: responseData
   });
 });
 

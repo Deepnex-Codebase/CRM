@@ -43,11 +43,12 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
         setCurrentTeamData(team);
         setTeamData(team);
         
-        // Handle members from the response
-        if (team.members && Array.isArray(team.members)) {
-          setTeamMembers(team.members);
-        } else if (team.data && team.data.members && Array.isArray(team.data.members)) {
-          setTeamMembers(team.data.members);
+        // Always fetch team members to ensure we have the latest data
+        const teamId = team.team_id || team._id || (team.data && team.data._id);
+        if (teamId) {
+          fetchTeamMembers(teamId);
+        } else {
+          console.error('No team ID found in team data');
         }
         
         // Handle team lead from the response
@@ -57,17 +58,16 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
           setTeamLead(team.data.team_lead);
         }
         
-        // Update team stats with direct values from team object
-        setTeamStats({
-          total_members: team.member_count || team.data?.member_count || 0,
-          active_members: team.active_members_count || team.data?.active_members_count || 0,
+        // Update remaining team stats with direct values from team object
+        setTeamStats(prev => ({
+          ...prev,
           projects_count: team.projects_count || team.data?.projects_count || 0,
           completed_projects: team.completed_projects || team.data?.completed_projects || 0,
           active_projects: team.active_projects || team.data?.active_projects || 0,
           avg_performance: team.avg_performance || team.data?.avg_performance || 0,
           team_efficiency: team.team_efficiency || team.data?.team_efficiency || 0,
           on_leave: team.on_leave || team.data?.on_leave || 0
-        });
+        }));
         
         setLoading(false);
       } else {
@@ -77,6 +77,47 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
       }
     }
   }, [team, isOpen]);
+  
+  // Fetch team members separately if not included in team data
+  const fetchTeamMembers = async (teamId) => {
+    try {
+      if (!teamId) return;
+      
+      console.log('Fetching team members for team ID:', teamId);
+      const membersResponse = await teamService.getTeamMembers(teamId);
+      console.log('Team members response:', membersResponse);
+      
+      // Detailed logging of all team members
+      if (membersResponse.success && membersResponse.data) {
+        console.log('===== DETAILED TEAM MEMBERS LOG =====');
+        console.log('Total members count:', membersResponse.data.length);
+        console.log('All members data:', JSON.stringify(membersResponse.data, null, 2));
+        
+        // Log each member individually
+        membersResponse.data.forEach((member, index) => {
+          console.log(`Member ${index + 1}:`, member);
+          console.log(`Member ${index + 1} ID:`, member._id || member.id);
+          console.log(`Member ${index + 1} User:`, member.user_id || member.user);
+          console.log(`Member ${index + 1} Active:`, member.active_flag);
+          console.log(`Member ${index + 1} Role:`, member.role_within_team || member.role);
+          console.log('-----------------------------------');
+        });
+        
+        setTeamMembers(membersResponse.data);
+        
+        // Update team stats with actual member count
+        setTeamStats(prev => ({
+          ...prev,
+          total_members: membersResponse.data.length,
+          active_members: membersResponse.data.filter(m => m.active_flag !== false)?.length || 0
+        }));
+        
+        console.log('Updated team stats with member count:', membersResponse.data.length);
+      }
+    } catch (error) {
+      console.error('Error fetching team members:', error);
+    }
+  };
   
   // Fetch detailed team information
   const fetchTeamDetails = async (teamId) => {
@@ -92,46 +133,11 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
 
       const transformedTeam = teamService.transformTeamData(teamResponse.data);
       setTeamData(transformedTeam);
+      
+      // Always fetch all team members separately to ensure we get everyone
+      await fetchTeamMembers(teamId);
 
-      // Check if members are already included in the response
-      if (teamResponse.data.members && teamResponse.data.members.length > 0) {
-        // Process members from the response
-        const processedMembers = teamResponse.data.members.map(member => ({
-          id: member._id || member.id,
-          user: {
-            id: member.user_id?._id || member.user_id,
-            name: member.user_id?.name || 'Unknown',
-            email: member.user_id?.email || '',
-            phone: member.user_id?.phone || '',
-            profile_image: member.user_id?.profile_image || null
-          },
-          role: member.role_within_team || 'Member',
-          active_flag: member.active_flag !== false,
-          joined_date: member.created_at || new Date().toISOString()
-        }));
-        
-        setTeamMembers(processedMembers);
-        
-        // Update team stats with actual member count
-        setTeamStats(prev => ({
-          ...prev,
-          total_members: processedMembers.length || 0,
-          active_members: processedMembers.filter(m => m.active_flag !== false)?.length || 0
-        }));
-      } else {
-        // Fallback to separate API call if members not included
-        const membersResponse = await teamService.getTeamMembers(teamId);
-        if (membersResponse.success) {
-          setTeamMembers(membersResponse.data || []);
-
-          // Update team stats with actual member count
-          setTeamStats(prev => ({
-            ...prev,
-            total_members: membersResponse.data?.length || 0,
-            active_members: membersResponse.data?.filter(m => m.active_flag !== false && m.user?.role !== 'inactive')?.length || 0
-          }));
-        }
-      }
+      // Check if team lead is already populated in the response (keep this part)
 
       // Check if team lead is already populated in the response
       if (teamResponse.data.team_lead && typeof teamResponse.data.team_lead === 'object') {
@@ -363,6 +369,66 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
       return <TrendingUp className="h-4 w-4 text-red-500 transform rotate-180" />;
     }
     return null;
+  };
+
+  // Handle adding a new member to the team
+  const handleAddMember = async () => {
+    try {
+      setLoading(true);
+      
+      // Prompt for user selection (in a real app, this would be a modal with user search)
+      const userId = prompt("Enter user ID to add to the team:");
+      if (!userId) {
+        setLoading(false);
+        return; // User cancelled
+      }
+      
+      // Prompt for role selection
+      const role = prompt("Enter role for this member (member, team_lead, etc):", "member");
+      if (!role) {
+        setLoading(false);
+        return; // User cancelled
+      }
+      
+      // Add member to team
+      const memberData = {
+        user_id: userId,
+        role_within_team: role,
+        active_flag: true
+      };
+      
+      const response = await teamService.addTeamMember(teamData.team_id, memberData);
+      
+      if (response.success) {
+        // Fetch updated team members
+        const membersResponse = await teamService.getTeamMembers(teamData.team_id, { includeDetails: true });
+        
+        if (membersResponse.success) {
+          // Update members list with fresh data
+          setTeamMembers(membersResponse.data);
+          
+          // Update team stats
+          setTeamStats(prev => ({
+            ...prev,
+            total_members: membersResponse.data.length,
+            active_members: membersResponse.data.filter(m => m.active_flag !== false).length
+          }));
+          
+          alert('Member added successfully');
+        } else {
+          console.error('Failed to refresh team members:', membersResponse.message);
+          alert('Member added but failed to refresh the list');
+        }
+      } else {
+        console.error('Failed to add member:', response.message);
+        alert(`Failed to add member: ${response.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error adding team member:', error);
+      alert(`Error adding team member: ${error.message || 'Unknown error'}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle member actions (promote, remove, etc.)
@@ -732,8 +798,15 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
 
                   {/* Team Members */}
                   <div className="bg-white dark:bg-gray-700 shadow rounded-lg">
-                    <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-600">
+                    <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-600 flex justify-between items-center">
                       <h4 className="text-lg font-medium text-gray-900 dark:text-white">Team Members</h4>
+                      <button 
+                        onClick={() => handleAddMember()}
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                      >
+                        <UserPlus className="h-4 w-4 mr-1" />
+                        Add Member
+                      </button>
                     </div>
                     <div className="divide-y divide-gray-200 dark:divide-gray-600">
                       {teamMembers.length > 0 ? teamMembers.map((member, index) => (
@@ -753,16 +826,16 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                               )}
                               <div className="ml-4">
                                 <div className="flex items-center">
-                                  <h5 className="text-sm font-medium text-gray-900 dark:text-white">{member?.user?.name || 'Unknown'}</h5>
-                                  <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member?.active_flag ? 'active' : 'inactive')}`}>
-                                    {member?.active_flag ? 'Active' : 'Inactive'}
+                                  <h5 className="text-sm font-medium text-gray-900 dark:text-white">{member?.user?.name || member?.name || 'Unknown'}</h5>
+                                  <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member?.status || member?.active_flag ? 'active' : 'inactive')}`}>
+                                    {member?.status || (member?.active_flag ? 'Active' : 'Inactive')}
                                   </span>
                                 </div>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">{member?.role || 'Team Member'}</p>
                                 <div className="flex items-center mt-1 space-x-4">
                                   <div className="flex items-center">
                                     <Mail className="h-3 w-3 text-gray-400 mr-1" />
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">{member.user?.email || 'No email'}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">{member.user?.email || member.email || 'No email'}</span>
                                   </div>
                                   <div className="flex items-center">
                                     <Calendar className="h-3 w-3 text-gray-400 mr-1" />

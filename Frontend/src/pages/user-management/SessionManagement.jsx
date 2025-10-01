@@ -234,6 +234,7 @@ const SessionManagement = () => {
   // Update statistics based on current data
   const updateStatistics = (sessionsData, attemptsData) => {
     const activeSessions = sessionsData.filter(s => s.isActive || s.status === 'Active' || s.is_active).length;
+    const terminatedSessions = sessionsData.filter(s => s.is_terminated).length;
     const successfulLogins = attemptsData.filter(a => a.status === 'success' || a.success === true).length;
     const failedAttempts = attemptsData.filter(a => a.status === 'Failed' || a.success === false).length;
     const securityAlerts = attemptsData.filter(a =>
@@ -245,6 +246,7 @@ const SessionManagement = () => {
 
     setStatistics({
       activeSessions,
+      terminatedSessions,
       successfulLogins,
       failedAttempts,
       securityAlerts,
@@ -330,21 +332,30 @@ const SessionManagement = () => {
   };
 
   const handleTerminateSession = async (id) => {
-    const session = sessions.find(s => s.id === id);
-    if (window.confirm(`Are you sure you want to terminate the session for ${session?.userName}?`)) {
+    const session = sessions.find(s => s.id === id || s.session_id === id);
+    if (window.confirm(`Are you sure you want to terminate the session for ${session?.userName || session?.user_id?.first_name || 'this user'}?`)) {
       try {
         setLoading(true);
-        await sessionService.revokeSession(id);
+        const reason = prompt("Please provide a reason for terminating this session:", "Terminated by administrator");
+        await sessionService.revokeSession(id, { reason });
 
         setSessions(sessions.map(session =>
-          session.id === id
-            ? { ...session, isActive: false, lastActivity: new Date() }
+          (session.id === id || session.session_id === id)
+            ? { 
+                ...session, 
+                isActive: false, 
+                is_active: false,
+                is_terminated: true,
+                terminated_at: new Date(),
+                termination_reason: reason || 'Terminated by administrator',
+                lastActivity: new Date() 
+              }
             : session
         ));
         alert('Session terminated successfully');
 
         // Close details modal if the terminated session is currently being viewed
-        if (selectedSession?.id === id) {
+        if (selectedSession?.id === id || selectedSession?.session_id === id) {
           setShowSessionDetails(false);
           setSelectedSession(null);
         }

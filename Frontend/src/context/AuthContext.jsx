@@ -102,6 +102,10 @@ export const AuthProvider = ({ children }) => {
               message = 'Your session has been terminated by an administrator. Please login again.';
             } else if (sessionStatus.reason === 'session_expired') {
               message = 'Your session has expired. Please login again.';
+            } else if (sessionStatus.reason === 'session_inactive') {
+              message = 'Your session is no longer active. Please login again.';
+            } else if (sessionStatus.reason === 'session_not_found') {
+              message = 'Your session was not found. Please login again.';
             }
             
             localStorage.setItem('sessionMessage', message);

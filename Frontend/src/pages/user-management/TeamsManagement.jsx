@@ -255,6 +255,15 @@ const TeamsManagement = () => {
           detailedTeam.active_members_count = enhancedMembers.filter(m => m.status === 'Active').length;
           detailedTeam.member_count = enhancedMembers.length;
           
+          // Update team stats in UI
+          setTeams(prevTeams => 
+            prevTeams.map(t => 
+              t.team_id === team.team_id 
+                ? {...t, member_count: enhancedMembers.length} 
+                : t
+            )
+          );
+          
           // Get team activity metrics if available
           try {
             const activityResponse = await teamService.getTeamActivity(team.team_id);

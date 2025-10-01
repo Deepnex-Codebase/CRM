@@ -47,7 +47,11 @@ exports.protect = asyncHandler(async (req, res, next) => {
     }
 
     if (!session.is_active) {
-      return next(new ErrorResponse('Your session has been terminated. Please login again.', 401));
+      // Check if session was terminated by admin
+      if (session.is_terminated) {
+        return next(new ErrorResponse('Your session has been terminated by an administrator. Please login again.', 401));
+      }
+      return next(new ErrorResponse('Your session is no longer active. Please login again.', 401));
     }
 
     // Check if session has expired

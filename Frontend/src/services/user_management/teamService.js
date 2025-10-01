@@ -275,32 +275,31 @@ class TeamService {
           }
         }
         
-        // If we couldn't get members from the team details, try a different approach
-        // Mock response for development - REMOVE IN PRODUCTION
-        // This is a temporary solution until the backend endpoint is fixed
+        // If we couldn't get members from the team details, try the dedicated endpoint
+        const membersResponse = await api.get(`/teams/${teamId}/members`);
+        
+        if (membersResponse.data && membersResponse.data.success) {
+          const members = membersResponse.data.data.map(member => ({
+            ...member,
+            _id: member.id || member._id,
+            role: member.role || 'Member',
+            role_within_team: member.role || 'Member',
+            is_team_lead: member.is_team_lead || false,
+            user_id: member.user || member.user_id
+          }));
+          
+          return {
+            success: true,
+            data: members,
+            message: 'Team members retrieved from dedicated endpoint'
+          };
+        }
+        
+        // If all else fails, return empty array
         return {
-          success: true,
-          data: [
-            {
-              _id: "mock-user-1",
-              name: "John Doe",
-              email: "john@example.com",
-              role: "team_lead",
-              role_within_team: "team_lead",
-              is_team_lead: true,
-              avatar: "https://randomuser.me/api/portraits/men/1.jpg"
-            },
-            {
-              _id: "mock-user-2",
-              name: "Jane Smith",
-              email: "jane@example.com",
-              role: "Member",
-              role_within_team: "Member",
-              is_team_lead: false,
-              avatar: "https://randomuser.me/api/portraits/women/2.jpg"
-            }
-          ],
-          message: 'Mock team members returned for development'
+          success: false,
+          data: [],
+          message: 'Could not retrieve team members'
         };
         
       } catch (error) {

@@ -430,6 +430,44 @@ const SessionDetails = ({ session, isOpen, onClose, onTerminate, onRefresh }) =>
                   Standard Login
                 </div>
               </div>
+              
+              {/* Session Status */}
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <div className="flex items-center mb-2">
+                  <Activity className="h-5 w-5 text-blue-600 mr-2" />
+                  <span className="text-sm font-medium text-gray-900 dark:text-white">
+                    Status
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  {session.is_active || session.isActive || session.status === 'Active' ? (
+                    <>
+                      <CheckCircle className="h-4 w-4 text-green-500 mr-1" />
+                      <span className="text-sm text-green-600 dark:text-green-400">Active</span>
+                    </>
+                  ) : session.is_terminated ? (
+                    <>
+                      <Ban className="h-4 w-4 text-red-500 mr-1" />
+                      <span className="text-sm text-red-600 dark:text-red-400">Terminated</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="h-4 w-4 text-gray-500 mr-1" />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Inactive</span>
+                    </>
+                  )}
+                </div>
+                {session.is_terminated && session.termination_reason && (
+                  <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                    <span className="font-semibold">Reason:</span> {session.termination_reason}
+                  </div>
+                )}
+                {session.is_terminated && session.terminated_at && (
+                  <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                    <span className="font-semibold">Terminated at:</span> {new Date(session.terminated_at).toLocaleString()}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
