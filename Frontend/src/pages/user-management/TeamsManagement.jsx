@@ -214,7 +214,12 @@ const TeamsManagement = () => {
   };
 
   const handleEditTeam = (team) => {
-    setEditingTeam(team);
+    // Make sure status is properly set based on the team's active state
+    const teamWithFixedStatus = {
+      ...team,
+      status: team.status || (team.is_active === false ? 'Inactive' : 'Active')
+    };
+    setEditingTeam(teamWithFixedStatus);
     setShowTeamModal(true);
   };
 
@@ -315,7 +320,13 @@ const TeamsManagement = () => {
       if (editingTeam) {
         // Update existing team
         const backendData = teamService.transformTeamDataForBackend(teamData);
-        response = await teamService.updateTeam(editingTeam.team_id, backendData);
+        // Make sure we have a valid team_id
+        const teamId = editingTeam._id || editingTeam.team_id;
+        console.log("Updating team with ID:", teamId);
+        if (!teamId) {
+          throw new Error("Missing team ID for update operation");
+        }
+        response = await teamService.updateTeam(teamId, backendData);
       } else {
         // Create new team
         const backendData = teamService.transformTeamDataForBackend(teamData);

@@ -17,6 +17,7 @@ const cookieParser = require('cookie-parser');
 
 // Import auth routes
 const authRoutes = require('./routes/auth');
+const securityRoutes = require('./routes/auth/security');
 
 // Import profile routes
 const projectProfileRoutes = require('./routes/profile/projectProfiles');
@@ -81,6 +82,7 @@ app.use(cors({
 
 // Authentication API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/security', securityRoutes);
 
 // API Routes
 app.use('/api/profiles/project', projectProfileRoutes);

@@ -91,11 +91,12 @@ const TeamForm = ({ team, isOpen, onClose, onSubmit, title }) => {
 
   useEffect(() => {
     if (team) {
+      console.log("Team data received in form:", team);
       setFormData({
-        team_name: team.team_name || '',
+        team_name: team.team_name || team.name || '',
         department: team.department || '',
         description: team.description || '',
-        team_lead_id: team.team_lead_id || '',
+        team_lead_id: team.team_lead_id || team.team_lead?._id || '',
         territory: team.territory || '',
         status: team.status || 'Active',
         target_goals: team.target_goals || '',

@@ -4,16 +4,15 @@ import teamService from '../../../services/user_management/teamService';
 import userService from '../../../services/user_management/userService';
 
 const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
-    if (!isOpen || !team) return null;
-    console.log(team)
   const [activeTab, setActiveTab] = useState('overview');
   const [showMemberActions, setShowMemberActions] = useState(null);
   const [teamData, setTeamData] = useState(null);
+  const [currentTeamData, setCurrentTeamData] = useState(null);
   const [teamMembers, setTeamMembers] = useState([]);
   const [teamLead, setTeamLead] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
+  
   // Team statistics and metrics
   const [teamStats, setTeamStats] = useState({
     total_members: 0,
@@ -35,13 +34,50 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
     efficiency: { current: 0, previous: 0, trend: 'neutral', change: 0 }
   });
 
-  // Fetch team data when component opens
+  // Use team data directly when component opens
   useEffect(() => {
-    if (team && isOpen && team.team_id) {
-      fetchTeamDetails(team.team_id);
+    if (isOpen) {
+      if (team) {
+        console.log('Team data in TeamDetails:', team);
+        // Force direct use of team data without any transformations
+        setCurrentTeamData(team);
+        setTeamData(team);
+        
+        // Handle members from the response
+        if (team.members && Array.isArray(team.members)) {
+          setTeamMembers(team.members);
+        } else if (team.data && team.data.members && Array.isArray(team.data.members)) {
+          setTeamMembers(team.data.members);
+        }
+        
+        // Handle team lead from the response
+        if (team.team_lead) {
+          setTeamLead(team.team_lead);
+        } else if (team.data && team.data.team_lead) {
+          setTeamLead(team.data.team_lead);
+        }
+        
+        // Update team stats with direct values from team object
+        setTeamStats({
+          total_members: team.member_count || team.data?.member_count || 0,
+          active_members: team.active_members_count || team.data?.active_members_count || 0,
+          projects_count: team.projects_count || team.data?.projects_count || 0,
+          completed_projects: team.completed_projects || team.data?.completed_projects || 0,
+          active_projects: team.active_projects || team.data?.active_projects || 0,
+          avg_performance: team.avg_performance || team.data?.avg_performance || 0,
+          team_efficiency: team.team_efficiency || team.data?.team_efficiency || 0,
+          on_leave: team.on_leave || team.data?.on_leave || 0
+        });
+        
+        setLoading(false);
+      } else {
+        // Handle case when team is null
+        setLoading(false);
+        setError("No team data available");
+      }
     }
   }, [team, isOpen]);
-
+  
   // Fetch detailed team information
   const fetchTeamDetails = async (teamId) => {
     try {
@@ -57,21 +93,59 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
       const transformedTeam = teamService.transformTeamData(teamResponse.data);
       setTeamData(transformedTeam);
 
-      // Fetch team members
-      const membersResponse = await teamService.getTeamMembers(teamId);
-      if (membersResponse.success) {
-        setTeamMembers(membersResponse.data || []);
-
+      // Check if members are already included in the response
+      if (teamResponse.data.members && teamResponse.data.members.length > 0) {
+        // Process members from the response
+        const processedMembers = teamResponse.data.members.map(member => ({
+          id: member._id || member.id,
+          user: {
+            id: member.user_id?._id || member.user_id,
+            name: member.user_id?.name || 'Unknown',
+            email: member.user_id?.email || '',
+            phone: member.user_id?.phone || '',
+            profile_image: member.user_id?.profile_image || null
+          },
+          role: member.role_within_team || 'Member',
+          active_flag: member.active_flag !== false,
+          joined_date: member.created_at || new Date().toISOString()
+        }));
+        
+        setTeamMembers(processedMembers);
+        
         // Update team stats with actual member count
         setTeamStats(prev => ({
           ...prev,
-          total_members: membersResponse.data?.length || 0,
-          active_members: membersResponse.data?.filter(m => m.active_flag !== false && m.user?.role !== 'inactive')?.length || 0
+          total_members: processedMembers.length || 0,
+          active_members: processedMembers.filter(m => m.active_flag !== false)?.length || 0
         }));
+      } else {
+        // Fallback to separate API call if members not included
+        const membersResponse = await teamService.getTeamMembers(teamId);
+        if (membersResponse.success) {
+          setTeamMembers(membersResponse.data || []);
+
+          // Update team stats with actual member count
+          setTeamStats(prev => ({
+            ...prev,
+            total_members: membersResponse.data?.length || 0,
+            active_members: membersResponse.data?.filter(m => m.active_flag !== false && m.user?.role !== 'inactive')?.length || 0
+          }));
+        }
       }
 
-      // Fetch team lead details if available
-      if (transformedTeam.team_lead_id) {
+      // Check if team lead is already populated in the response
+      if (teamResponse.data.team_lead && typeof teamResponse.data.team_lead === 'object') {
+        const leadData = teamResponse.data.team_lead;
+        setTeamLead({
+          id: leadData._id,
+          name: leadData.name || leadData.email,
+          email: leadData.email,
+          phone: leadData.phone,
+          profile_image: leadData.profile_image,
+          role: 'Team Lead'
+        });
+      } else if (transformedTeam.team_lead_id) {
+        // Fallback to separate API call if team lead not populated
         const leadResponse = await userService.getUser(transformedTeam.team_lead_id);
         if (leadResponse.success) {
           setTeamLead({
@@ -118,31 +192,85 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
         // Use default metrics if API fails
       }
 
-      // Generate activities based on team members (as a fallback if no real activity data)
-      const generatedActivities = teamMembers.slice(0, 5).map((member, index) => {
-        const activityTypes = [
-          { type: 'member_added', action: 'added to team', icon: UserPlus, color: 'text-green-500' },
-          { type: 'permission_updated', action: 'updated permissions for', icon: Shield, color: 'text-orange-500' },
-          { type: 'role_changed', action: 'changed role of', icon: Award, color: 'text-blue-500' }
-        ];
+      // Try to fetch team projects if available
+      try {
+        const projectsResponse = await teamService.getTeamProjects(teamId);
+        if (projectsResponse.success && projectsResponse.data) {
+          setTeamProjects(projectsResponse.data);
+          
+          // Update team stats with project counts
+          setTeamStats(prev => ({
+            ...prev,
+            projects_count: projectsResponse.data.length || 0,
+            completed_projects: projectsResponse.data.filter(p => p.status === 'completed').length || 0,
+            active_projects: projectsResponse.data.filter(p => p.status === 'in_progress').length || 0
+          }));
+        }
+      } catch (projectsError) {
+        console.warn('Could not fetch team projects:', projectsError);
+      }
 
-        const randomActivity = activityTypes[Math.floor(Math.random() * activityTypes.length)];
-        const timestamp = new Date();
-        timestamp.setDate(timestamp.getDate() - index);
+      // Try to fetch team activities if available
+      try {
+        const activitiesResponse = await teamService.getTeamActivities(teamId);
+        if (activitiesResponse.success && activitiesResponse.data && activitiesResponse.data.length > 0) {
+          setRecentActivities(activitiesResponse.data);
+        } else {
+          // Generate activities based on team members (as a fallback if no real activity data)
+          const generatedActivities = teamMembers.slice(0, 5).map((member, index) => {
+            const activityTypes = [
+              { type: 'member_added', action: 'added to team', icon: UserPlus, color: 'text-green-500' },
+              { type: 'permission_updated', action: 'updated permissions for', icon: Shield, color: 'text-orange-500' },
+              { type: 'role_changed', action: 'changed role of', icon: Award, color: 'text-blue-500' }
+            ];
 
-        return {
-          id: `activity_${index}`,
-          type: randomActivity.type,
-          user: teamLead?.name || 'Team Admin',
-          target: member.user?.name || 'team member',
-          action: randomActivity.action,
-          timestamp: timestamp.toISOString(),
-          icon: randomActivity.icon,
-          color: randomActivity.color
-        };
-      });
+            const randomActivity = activityTypes[Math.floor(Math.random() * activityTypes.length)];
+            const timestamp = new Date();
+            timestamp.setDate(timestamp.getDate() - index);
 
-      setRecentActivities(generatedActivities);
+            return {
+              id: `activity_${index}`,
+              type: randomActivity.type,
+              user: teamLead?.name || 'Team Admin',
+              target: member.user?.name || 'team member',
+              action: randomActivity.action,
+              timestamp: timestamp.toISOString(),
+              icon: randomActivity.icon,
+              color: randomActivity.color
+            };
+          });
+
+          setRecentActivities(generatedActivities);
+        }
+      } catch (activitiesError) {
+        console.warn('Could not fetch team activities:', activitiesError);
+        
+        // Generate fallback activities
+        const generatedActivities = teamMembers.slice(0, 5).map((member, index) => {
+          const activityTypes = [
+            { type: 'member_added', action: 'added to team', icon: UserPlus, color: 'text-green-500' },
+            { type: 'permission_updated', action: 'updated permissions for', icon: Shield, color: 'text-orange-500' },
+            { type: 'role_changed', action: 'changed role of', icon: Award, color: 'text-blue-500' }
+          ];
+
+          const randomActivity = activityTypes[Math.floor(Math.random() * activityTypes.length)];
+          const timestamp = new Date();
+          timestamp.setDate(timestamp.getDate() - index);
+
+          return {
+            id: `activity_${index}`,
+            type: randomActivity.type,
+            user: teamLead?.name || 'Team Admin',
+            target: member.user?.name || 'team member',
+            action: randomActivity.action,
+            timestamp: timestamp.toISOString(),
+            icon: randomActivity.icon,
+            color: randomActivity.color
+          };
+        });
+
+        setRecentActivities(generatedActivities);
+      }
 
     } catch (error) {
       console.error('Error fetching team details:', error);
@@ -278,9 +406,11 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
   };
 
   if (!isOpen) return null;
-
-  // Use actual team data instead of mock data
-  const currentTeamData = teamData || (team ? teamService.transformTeamData(team) : {});
+  
+  // If currentTeamData is not set yet, use team data directly
+   if (!currentTeamData && team) {
+     setCurrentTeamData(team);
+   }
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
@@ -312,17 +442,17 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                 </div>
                 <div className="ml-4">
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    {currentTeamData.team_name || currentTeamData.name || 'Team Details'}
+                    {currentTeamData.name || 'Team Details'}
                   </h3>
                   <div className="flex items-center mt-1 space-x-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(currentTeamData.status)}`}>
-                      {currentTeamData.status || 'Unknown'}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(currentTeamData.is_active ? 'Active' : 'Inactive')}`}>
+                      {currentTeamData.is_active ? 'Active' : 'Inactive'}
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       {currentTeamData.department || 'No Department'}
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
-                      {teamStats.total_members || currentTeamData.member_count || 0} members
+                      {currentTeamData.member_count || 0} members
                     </span>
                   </div>
                 </div>
@@ -385,53 +515,55 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Description</label>
-                        <p className="mt-1 text-sm text-gray-900 dark:text-white">{teamData?.description || 'No description available'}</p>
+                        <p className="mt-1 text-sm text-gray-900 dark:text-white">{currentTeamData.description || currentTeamData.data?.description || 'No description available'}</p>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Team Lead</label>
                         <div className="mt-1 flex items-center">
-                          {teamData?.lead?.avatar ? (
-                            <img
-                              className="h-6 w-6 rounded-full"
-                              src={teamData.lead.avatar}
-                              alt={teamData.lead.name}
-                            />
-                          ) : (
+                          {(currentTeamData.team_lead || currentTeamData.data?.team_lead) ? (
                             <div className="h-6 w-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
-                              <User className="h-3 w-3 text-gray-500 dark:text-gray-400" />
-                            </div>
-                          )}
-                          {console.log(teamData)}
-                          <span className="ml-2 text-sm text-gray-900 dark:text-white">
-                            {teamData?.lead?.name || teamData?.team_lead || 'No lead assigned'}
-                          </span>
+                                <User className="h-3 w-3 text-gray-500 dark:text-gray-400" />
+                              </div>
+                            ) : (
+                              <div className="h-6 w-6 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
+                                <User className="h-3 w-3 text-gray-500 dark:text-gray-400" />
+                              </div>
+                            )}
+                            <span className="ml-2 text-sm text-gray-900 dark:text-white">
+                              {currentTeamData.team_lead?.email || currentTeamData.data?.team_lead?.email || 'No lead assigned'}
+                            </span>
                         </div>
                       </div>
-                      {console.log(team)}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
                         <div className="mt-1 flex items-center">
                           <MapPin className="h-4 w-4 text-gray-400 mr-1" />
-                          <span className="text-sm text-gray-900 dark:text-white">{teamData?.location || 'No location specified'}</span>
+                          <span className="text-sm text-gray-900 dark:text-white">{currentTeamData.location || currentTeamData.data?.location || 'No location specified'}</span>
                         </div>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Created Date</label>
                         <div className="mt-1 flex items-center">
                           <Calendar className="h-4 w-4 text-gray-400 mr-1" />
-                          <span className="text-sm text-gray-900 dark:text-white">{teamData?.created_date ? formatDate(teamData.created_date) : 'Not available'}</span>
+                          <span className="text-sm text-gray-900 dark:text-white">
+                            {(currentTeamData.created_date && formatDate(currentTeamData.created_date)) || 
+                             (currentTeamData.data?.created_date && formatDate(currentTeamData.data.created_date)) || 
+                             'Not available'}
+                          </span>
                         </div>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Timezone</label>
                         <div className="mt-1 flex items-center">
                           <Clock className="h-4 w-4 text-gray-400 mr-1" />
-                          <span className="text-sm text-gray-900 dark:text-white">{teamData?.timezone || 'Not specified'}</span>
+                          <span className="text-sm text-gray-900 dark:text-white">{currentTeamData.timezone || currentTeamData.data?.timezone || 'Not specified'}</span>
                         </div>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Budget</label>
-                        <span className="mt-1 text-sm text-gray-900 dark:text-white">${teamData?.budget?.toLocaleString() || '0'}</span>
+                        <span className="mt-1 text-sm text-gray-900 dark:text-white">
+                          ${(currentTeamData.budget !== undefined ? currentTeamData.budget : currentTeamData.data?.budget)?.toLocaleString() || '0'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -550,10 +682,10 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                     </h4>
                     <div className="flex items-center justify-between p-4 bg-white dark:bg-gray-700 rounded-lg">
                       <div className="flex items-center">
-                        {teamLead?.avatar ? (
+                        {teamLead?.profile_image ? (
                           <img
                             className="h-12 w-12 rounded-full"
-                            src={teamLead.avatar}
+                            src={teamLead.profile_image}
                             alt={teamLead.name}
                           />
                         ) : (
@@ -608,11 +740,11 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                         <div key={member?.id || index} className="p-6">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center">
-                              {member?.avatar ? (
+                              {member?.user?.profile_image ? (
                                 <img
                                   className="h-10 w-10 rounded-full"
-                                  src={member.avatar}
-                                  alt={member?.name || 'Team member'}
+                                  src={member.user.profile_image}
+                                  alt={member?.user?.name || 'Team member'}
                                 />
                               ) : (
                                 <div className="h-10 w-10 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center">
@@ -621,25 +753,27 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                               )}
                               <div className="ml-4">
                                 <div className="flex items-center">
-                                  <h5 className="text-sm font-medium text-gray-900 dark:text-white">{member?.name || 'Unknown'}</h5>
-                                  <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member?.status)}`}>
-                                    {member?.status || 'Unknown'}
+                                  <h5 className="text-sm font-medium text-gray-900 dark:text-white">{member?.user?.name || 'Unknown'}</h5>
+                                  <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member?.active_flag ? 'active' : 'inactive')}`}>
+                                    {member?.active_flag ? 'Active' : 'Inactive'}
                                   </span>
                                 </div>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">{member?.role || 'Team Member'}</p>
                                 <div className="flex items-center mt-1 space-x-4">
                                   <div className="flex items-center">
                                     <Mail className="h-3 w-3 text-gray-400 mr-1" />
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">{member.email}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">{member.user?.email || 'No email'}</span>
                                   </div>
                                   <div className="flex items-center">
                                     <Calendar className="h-3 w-3 text-gray-400 mr-1" />
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">Joined {formatDate(member.joined_date)}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">Joined {member.joined_date ? formatDate(member.joined_date) : 'Unknown'}</span>
                                   </div>
-                                  <div className="flex items-center">
-                                    <Clock className="h-3 w-3 text-gray-400 mr-1" />
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">Last active {formatDateTime(member.last_active)}</span>
-                                  </div>
+                                  {member.last_active && (
+                                    <div className="flex items-center">
+                                      <Clock className="h-3 w-3 text-gray-400 mr-1" />
+                                      <span className="text-xs text-gray-500 dark:text-gray-400">Last active {formatDateTime(member.last_active)}</span>
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="flex items-center mt-2">
                                   <Shield className="h-3 w-3 text-gray-400 mr-1" />
@@ -717,39 +851,39 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                       <h4 className="text-lg font-medium text-gray-900 dark:text-white">Team Projects</h4>
                     </div>
                     <div className="divide-y divide-gray-200 dark:divide-gray-600">
-                      {teamProjects.map((project) => (
-                        <div key={project.id} className="p-6">
+                      {teamProjects && teamProjects.length > 0 ? teamProjects.map((project) => (
+                        <div key={project.id || project.project_id} className="p-6">
                           <div className="flex items-center justify-between">
                             <div className="flex-1">
                               <div className="flex items-center">
-                                <h5 className="text-sm font-medium text-gray-900 dark:text-white">{project.name}</h5>
+                                <h5 className="text-sm font-medium text-gray-900 dark:text-white">{project.name || project.project_name}</h5>
                                 <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getProjectStatusColor(project.status)}`}>
-                                  {project.status.replace('_', ' ')}
+                                  {project.status && typeof project.status === 'string' ? project.status.replace('_', ' ') : 'Unknown'}
                                 </span>
                                 <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(project.priority)}`}>
-                                  {project.priority}
+                                  {project.priority || 'Normal'}
                                 </span>
                               </div>
                               <div className="mt-2">
                                 <div className="flex items-center justify-between text-sm">
                                   <span className="text-gray-500 dark:text-gray-400">Progress</span>
-                                  <span className="text-gray-900 dark:text-white">{project.progress}%</span>
+                                  <span className="text-gray-900 dark:text-white">{project.progress || project.completion_percentage || 0}%</span>
                                 </div>
                                 <div className="mt-1 w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                                   <div
                                     className="bg-primary-600 h-2 rounded-full"
-                                    style={{ width: `${project.progress}%` }}
+                                    style={{ width: `${project.progress || project.completion_percentage || 0}%` }}
                                   ></div>
                                 </div>
                               </div>
                               <div className="flex items-center mt-2 space-x-4">
                                 <div className="flex items-center">
                                   <Calendar className="h-3 w-3 text-gray-400 mr-1" />
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">Due {formatDate(project.deadline)}</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">Due {formatDate(project.deadline || project.due_date)}</span>
                                 </div>
                                 <div className="flex items-center">
                                   <Users className="h-3 w-3 text-gray-400 mr-1" />
-                                  <span className="text-xs text-gray-500 dark:text-gray-400">{project.members_assigned} members</span>
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">{project.members_assigned || (project.assigned ? project.assigned.length : 0)} members</span>
                                 </div>
                               </div>
                             </div>
@@ -763,7 +897,11 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                             </div>
                           </div>
                         </div>
-                      ))}
+                      )) : (
+                        <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                          No projects available for this team
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -777,26 +915,33 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                       <h4 className="text-lg font-medium text-gray-900 dark:text-white">Recent Activity</h4>
                     </div>
                     <div className="divide-y divide-gray-200 dark:divide-gray-600">
-                      {recentActivities.map((activity) => {
-                        const Icon = activity.icon;
-                        return (
-                          <div key={activity.id} className="p-6">
-                            <div className="flex items-start">
-                              <div className="flex-shrink-0">
-                                <Icon className={`h-5 w-5 ${activity.color}`} />
-                              </div>
-                              <div className="ml-3 flex-1">
-                                <p className="text-sm text-gray-900 dark:text-white">
-                                  <span className="font-medium">{activity.user}</span> {activity.action} <span className="font-medium">{activity.target}</span>
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                  {formatDateTime(activity.timestamp)}
-                                </p>
+                      {recentActivities && recentActivities.length > 0 ? (
+                        recentActivities.map((activity) => {
+                          const Icon = activity.icon;
+                          return (
+                            <div key={activity.id} className="p-6">
+                              <div className="flex items-start">
+                                <div className="flex-shrink-0">
+                                  {Icon && <Icon className={`h-5 w-5 ${activity.color || 'text-gray-500'}`} />}
+                                  {!Icon && <Activity className={`h-5 w-5 ${activity.color || 'text-gray-500'}`} />}
+                                </div>
+                                <div className="ml-3 flex-1">
+                                  <p className="text-sm text-gray-900 dark:text-white">
+                                    <span className="font-medium">{activity.user}</span> {activity.action} <span className="font-medium">{activity.target}</span>
+                                  </p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    {formatDateTime(activity.timestamp)}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        })
+                      ) : (
+                        <div className="p-6 text-center text-gray-500 dark:text-gray-400">
+                          No recent activities available
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -805,7 +950,7 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
               {/* Metrics Tab */}
               {activeTab === 'metrics' && (
                 <div className="space-y-6">
-                  {Object.keys(teamMetrics).length === 0 ? (
+                  {!teamMetrics || Object.keys(teamMetrics).length === 0 ? (
                     <div className="bg-white dark:bg-gray-700 shadow rounded-lg p-6 text-center">
                       <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-2" />
                       <p className="text-gray-500 dark:text-gray-400">No metrics data available for this team</p>
@@ -821,7 +966,7 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                                   {key}
                                 </dt>
                                 <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                                  {metric.current}%
+                                  {metric.current || 0}%
                                 </dd>
                               </div>
                               <div className="flex items-center">
@@ -835,7 +980,7 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                                 <span className={`ml-1 text-sm ${metric.trend === 'up' ? 'text-green-500' :
                                   metric.trend === 'down' ? 'text-red-500' : 'text-gray-500'
                                   }`}>
-                                  {Math.abs(metric.change || (metric.current - metric.previous))}%
+                                  {Math.abs(metric.change || (metric.current - (metric.previous || 0)))}%
                                 </span>
                               </div>
                             </div>
@@ -843,7 +988,7 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                               <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                                 <div
                                   className="bg-primary-600 h-2 rounded-full"
-                                  style={{ width: `${metric.current}%` }}
+                                  style={{ width: `${metric.current || 0}%` }}
                                 ></div>
                               </div>
                             </div>

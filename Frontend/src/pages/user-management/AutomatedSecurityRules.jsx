@@ -72,6 +72,19 @@ import {
   PowerOff
 } from 'lucide-react';
 import SecurityRuleForm from './components/SecurityRuleForm';
+import {
+  getSecurityRules,
+  getSecurityAlerts,
+  getSecurityLogs,
+  getSecurityStats,
+  formatQueryParams,
+  createSecurityRule,
+  updateSecurityRule,
+  deleteSecurityRule,
+  testSecurityRule,
+  toggleRuleStatus,
+  resolveAlert
+} from '../../services/securityService';
 
 const AutomatedSecurityRules = () => {
   const [activeTab, setActiveTab] = useState('rules');
@@ -87,8 +100,176 @@ const AutomatedSecurityRules = () => {
   const [filterStatus, setFilterStatus] = useState('');
   const [sortBy, setSortBy] = useState('name');
   const [sortOrder, setSortOrder] = useState('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [itemsPerPage] = useState(10);
 
-  // Mock data
+  // Fetch security rules
+  const fetchSecurityRules = async () => {
+    try {
+      setLoading(true);
+      const queryParams = formatQueryParams({
+        page: currentPage,
+        limit: itemsPerPage,
+        sort: `${sortOrder === 'asc' ? '' : '-'}${sortBy}`,
+        status: filterStatus,
+        search: searchTerm
+      });
+      
+      const response = await getSecurityRules(queryParams);
+      if (response.success) {
+        setSecurityRules(response.data.data);
+        setTotalPages(Math.ceil(response.data.total / itemsPerPage));
+      }
+    } catch (error) {
+      console.error('Error fetching security rules:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch alerts
+  const fetchAlerts = async () => {
+    try {
+      const response = await getSecurityAlerts('?status=active&sort=-createdAt&limit=5');
+      if (response.success) {
+        setAlerts(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching alerts:', error);
+    }
+  };
+
+  // Fetch logs
+  const fetchLogs = async () => {
+    try {
+      const response = await getSecurityLogs('?sort=-createdAt&limit=10');
+      if (response.success) {
+        setLogs(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching logs:', error);
+    }
+  };
+
+  // Fetch stats
+  const fetchStats = async () => {
+    try {
+      const response = await getSecurityStats();
+      if (response.success) {
+        setRuleStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  // Handle rule creation
+  const handleCreateRule = async (ruleData) => {
+    try {
+      setLoading(true);
+      const response = await createSecurityRule(ruleData);
+      if (response.success) {
+        fetchSecurityRules();
+        setShowRuleModal(false);
+      }
+    } catch (error) {
+      console.error('Error creating rule:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle rule update
+  const handleUpdateRule = async (id, ruleData) => {
+    try {
+      setLoading(true);
+      const response = await updateSecurityRule(id, ruleData);
+      if (response.success) {
+        fetchSecurityRules();
+        setShowRuleModal(false);
+        setSelectedRule(null);
+      }
+    } catch (error) {
+      console.error('Error updating rule:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle rule deletion
+  const handleDeleteRule = async (id) => {
+    try {
+      setLoading(true);
+      const response = await deleteSecurityRule(id);
+      if (response.success) {
+        fetchSecurityRules();
+      }
+    } catch (error) {
+      console.error('Error deleting rule:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle rule testing
+  const handleTestRule = async (id) => {
+    try {
+      setLoading(true);
+      const response = await testSecurityRule(id);
+      if (response.success) {
+        // Refresh alerts after test
+        fetchAlerts();
+      }
+    } catch (error) {
+      console.error('Error testing rule:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle rule status toggle
+  const handleToggleStatus = async (id) => {
+    try {
+      setLoading(true);
+      const response = await toggleRuleStatus(id);
+      if (response.success) {
+        fetchSecurityRules();
+      }
+    } catch (error) {
+      console.error('Error toggling rule status:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle alert resolution
+  const handleResolveAlert = async (id, resolutionData) => {
+    try {
+      setLoading(true);
+      const response = await resolveAlert(id, resolutionData);
+      if (response.success) {
+        fetchAlerts();
+      }
+    } catch (error) {
+      console.error('Error resolving alert:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Effect hooks for data fetching
+  useEffect(() => {
+    fetchSecurityRules();
+  }, [currentPage, itemsPerPage, sortBy, sortOrder, filterStatus, searchTerm]);
+
+  useEffect(() => {
+    fetchAlerts();
+    fetchLogs();
+    fetchStats();
+  }, []);
+
+  // Removed mock data
   const mockSecurityRules = [
     {
       rule_id: 'rule_001',
@@ -399,37 +580,12 @@ const AutomatedSecurityRules = () => {
     return 0;
   });
 
-  const handleToggleRule = (ruleId) => {
-    setSecurityRules(rules => 
-      rules.map(rule => 
-        rule.rule_id === ruleId 
-          ? { ...rule, status: rule.status === 'active' ? 'paused' : 'active' }
-          : rule
-      )
-    );
-  };
-
-  const handleDeleteRule = (ruleId) => {
-    if (window.confirm('Are you sure you want to delete this security rule?')) {
-      setSecurityRules(rules => rules.filter(rule => rule.rule_id !== ruleId));
-      alert('Security rule deleted successfully');
+  const handleToggleRule = async (ruleId) => {
+    try {
+      await handleToggleStatus(ruleId);
+    } catch (error) {
+      console.error('Error toggling rule:', error);
     }
-  };
-
-  const handleResolveAlert = (alertId) => {
-    setAlerts(alerts => 
-      alerts.map(alert => 
-        alert.alert_id === alertId 
-          ? { 
-              ...alert, 
-              status: 'resolved', 
-              resolved: true,
-              resolved_at: new Date().toISOString(),
-              resolved_by: 'current_user'
-            }
-          : alert
-      )
-    );
   };
 
   const getPriorityColor = (priority) => {
