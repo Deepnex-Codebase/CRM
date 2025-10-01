@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, User, Mail, Phone, Shield, Users, Building } from 'lucide-react';
+import { X, Eye, EyeOff, User, Mail, Phone, Shield, Users, Building, AlertCircle } from 'lucide-react';
+import roleService from '../../../services/user_management/roleService';
+import teamService from '../../../services/user_management/teamService';
 
 const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
   const [formData, setFormData] = useState({
@@ -8,7 +10,7 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
     phone: '',
     password: '',
     confirmPassword: '',
-    role: 'Staff',
+    role: '',
     team: '',
     status: 'Active',
     firstName: '',
@@ -20,24 +22,105 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const roles = ['Admin', 'Manager', 'Staff', 'Viewer'];
-  const teams = ['Management', 'Sales', 'Support', 'Marketing', 'Development', 'HR'];
+  const [roles, setRoles] = useState([]);
+  const [rolesLoading, setRolesLoading] = useState(true);
+  const [rolesError, setRolesError] = useState(null);
+  const [teams, setTeams] = useState([]);
+  const [teamsLoading, setTeamsLoading] = useState(true);
+  const [teamsError, setTeamsError] = useState(null);
   const departments = ['IT', 'Sales', 'Marketing', 'HR', 'Finance', 'Operations'];
+
+  // Load roles from API
+  const loadRoles = async () => {
+    try {
+      setRolesLoading(true);
+      setRolesError(null);
+      const response = await roleService.getRoles();
+      if (response.success && response.data) {
+        setRoles(response.data);
+      } else {
+        throw new Error('Failed to fetch roles');
+      }
+    } catch (error) {
+      console.error('Error loading roles:', error);
+      setRolesError(error.message || 'Failed to load roles');
+      // Fallback to default roles if API fails
+      setRoles([
+        { _id: 'admin', role_id: 'admin', role_name: 'Admin' },
+        { _id: 'manager', role_id: 'manager', role_name: 'Manager' },
+        { _id: 'staff', role_id: 'staff', role_name: 'Staff' },
+        { _id: 'viewer', role_id: 'viewer', role_name: 'Viewer' }
+      ]);
+    } finally {
+      setRolesLoading(false);
+    }
+  };
+  
+  // Load teams from API
+  const loadTeams = async () => {
+    try {
+      setTeamsLoading(true);
+      setTeamsError(null);
+      const response = await teamService.getTeams();
+      if (response.success && response.data) {
+        setTeams(response.data);
+      } else {
+        throw new Error('Failed to fetch teams');
+      }
+    } catch (error) {
+      console.error('Error loading teams:', error);
+      setTeamsError(error.message || 'Failed to load teams');
+      // Fallback to default teams if API fails
+      setTeams([
+        { _id: 'management', name: 'Management' },
+        { _id: 'sales', name: 'Sales' },
+        { _id: 'support', name: 'Support' },
+        { _id: 'marketing', name: 'Marketing' },
+        { _id: 'development', name: 'Development' },
+        { _id: 'hr', name: 'HR' }
+      ]);
+    } finally {
+      setTeamsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadRoles();
+    loadTeams();
+  }, []);
 
   useEffect(() => {
     if (user) {
+      // Determine the correct role value with multiple fallbacks
+      let roleValue = '';
+      
+      // Handle different role data structures
+      if (user.role_id && user.role_id._id) {
+        // If role_id is an object with _id property
+        roleValue = user.role_id._id;
+      } else if (user.role_assignment && user.role_assignment._id) {
+        // If role_assignment is available
+        roleValue = user.role_assignment._id;
+      } else if (typeof user.role_id === 'string') {
+        // If role_id is a string
+        roleValue = user.role_id;
+      } else if (typeof user.role === 'string') {
+        // Try to find matching role by name
+        const matchingRole = roles.find(r => r.role_name === user.role);
+        roleValue = matchingRole ? matchingRole.role_id || matchingRole._id : '';
+      }
+      
       setFormData({
         username: user.username || '',
         email: user.email || '',
         phone: user.phone || '',
         password: '',
         confirmPassword: '',
-        role: user.role || 'Staff',
-        team: user.team || '',
+        role: roleValue,
+        team: user.team_id?._id || user.team_id || '',
         status: user.status || 'Active',
-        firstName: user.firstName || '',
-        lastName: user.lastName || '',
+        firstName: user.firstName || user.first_name || '',
+        lastName: user.lastName || user.last_name || '',
         department: user.department || ''
       });
     } else {
@@ -47,7 +130,7 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
         phone: '',
         password: '',
         confirmPassword: '',
-        role: 'Staff',
+        role: '',
         team: '',
         status: 'Active',
         firstName: '',
@@ -102,6 +185,11 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
     // Last name validation
     if (!formData.lastName.trim()) {
       newErrors.lastName = 'Last name is required';
+    }
+
+    // Role validation
+    if (!formData.role) {
+      newErrors.role = 'Role is required';
     }
 
     // Team validation
@@ -384,35 +472,81 @@ const UserForm = ({ user, isOpen, onClose, onSubmit, title }) => {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Role *
                 </label>
-                <select
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  {roles.map(role => (
-                    <option key={role} value={role}>{role}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    disabled={rolesLoading}
+                    className={`w-full px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                      rolesLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    } ${
+                      errors.role ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                  >
+                    <option value="">
+                      {rolesLoading ? 'Loading roles...' : 'Select Role'}
+                    </option>
+                    {roles.map(role => (
+                      <option key={role._id || role.role_id} value={role._id || role.role_id}>
+                        {role.role_name}
+                      </option>
+                    ))}
+                  </select>
+                  {rolesLoading && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                    </div>
+                  )}
+                </div>
+                {rolesError && (
+                  <div className="mt-1 flex items-center text-sm text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    <span>Using fallback roles due to: {rolesError}</span>
+                  </div>
+                )}
+                {errors.role && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.role}</p>
+                )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Team *
                 </label>
-                <select
-                  name="team"
-                  value={formData.team}
-                  onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${
-                    errors.team ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                >
-                  <option value="">Select Team</option>
-                  {teams.map(team => (
-                    <option key={team} value={team}>{team}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    name="team"
+                    value={formData.team}
+                    onChange={handleChange}
+                    disabled={teamsLoading}
+                    className={`w-full px-3 py-2 border rounded-md text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 ${
+                      teamsLoading ? 'opacity-50 cursor-not-allowed' : ''
+                    } ${
+                      errors.team ? 'border-red-300 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                  >
+                    <option value="">
+                      {teamsLoading ? 'Loading teams...' : 'Select Team'}
+                    </option>
+                    {teams.map(team => (
+                      <option key={team._id} value={team._id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                  {teamsLoading && (
+                    <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-600"></div>
+                    </div>
+                  )}
+                </div>
+                {teamsError && (
+                  <div className="mt-1 flex items-center text-sm text-amber-600 dark:text-amber-400">
+                    <AlertCircle className="h-4 w-4 mr-1" />
+                    <span>Using fallback teams due to: {teamsError}</span>
+                  </div>
+                )}
                 {errors.team && (
                   <p className="mt-1 text-sm text-red-600 dark:text-red-400">{errors.team}</p>
                 )}

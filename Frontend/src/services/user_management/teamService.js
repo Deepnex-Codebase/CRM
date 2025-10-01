@@ -6,6 +6,50 @@ import api from '../../utils/api';
  */
 
 class TeamService {
+  // Error handling method to match userService.js
+  handleError(error) {
+    if (error.response) {
+      // Server responded with an error status
+      const { status, data } = error.response;
+      const errorObj = new Error(data?.message || 'API Error');
+      
+      // Add standard error properties
+      errorObj.status = status;
+      errorObj.originalError = error;
+      
+      // Add user-friendly messages based on status code
+      if (status === 400) {
+        errorObj.userMessage = 'Invalid request. Please check your input and try again.';
+      } else if (status === 401) {
+        errorObj.userMessage = 'Authentication required. Please log in again.';
+      } else if (status === 403) {
+        errorObj.userMessage = 'You do not have permission to perform this action.';
+      } else if (status === 404) {
+        errorObj.userMessage = 'The requested resource was not found.';
+      } else if (status === 409) {
+        errorObj.userMessage = 'This operation caused a conflict. The resource may already exist.';
+      } else if (status >= 500) {
+        errorObj.userMessage = 'A server error occurred. Please try again later or contact support.';
+      } else {
+        errorObj.userMessage = 'An error occurred while processing your request.';
+      }
+      
+      // Add response data for debugging
+      errorObj.responseData = error.response.data;
+      return errorObj;
+    } else if (error.request) {
+      // Request was made but no response received
+      const errorObj = new Error('Network error: Unable to connect to server');
+      errorObj.userMessage = 'Connection to server failed. Please check your internet connection and try again.';
+      errorObj.isNetworkError = true;
+      return errorObj;
+    } else {
+      // Something else happened
+      const errorObj = new Error(error.message || 'An unexpected error occurred');
+      errorObj.userMessage = 'Something went wrong. Please try again or contact support.';
+      return errorObj;
+    }
+  }
   // Get all teams with pagination and filtering
   async getTeams(params = {}) {
     try {
@@ -29,12 +73,13 @@ class TeamService {
       const response = await api.get('/teams', { params });
       return {
         success: true,
-        data: response.data.teams || [],
+        data: response.data.teams || response.data.data || [],
         pagination: response.data.pagination || {},
         message: 'Teams retrieved successfully'
       };
     } catch (error) {
-      return this.constructor.handleApiError(error);
+      console.error('Error fetching teams:', error);
+      return this.handleError(error);
     }
   }
 
@@ -57,7 +102,8 @@ class TeamService {
         message: 'Team retrieved successfully'
       };
     } catch (error) {
-      return this.constructor.handleApiError(error);
+      console.error('Error fetching team:', error);
+      return this.handleError(error);
     }
   }
 
@@ -65,7 +111,7 @@ class TeamService {
   async createTeam(teamData) {
     try {
       // Validate team data
-      const validation = this.constructor.validateTeamData(teamData);
+      const validation = TeamService.validateTeamData(teamData);
       if (!validation.isValid) {
         return {
           success: false,
@@ -82,7 +128,8 @@ class TeamService {
         message: 'Team created successfully'
       };
     } catch (error) {
-      return this.constructor.handleApiError(error);
+      console.error('Error creating team:', error);
+      return this.handleError(error);
     }
   }
 
@@ -99,7 +146,7 @@ class TeamService {
       }
 
       // Validate team data
-      const validation = this.constructor.validateTeamData(teamData);
+      const validation = TeamService.validateTeamData(teamData);
       if (!validation.isValid) {
         return {
           success: false,
@@ -116,7 +163,8 @@ class TeamService {
         message: 'Team updated successfully'
       };
     } catch (error) {
-      return this.constructor.handleApiError(error);
+      console.error('Error updating team:', error);
+      return this.handleError(error);
     }
   }
 
@@ -138,7 +186,8 @@ class TeamService {
         message: 'Team deleted successfully'
       };
     } catch (error) {
-      return this.constructor.handleApiError(error);
+      console.error('Error deleting team:', error);
+      return this.handleError(error);
     }
   }
 
@@ -161,7 +210,8 @@ class TeamService {
         message: 'Team members retrieved successfully'
       };
     } catch (error) {
-      return this.constructor.handleApiError(error);
+      console.error('Error fetching team members:', error);
+      return this.handleError(error);
     }
   }
 
@@ -193,7 +243,8 @@ class TeamService {
         message: 'Member added successfully'
       };
     } catch (error) {
-      return this.constructor.handleApiError(error);
+      console.error('Error adding team member:', error);
+      return this.handleError(error);
     }
   }
 
@@ -217,13 +268,14 @@ class TeamService {
         };
       }
 
-      await api.delete(`/teams/${teamId}/members/${memberId}`);
+      await api.delete(`/teams/members/${memberId}`);
       return {
         success: true,
         message: 'Member removed successfully'
       };
     } catch (error) {
-      return this.constructor.handleApiError(error);
+      console.error('Error removing team member:', error);
+      return this.handleError(error);
     }
   }
 
@@ -256,14 +308,15 @@ class TeamService {
         };
       }
 
-      const response = await api.put(`/teams/${teamId}/members/${memberId}`, roleData);
+      const response = await api.put(`/teams/members/${memberId}`, roleData);
       return {
         success: true,
         data: response.data,
         message: 'Member role updated successfully'
       };
     } catch (error) {
-      return this.constructor.handleApiError(error);
+      console.error('Error updating member role:', error);
+      return this.handleError(error);
     }
   }
 
@@ -295,7 +348,8 @@ class TeamService {
         message: 'Territory assigned successfully'
       };
     } catch (error) {
-      return this.constructor.handleApiError(error);
+      console.error('Error assigning territory:', error);
+      return this.handleError(error);
     }
   }
 
@@ -318,7 +372,8 @@ class TeamService {
         message: 'Team metrics retrieved successfully'
       };
     } catch (error) {
-      return this.constructor.handleApiError(error);
+      console.error('Error fetching team metrics:', error);
+      return this.handleError(error);
     }
   }
 
@@ -330,7 +385,7 @@ class TeamService {
    */
   async getTeamsByDepartment(department, params = {}) {
     try {
-      const response = await api.get(`/profile/teams/department/${department}`, { params });
+      const response = await api.get(`/teams/department/${department}`, { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching teams by department:', error);
@@ -346,7 +401,7 @@ class TeamService {
    */
   async getTeamsByType(type, params = {}) {
     try {
-      const response = await api.get(`/profile/teams/type/${type}`, { params });
+      const response = await api.get(`/teams/type/${type}`, { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching teams by type:', error);
@@ -362,7 +417,7 @@ class TeamService {
    */
   async getUserTeams(userId, params = {}) {
     try {
-      const response = await api.get(`/profile/teams/user/${userId}`, { params });
+      const response = await api.get(`/teams/user/${userId}`, { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching user teams:', error);
@@ -380,7 +435,7 @@ class TeamService {
    */
   async assignTeamToProfile(assignmentData) {
     try {
-      const response = await api.post('/profile/teams/assign', assignmentData);
+      const response = await api.post('/teams/assign', assignmentData);
       return response.data;
     } catch (error) {
       console.error('Error assigning team to profile:', error);
@@ -396,7 +451,7 @@ class TeamService {
    */
   async getTeamAssignments(teamId, params = {}) {
     try {
-      const response = await api.get(`/profile/teams/${teamId}/assignments`, { params });
+      const response = await api.get(`/teams/${teamId}/assignments`, { params });
       return response.data;
     } catch (error) {
       console.error('Error fetching team assignments:', error);
@@ -412,7 +467,7 @@ class TeamService {
    */
   async unassignTeamFromProfile(profileType, profileId) {
     try {
-      const response = await api.delete(`/profile/teams/assign/${profileType}/${profileId}`);
+      const response = await api.delete(`/teams/assign/${profileType}/${profileId}`);
       return response.data;
     } catch (error) {
       console.error('Error unassigning team from profile:', error);
@@ -429,7 +484,7 @@ class TeamService {
     if (!backendTeam) return null;
 
     return {
-      team_id: backendTeam.team_id || backendTeam._id,
+      team_id: backendTeam._id || backendTeam.id, // Use MongoDB _id or id as the primary identifier
       team_name: backendTeam.name,
       department: backendTeam.department,
       description: backendTeam.description || '',
@@ -440,9 +495,17 @@ class TeamService {
       created_by: backendTeam.created_by,
       // Additional computed fields for frontend compatibility
       member_count: backendTeam.member_count || 0,
-      team_lead: backendTeam.team_lead || 'Not Assigned',
-      team_lead_id: backendTeam.team_lead_id || null,
+      // Store team_lead as the ID string for proper reference
+      team_lead: backendTeam.team_lead_id || (typeof backendTeam.team_lead === 'string' ? backendTeam.team_lead : (typeof backendTeam.team_lead === 'object' && backendTeam.team_lead ? backendTeam.team_lead._id : 'Not Assigned')),
+      // Ensure team_lead_id is always stored as the object ID
+      team_lead_id: backendTeam.team_lead_id || (typeof backendTeam.team_lead === 'string' ? backendTeam.team_lead : (typeof backendTeam.team_lead === 'object' && backendTeam.team_lead ? backendTeam.team_lead._id : null)),
       territory: backendTeam.territory || 'Not Specified',
+      // New fields from Team model
+      target_goals: backendTeam.target_goals || '',
+      budget: backendTeam.budget || 0,
+      location: backendTeam.location || '',
+      contact_email: backendTeam.contact_email || '',
+      contact_phone: backendTeam.contact_phone || '',
       members: backendTeam.members || []
     };
   }
@@ -455,13 +518,30 @@ class TeamService {
   transformTeamDataForBackend(frontendTeam) {
     if (!frontendTeam) return null;
 
-    return {
+    // Include _id field if it exists in the frontend data
+    const result = {
       name: frontendTeam.team_name || frontendTeam.name,
       description: frontendTeam.description || '',
       department: frontendTeam.department,
       team_type: frontendTeam.team_type || 'other',
-      is_active: frontendTeam.status === 'Active' || frontendTeam.is_active !== false
+      is_active: frontendTeam.status === 'Active' || frontendTeam.is_active !== false,
+      // Use team_lead_id instead of name to prevent "Resource not found" errors
+      team_lead: frontendTeam.team_lead_id,
+      territory: frontendTeam.territory,
+      // New fields from Team model
+      target_goals: frontendTeam.target_goals || '',
+      budget: frontendTeam.budget ? Number(frontendTeam.budget) : 0,
+      location: frontendTeam.location || '',
+      contact_email: frontendTeam.contact_email || '',
+      contact_phone: frontendTeam.contact_phone || ''
     };
+    
+    // If we have the team_id, include it as _id for backend operations
+    if (frontendTeam.team_id) {
+      result._id = frontendTeam.team_id;
+    }
+    
+    return result;
   }
 
   /**
@@ -583,13 +663,15 @@ class TeamService {
       errors.push('Invalid department selected');
     }
     
-    // Team lead validation
-    if (!teamData.team_lead || typeof teamData.team_lead !== 'string') {
-      errors.push('Team lead is required');
-    } else if (teamData.team_lead.trim().length < 2) {
-      errors.push('Team lead name must be at least 2 characters long');
-    } else if (teamData.team_lead.trim().length > 100) {
-      errors.push('Team lead name must be less than 100 characters');
+    // Team lead validation - check for either team_lead_id or team_lead name
+    if (!teamData.team_lead_id && !teamData.team_lead) {
+      errors.push('Team Lead is required');
+    } else if (teamData.team_lead && typeof teamData.team_lead === 'string') {
+      if (teamData.team_lead.trim().length < 2) {
+        errors.push('Team lead name must be at least 2 characters long');
+      } else if (teamData.team_lead.trim().length > 100) {
+        errors.push('Team lead name must be less than 100 characters');
+      }
     }
     
     // Description validation
@@ -613,81 +695,132 @@ class TeamService {
       errors.push('Territory must be less than 100 characters');
     }
     
+    // Target goals validation
+    if (teamData.target_goals && typeof teamData.target_goals !== 'string') {
+      errors.push('Target goals must be a string');
+    } else if (teamData.target_goals && teamData.target_goals.length > 500) {
+      errors.push('Target goals must be less than 500 characters');
+    }
+    
+    // Budget validation
+    if (teamData.budget && typeof teamData.budget !== 'number') {
+      errors.push('Budget must be a number');
+    } else if (teamData.budget && teamData.budget < 0) {
+      errors.push('Budget cannot be negative');
+    }
+    
+    // Location validation
+    if (teamData.location && typeof teamData.location !== 'string') {
+      errors.push('Location must be a string');
+    } else if (teamData.location && teamData.location.length > 100) {
+      errors.push('Location must be less than 100 characters');
+    }
+    
+    // Contact email validation
+    if (teamData.contact_email && typeof teamData.contact_email !== 'string') {
+      errors.push('Contact email must be a string');
+    } else if (teamData.contact_email) {
+      const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+      if (!emailRegex.test(teamData.contact_email)) {
+        errors.push('Please provide a valid email address');
+      }
+    }
+    
+    // Contact phone validation
+    if (teamData.contact_phone && typeof teamData.contact_phone !== 'string') {
+      errors.push('Contact phone must be a string');
+    } else if (teamData.contact_phone) {
+      const phoneRegex = /^\+?[1-9]\d{9,14}$/;
+      if (!phoneRegex.test(teamData.contact_phone)) {
+        errors.push('Please provide a valid phone number');
+      }
+    }
+    
     return {
       isValid: errors.length === 0,
       errors
     };
   }
 
-  // Enhanced error handling
-  static handleApiError(error) {
-    console.error('API Error:', error);
+  // Enhanced error handling - Remove this static method as we now have instance method
+  static validateTeamData(teamData) {
+    const errors = [];
     
-    // Network errors
-    if (!error.response) {
-      return {
-        success: false,
-        message: 'Network error. Please check your connection and try again.',
-        error: 'NETWORK_ERROR'
-      };
+    // Name validation
+    if (!teamData.name || typeof teamData.name !== 'string') {
+      errors.push('Team name is required');
+    } else if (teamData.name.trim().length < 2) {
+      errors.push('Team name must be at least 2 characters long');
+    } else if (teamData.name.trim().length > 100) {
+      errors.push('Team name must be less than 100 characters');
     }
     
-    // HTTP errors
-    const status = error.response.status;
-    const data = error.response.data;
-    
-    switch (status) {
-      case 400:
-        return {
-          success: false,
-          message: data?.message || 'Invalid request. Please check your input.',
-          error: 'VALIDATION_ERROR',
-          details: data?.errors || []
-        };
-      case 401:
-        return {
-          success: false,
-          message: 'Authentication required. Please log in again.',
-          error: 'AUTH_ERROR'
-        };
-      case 403:
-        return {
-          success: false,
-          message: 'You do not have permission to perform this action.',
-          error: 'PERMISSION_ERROR'
-        };
-      case 404:
-        return {
-          success: false,
-          message: 'Team not found.',
-          error: 'NOT_FOUND'
-        };
-      case 409:
-        return {
-          success: false,
-          message: data?.message || 'A team with this name already exists.',
-          error: 'CONFLICT_ERROR'
-        };
-      case 422:
-        return {
-          success: false,
-          message: data?.message || 'Invalid data provided.',
-          error: 'VALIDATION_ERROR',
-          details: data?.errors || []
-        };
-      case 500:
-        return {
-          success: false,
-          message: 'Server error. Please try again later.',
-          error: 'SERVER_ERROR'
-        };
-      default:
-        return {
-          success: false,
-          message: data?.message || 'An unexpected error occurred.',
-          error: 'UNKNOWN_ERROR'
-        };
+    // Team Lead validation
+    if (!teamData.team_lead) {
+      errors.push('Team Lead is required');
     }
+    
+    // Territory validation
+    if (!teamData.territory || typeof teamData.territory !== 'string') {
+      errors.push('Territory is required');
+    } else if (teamData.territory.trim().length < 2) {
+      errors.push('Territory must be at least 2 characters long');
+    } else if (teamData.territory.trim().length > 100) {
+      errors.push('Territory must be less than 100 characters');
+    }
+    
+    // Description validation (optional)
+    if (teamData.description && typeof teamData.description !== 'string') {
+      errors.push('Description must be a string');
+    } else if (teamData.description && teamData.description.length > 500) {
+      errors.push('Description must be less than 500 characters');
+    }
+    
+    // Target Goals validation (optional)
+    if (teamData.target_goals && typeof teamData.target_goals !== 'string') {
+      errors.push('Target Goals must be a string');
+    } else if (teamData.target_goals && teamData.target_goals.length > 500) {
+      errors.push('Target Goals must be less than 500 characters');
+    }
+    
+    // Budget validation (optional)
+    if (teamData.budget && typeof teamData.budget !== 'number') {
+      errors.push('Budget must be a number');
+    } else if (teamData.budget && teamData.budget < 0) {
+      errors.push('Budget cannot be negative');
+    }
+    
+    // Location validation
+    if (teamData.location && typeof teamData.location !== 'string') {
+      errors.push('Location must be a string');
+    } else if (teamData.location && teamData.location.length > 100) {
+      errors.push('Location must be less than 100 characters');
+    }
+    
+    // Contact email validation
+    if (teamData.contact_email && typeof teamData.contact_email !== 'string') {
+      errors.push('Contact email must be a string');
+    } else if (teamData.contact_email) {
+      const emailRegex = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+      if (!emailRegex.test(teamData.contact_email)) {
+        errors.push('Please provide a valid email address');
+      }
+    }
+    
+    // Contact phone validation
+    if (teamData.contact_phone && typeof teamData.contact_phone !== 'string') {
+      errors.push('Contact phone must be a string');
+    } else if (teamData.contact_phone) {
+      const phoneRegex = /^\+?[1-9]\d{9,14}$/;
+      if (!phoneRegex.test(teamData.contact_phone)) {
+        errors.push('Please provide a valid phone number');
+      }
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
   }
 }
 

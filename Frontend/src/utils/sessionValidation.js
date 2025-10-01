@@ -486,7 +486,21 @@ export const SessionValidation = {
   validateSessionId,
   validateUserId,
   sanitizeInput,
-  ValidationError
+  ValidationError,
+  validateSessionData: function(session) {
+    if (!session || typeof session !== 'object') {
+      throw new ValidationError('Session data must be a valid object');
+    }
+    
+    const requiredFields = ['id', 'userId', 'userName', 'deviceInfo', 'ipAddress', 'issuedAt', 'isActive'];
+    const missingFields = requiredFields.filter(field => !(field in session));
+    
+    if (missingFields.length > 0) {
+      throw new ValidationError(`Invalid session data: missing fields ${missingFields.join(', ')}`);
+    }
+    
+    return true;
+  }
 };
 
 export default SessionValidation;

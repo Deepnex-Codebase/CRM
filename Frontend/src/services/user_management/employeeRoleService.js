@@ -37,7 +37,7 @@ class EmployeeRoleService {
 
     // Check if user has admin role or specific permissions
     const adminRoles = ['admin', 'super_admin', 'hr_admin'];
-    if (adminRoles.includes(user.role?.role_name?.toLowerCase())) {
+    if (adminRoles.includes(user.role?.toLowerCase())) {
       return true;
     }
 
@@ -332,7 +332,7 @@ class EmployeeRoleService {
   async getRoles() {
     return this.withRetry(async () => {
       try {
-        const response = await api.get('/profile/roles');
+        const response = await api.get('/roles');
         return {
           success: true,
           data: response.data.data.map(role => this.transformRoleData(role)),
@@ -353,7 +353,7 @@ class EmployeeRoleService {
   async getRole(roleId) {
     return this.withRetry(async () => {
       try {
-        const response = await api.get(`/profile/roles/${roleId}`);
+        const response = await api.get(`/roles/${roleId}`);
         return {
           success: true,
           data: this.transformRoleData(response.data.data)
@@ -372,7 +372,7 @@ class EmployeeRoleService {
   async getAvailablePermissions() {
     return this.withRetry(async () => {
       try {
-        const response = await api.get('/profile/roles/permissions');
+        const response = await api.get('/roles/permissions');
         return {
           success: true,
           data: response.data.data
@@ -399,7 +399,7 @@ class EmployeeRoleService {
 
     return this.withRetry(async () => {
       try {
-        const response = await api.get('/profile/teams', { params });
+        const response = await api.get('/teams', { params });
         return {
           success: true,
           data: response.data.data.map(team => this.transformTeamData(team)),
@@ -420,7 +420,7 @@ class EmployeeRoleService {
   async getTeamsByDepartment(department) {
     return this.withRetry(async () => {
       try {
-        const response = await api.get(`/profile/teams/department/${department}`);
+        const response = await api.get(`/teams/department/${department}`);
         return {
           success: true,
           data: response.data.data.map(team => this.transformTeamData(team))
@@ -748,17 +748,22 @@ class EmployeeRoleService {
    * @returns {Object} Transformed team data
    */
   transformTeamData(backendTeam) {
-    if (!backendTeam) return null;
-
+    // Import teamService to use its transformation method
+    const teamService = require('./teamService').default;
+    
+    // Get the full team data from teamService
+    const fullTeamData = teamService.transformTeamData(backendTeam);
+    
+    // Return only the fields needed for employee role service
     return {
-      id: backendTeam._id,
-      name: backendTeam.team_name,
-      description: backendTeam.description || '',
-      department: backendTeam.department || 'General',
-      employee_count: backendTeam.member_count || 0,
+      id: fullTeamData.team_id,
+      name: fullTeamData.team_name,
+      description: fullTeamData.description,
+      department: fullTeamData.department || 'General',
+      employee_count: fullTeamData.member_count,
       manager: backendTeam.team_lead?.name || 'Not Assigned',
-      created_at: backendTeam.created_at,
-      updated_at: backendTeam.updated_at
+      created_at: fullTeamData.created_at,
+      updated_at: fullTeamData.updated_at
     };
   }
 
@@ -972,12 +977,12 @@ class EmployeeRoleService {
     
     // Admin can assign any role
     const adminRoles = ['admin', 'super_admin', 'hr_admin'];
-    if (adminRoles.includes(currentUser.role?.role_name?.toLowerCase())) {
+    if (adminRoles.includes(currentUser.role?.toLowerCase())) {
       return true;
     }
     
     // Users can only assign roles at their level or below
-    const currentUserLevel = this.getRoleLevel(currentUser.role?.role_name);
+    const currentUserLevel = this.getRoleLevel(currentUser.role);
     const roleLevel = this.getRoleLevel(role.role_name);
     
     return currentUserLevel <= roleLevel;

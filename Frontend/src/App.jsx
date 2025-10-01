@@ -24,6 +24,30 @@ import ApiTokens from './pages/user-management/ApiTokens';
 import SecurityLogs from './pages/user-management/SecurityLogs';
 import AutomatedSecurityRules from './pages/user-management/AutomatedSecurityRules';
 
+// Enquiry Management Pages
+import EnquiryList from './pages/Enquire-management/EnquiryList';
+import EnquiryDetail from './pages/Enquire-management/EnquiryDetail';
+import TaskManagement from './pages/Enquire-management/TaskManagement';
+import CommunicationLog from './pages/Enquire-management/CommunicationLog';
+import ConversionWizard from './pages/Enquire-management/ConversionWizard';
+import NotificationCenter from './pages/Enquire-management/NotificationCenter';
+import SLAMonitoring from './pages/Enquire-management/SLAMonitoring';
+import CallManagement from './pages/Enquire-management/CallManagement';
+import AssignmentLog from './pages/Enquire-management/AssignmentLog';
+import StatusLog from './pages/Enquire-management/StatusLog';
+import AuditLog from './pages/Enquire-management/AuditLog';
+import ProfileMapping from './pages/Enquire-management/ProfileMapping';
+import IntegrationConfig from './pages/Enquire-management/IntegrationConfig';
+import LeadValidation from './pages/Enquire-management/LeadValidation';
+import LeadScoring from './pages/Enquire-management/LeadScoring';
+
+// New UI Components
+import AutomationRules from "./components/AutomationRules";
+import ExternalIntegrations from "./components/ExternalIntegrations";
+import KPIDashboard from "./components/KPIDashboard";
+import AISuggestionPanel from "./components/AISuggestionPanel";
+import DeduplicationSettings from "./components/DeduplicationSettings";
+
 function App() {
   return (
     <ThemeProvider>
@@ -98,6 +122,30 @@ function App() {
                     <p className="text-gray-600 dark:text-gray-400 mt-2">Reports and analytics coming soon...</p>
                   </div>
                 } />
+                
+                {/* Enquiry Management Routes */}
+                <Route path="/enquiry-management" element={<EnquiryList />} />
+                <Route path="/enquiry-management/detail" element={<EnquiryDetail />} />
+                <Route path="/enquiry-management/tasks" element={<TaskManagement />} />
+                <Route path="/enquiry-management/communication" element={<CommunicationLog />} />
+                <Route path="/enquiry-management/conversion" element={<ConversionWizard />} />
+                <Route path="/enquiry-management/notifications" element={<NotificationCenter />} />
+                <Route path="/enquiry-management/sla" element={<SLAMonitoring />} />
+                <Route path="/enquiry-management/calls" element={<CallManagement />} />
+                <Route path="/enquiry-management/assignment-log" element={<AssignmentLog />} />
+                <Route path="/enquiry-management/status-log" element={<StatusLog />} />
+                <Route path="/enquiry-management/audit-log" element={<AuditLog />} />
+                <Route path="/enquiry-management/profile-mapping" element={<ProfileMapping />} />
+                <Route path="/enquiry-management/integration-config" element={<IntegrationConfig />} />
+                <Route path="/enquiry-management/lead-validation" element={<LeadValidation />} />
+                <Route path="/enquiry-management/lead-scoring" element={<LeadScoring />} />
+                
+                {/* New UI Components Routes */}
+                <Route path="/automation-rules" element={<AutomationRules />} />
+                <Route path="/external-integrations" element={<ExternalIntegrations />} />
+                <Route path="/kpi-dashboard" element={<KPIDashboard />} />
+                <Route path="/ai-suggestion-panel" element={<AISuggestionPanel />} />
+                <Route path="/deduplication-settings" element={<DeduplicationSettings />} />
                 
                 <Route path="settings" element={
                   <div className="p-6">

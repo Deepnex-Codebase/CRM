@@ -7,6 +7,7 @@ const Session = require('../models/auth/Session');
 const LoginAttempt = require('../models/auth/LoginAttempt');
 const EmployeeRoleAssignment = require('../models/auth/EmployeeRoleAssignment');
 const sendEmail = require('../utils/sendEmail');
+const { getDeviceAndLocationInfo, isSameDevice, isDifferentLocation } = require('../utils/deviceTracker');
 
 // Helper function to get client IP
 function getClientIp(req) {
@@ -36,26 +37,58 @@ function validatePasswordPolicy(password, policy = {}) {
 // @route   POST /api/auth/register
 // @access  Private/Admin
 exports.register = asyncHandler(async (req, res, next) => {
-  const { first_name, last_name, email, phone, role_name, password } = req.body;
+  const { first_name, last_name, email, phone, role_name, password, team_id, department } = req.body;
+  let { username } = req.body;
 
   // Validate required fields
   if (!first_name || !last_name || !email || !role_name) {
     return next(new ErrorResponse('Please provide first name, last name, email, and role', 400));
   }
+   
+  // Generate username if not provided
+  if (!username) {
+    username = `${first_name}${last_name}`.toLowerCase().replace(/\s+/g, '');
+  }
 
   // Check if user already exists
+  const existingUserQuery = [{ email }];
+  
+  // Only check phone if it's provided
+  if (phone) {
+    existingUserQuery.push({ phone });
+  }
+  
+  // Only check username if it's provided
+  if (username) {
+    existingUserQuery.push({ username });
+  }
+  
   const existingUser = await User.findOne({ 
-    $or: [{ email }, { phone: phone || null }] 
+    $or: existingUserQuery
   });
 
   if (existingUser) {
-    return next(new ErrorResponse('User with this email or phone already exists', 400));
+    return next(new ErrorResponse('User with this email, phone, or username already exists', 400));
   }
 
-  // Find the role (case-insensitive)
-  const role = await Role.findOne({ 
-    role_name: { $regex: new RegExp(`^${role_name}$`, 'i') } 
-  });
+  // Find the role by role_id, role_name, or MongoDB _id
+  let role;
+  
+  // First try to find by role_id
+  role = await Role.findOne({ role_id: role_name });
+  
+  // If not found, try to find by role_name (case-insensitive)
+  if (!role) {
+    role = await Role.findOne({ 
+      role_name: { $regex: new RegExp(`^${role_name}$`, 'i') } 
+    });
+  }
+  
+  // If still not found, try to find by MongoDB _id
+  if (!role && role_name.match(/^[0-9a-fA-F]{24}$/)) {
+    role = await Role.findById(role_name);
+  }
+  
   if (!role) {
     console.log(`Role lookup failed for: "${role_name}"`);
     const availableRoles = await Role.find({}, 'role_name');
@@ -74,6 +107,9 @@ exports.register = asyncHandler(async (req, res, next) => {
     last_name,
     email,
     phone,
+    username,
+    team_id,
+    department,
     role_id: role._id,
     is_active: false, // User needs email verification
     created_by: req.user._id
@@ -206,12 +242,16 @@ exports.login = asyncHandler(async (req, res, next) => {
   const isMatch = await user.matchPassword(password);
 
   if (!isMatch) {
+    // Get device and location info for failed attempt
+    const deviceLocationInfo = await getDeviceAndLocationInfo(req);
+    
     // Log failed login attempt
     await LoginAttempt.create({
       user_id: user._id,
       email: email || user.email,
-      ip_address: getClientIp(req),
-      device_info: req.headers['user-agent'],
+      ip_address: deviceLocationInfo.ip_address,
+      device_info: JSON.stringify(deviceLocationInfo.device_info),
+      location: deviceLocationInfo.location,
       status: 'failed',
       reason: 'Invalid password'
     });
@@ -222,12 +262,16 @@ exports.login = asyncHandler(async (req, res, next) => {
   user.last_login = Date.now();
   await user.save({ validateBeforeSave: false });
 
+  // Get device and location info for successful attempt
+  const deviceLocationInfo = await getDeviceAndLocationInfo(req);
+  
   // Log successful login attempt
   await LoginAttempt.create({
     user_id: user._id,
     email: email || user.email,
-    ip_address: getClientIp(req),
-    device_info: req.headers['user-agent'],
+    ip_address: deviceLocationInfo.ip_address,
+    device_info: JSON.stringify(deviceLocationInfo.device_info),
+    location: deviceLocationInfo.location,
     status: 'success'
   });
 
@@ -684,6 +728,7 @@ exports.getUsers = asyncHandler(async (req, res, next) => {
   const total = await User.countDocuments(query);
   const users = await User.find(query)
     .populate('role_id', 'role_name description permissions')
+    .populate('team_id', 'name team_id')
     .sort({ created_at: -1 })
     .limit(limit)
     .skip(startIndex)
@@ -728,8 +773,24 @@ exports.getUser = asyncHandler(async (req, res, next) => {
   // Get role assignment details
   const assignment = await EmployeeRoleAssignment.getActiveAssignment(user._id);
 
+  // Convert user data to object and ensure team_id is properly handled
+  const userObj = user.toObject();
+  
+  // If team_id exists, ensure it's returned as ObjectId
+  if (userObj.team_id) {
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(userObj.team_id)) {
+      // If somehow team_id is not a valid ObjectId, try to find the correct one
+      const Team = require('../models/profile/Team');
+      const team = await Team.findOne({ team_id: userObj.team_id });
+      if (team) {
+        userObj.team_id = team._id;
+      }
+    }
+  }
+  
   const userData = {
-    ...user.toObject(),
+    ...userObj,
     role_assignment: assignment ? {
       assignment_id: assignment.assignment_id,
       role_name: assignment.role_id.role_name,
@@ -755,7 +816,27 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse(`User not found with id of ${req.params.id}`, 404));
   }
 
-  const { role_name, ...otherFields } = req.body;
+  const { role_name, team_id, ...otherFields } = req.body;
+  
+  // Ensure team_id is properly handled - use MongoDB ObjectId (_id) instead of display ID
+  if (team_id === '' || team_id === null || team_id === undefined) {
+    otherFields.team_id = null;
+  } else if (team_id) {
+    const mongoose = require('mongoose');
+    // If team_id is a valid MongoDB ObjectId, use it directly
+    if (mongoose.Types.ObjectId.isValid(team_id) && team_id.match(/^[0-9a-fA-F]{24}$/)) {
+      otherFields.team_id = new mongoose.Types.ObjectId(team_id);
+    } else {
+      // If team_id is provided as a display ID (like TEM-20250926-0001), find the actual ObjectId
+      const Team = require('../models/profile/Team');
+      const team = await Team.findOne({ team_id: team_id });
+      if (team) {
+        otherFields.team_id = team._id;
+      } else {
+        return next(new ErrorResponse(`Invalid team ID: ${team_id}`, 400));
+      }
+    }
+  }
 
   // Update user fields
   user = await User.findByIdAndUpdate(req.params.id, otherFields, {
@@ -765,9 +846,24 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
 
   // Handle role change if specified
   if (role_name) {
-    const role = await Role.findOne({ role_name });
+    // Check if the provided value is a role_id or role_name
+    let role;
+    
+    // First try to find by role_id
+    role = await Role.findOne({ role_id: role_name });
+    
+    // If not found, try to find by role_name
     if (!role) {
-      return next(new ErrorResponse('Invalid role specified', 400));
+      role = await Role.findOne({ role_name });
+    }
+    
+    // If still not found, try to find by MongoDB _id
+    if (!role && role_name.match(/^[0-9a-fA-F]{24}$/)) {
+      role = await Role.findById(role_name);
+    }
+    
+    if (!role) {
+      return next(new ErrorResponse(`Invalid role specified: "${role_name}"`, 400));
     }
 
     // Check if role is actually changing
@@ -863,7 +959,7 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('You cannot delete your own account', 400));
   }
 
-  await user.remove();
+  await user.deleteOne();
 
   res.status(200).json({
     success: true,
@@ -927,6 +1023,10 @@ exports.getLoginAttempts = asyncHandler(async (req, res, next) => {
 
   // Build query filters
   let query = {};
+
+  if (req.query.userId) {
+  query.user_id = req.query.userId;
+}
   
   if (req.query.status) {
     query.status = req.query.status;
@@ -951,7 +1051,7 @@ exports.getLoginAttempts = asyncHandler(async (req, res, next) => {
 
   const total = await LoginAttempt.countDocuments(query);
   const loginAttempts = await LoginAttempt.find(query)
-    .populate('user_id', 'first_name last_name email role')
+    .populate('user_id', 'name email role')
     .sort({ timestamp: -1 })
     .limit(limit)
     .skip(startIndex);
@@ -1023,6 +1123,23 @@ exports.getActiveSessions = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get session by ID (Admin only)
+// @route   GET /api/auth/sessions/:id
+// @access  Private/Admin
+exports.getSessionById = asyncHandler(async (req, res, next) => {
+  const session = await Session.findById(req.params.id)
+    .populate('user_id', 'first_name last_name email role');
+
+  if (!session) {
+    return next(new ErrorResponse(`Session not found with id of ${req.params.id}`, 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    data: session
+  });
+});
+
 // @desc    Revoke session (Admin only)
 // @route   PUT /api/auth/sessions/:id/revoke
 // @access  Private/Admin
@@ -1038,7 +1155,46 @@ exports.revokeSession = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    message: 'Session revoked successfully'
+    message: 'Session revoked successfully',
+    data: session
+  });
+});
+
+// @desc    Block session and create new session ID (Admin only)
+// @route   PUT /api/auth/sessions/:id/block
+// @access  Private/Admin
+exports.blockSession = asyncHandler(async (req, res, next) => {
+  const session = await Session.findById(req.params.id);
+
+  if (!session) {
+    return next(new ErrorResponse(`Session not found with id of ${req.params.id}`, 404));
+  }
+
+  // Block the current session
+  session.is_active = false;
+  await session.save();
+  
+  // Create a new session with the same user data but new session ID
+  const newSession = new Session({
+    token: session.token,
+    user_id: session.user_id,
+    device_info: session.device_info,
+    ip_address: session.ip_address,
+    location: session.location,
+    issued_at: new Date(),
+    expires_at: new Date(Date.now() + process.env.JWT_EXPIRE_TIME * 24 * 60 * 60 * 1000),
+    is_active: true
+  });
+  
+  await newSession.save();
+
+  res.status(200).json({
+    success: true,
+    message: 'Session blocked and new session created',
+    data: {
+      blockedSession: session,
+      newSession: newSession
+    }
   });
 });
 
@@ -1047,18 +1203,82 @@ const sendTokenResponse = async (user, statusCode, res, req = null) => {
   // Create token
   const token = user.getSignedJwtToken();
 
-  // Create session record
-  const sessionData = {
-    token,
-    user_id: user._id,
-    device_info: req ? req.headers['user-agent'] : null,
-    ip_address: req ? getClientIp(req) : null,
-    issued_at: new Date(),
-    expires_at: new Date(Date.now() + process.env.JWT_EXPIRE_TIME * 24 * 60 * 60 * 1000),
-    is_active: true
+  // Get device and location information
+  const deviceLocationInfo = req ? await getDeviceAndLocationInfo(req) : {
+    device_info: {
+      browser: { name: null, version: null },
+      os: { name: null, version: null },
+      device: { type: null, vendor: null, model: null },
+      user_agent: null
+    },
+    ip_address: null,
+    location: {
+      country: null,
+      region: null,
+      city: null,
+      timezone: null,
+      latitude: null,
+      longitude: null,
+      isp: null
+    }
   };
+  
+  // Store location data properly in the session
 
-  const newSession = await Session.create(sessionData);
+  // Check for existing active sessions for this user
+  const existingSessions = await Session.find({ 
+    user_id: user._id, 
+    is_active: true 
+  }).sort({ issued_at: -1 });
+
+  let sessionToUpdate = null;
+  let shouldCreateNewSession = true;
+
+  // Check if we should update an existing session or create a new one
+  if (existingSessions.length > 0 && req) {
+    for (const session of existingSessions) {
+      // Check if it's the same device
+      if (isSameDevice(session.device_info, deviceLocationInfo.device_info)) {
+        // Same device - update the existing session
+        sessionToUpdate = session;
+        shouldCreateNewSession = false;
+        break;
+      }
+    }
+  }
+
+  let newSession;
+  
+  if (shouldCreateNewSession) {
+    // Create new session record with complete device and location info
+    const sessionData = {
+      token,
+      user_id: user._id,
+      ...deviceLocationInfo,
+      issued_at: new Date(),
+      expires_at: new Date(Date.now() + process.env.JWT_EXPIRE_TIME * 24 * 60 * 60 * 1000),
+      is_active: true
+    };
+
+    newSession = await Session.create(sessionData);
+    console.log('Created new session for user:', user._id, 'with device:', deviceLocationInfo.device_info.device?.type);
+  } else {
+    // Update existing session with new token and location info (if different)
+    sessionToUpdate.token = token;
+    sessionToUpdate.issued_at = new Date();
+    sessionToUpdate.expires_at = new Date(Date.now() + process.env.JWT_EXPIRE_TIME * 24 * 60 * 60 * 1000);
+    
+    // Update IP and location if different
+    if (sessionToUpdate.ip_address !== deviceLocationInfo.ip_address) {
+      sessionToUpdate.ip_address = deviceLocationInfo.ip_address;
+      sessionToUpdate.location = deviceLocationInfo.location;
+      console.log('Updated session location for user:', user._id, 'from', sessionToUpdate.location?.city, 'to', deviceLocationInfo.location?.city);
+    }
+    
+    await sessionToUpdate.save();
+    newSession = sessionToUpdate;
+    console.log('Updated existing session for user:', user._id, 'same device detected');
+  }
 
   // Get complete user data with populated role
   const userWithRole = await User.findById(user._id).populate('role_id');

@@ -28,6 +28,28 @@ const LoginAttemptSchema = new mongoose.Schema({
     type: String,
     default: null
   },
+  location: {
+    country: {
+      type: String,
+      default: 'Unknown'
+    },
+    region: {
+      type: String,
+      default: 'Unknown'
+    },
+    city: {
+      type: String,
+      default: 'Unknown'
+    },
+    latitude: {
+      type: Number,
+      default: null
+    },
+    longitude: {
+      type: Number,
+      default: null
+    }
+  },
   status: {
     type: String,
     enum: ['success', 'failed'],

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Monitor, 
-  Smartphone, 
-  Tablet, 
-  Globe, 
-  MapPin, 
-  Clock, 
-  Shield, 
+import {
+  Monitor,
+  Smartphone,
+  Tablet,
+  Globe,
+  MapPin,
+  Clock,
+  Shield,
   AlertTriangle,
   Search,
   Filter,
@@ -39,6 +39,17 @@ const SessionManagement = () => {
     totalPages: 0
   });
 
+  // Real-time statistics state
+  const [statistics, setStatistics] = useState({
+    activeSessions: 0,
+    successfulLogins: 0,
+    failedAttempts: 0,
+    securityAlerts: 0,
+    lastUpdated: null
+  });
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
+
   // Load initial data
   useEffect(() => {
     loadSessions();
@@ -50,7 +61,7 @@ const SessionManagement = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const params = {
         page: pagination.page,
         limit: pagination.limit,
@@ -59,13 +70,16 @@ const SessionManagement = () => {
       };
 
       const response = await sessionService.getActiveSessions(params);
-      
+
       setSessions(response.sessions || []);
       setPagination(prev => ({
         ...prev,
         total: response.total || 0,
         totalPages: response.totalPages || 0
       }));
+
+      // Update statistics for active sessions
+      updateStatistics(response.sessions || [], loginAttempts);
     } catch (err) {
       console.error('Failed to load sessions:', err);
       setError('Failed to load sessions. Please try again.');
@@ -80,7 +94,7 @@ const SessionManagement = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const params = {
         page: pagination.page,
         limit: pagination.limit,
@@ -89,13 +103,18 @@ const SessionManagement = () => {
       };
 
       const response = await sessionService.getLoginAttempts(params);
-      
-      setLoginAttempts(response.loginAttempts || []);
+
+      // Transform the data to normalize field names
+      const transformedAttempts = (response.loginAttempts || []).map(transformLoginAttemptData);
+      setLoginAttempts(transformedAttempts);
       setPagination(prev => ({
         ...prev,
         total: response.total || 0,
         totalPages: response.totalPages || 0
       }));
+
+      // Update statistics for login attempts
+      updateStatistics(sessions, transformedAttempts);
     } catch (err) {
       console.error('Failed to load login attempts:', err);
       setError('Failed to load login attempts. Please try again.');
@@ -104,6 +123,62 @@ const SessionManagement = () => {
       setLoading(false);
     }
   };
+
+  // Transform login attempt data to normalize field names
+  const transformLoginAttemptData = (attempt) => {
+    return {
+      id: attempt.attemptId || attempt.attempt_id || attempt.id,
+      attemptId: attempt.attemptId || attempt.attempt_id,
+      userName: attempt.userName || attempt.username,
+      email: attempt.email,
+      browser: attempt.browser,
+      deviceType: attempt.deviceType,
+      deviceInfo: attempt.deviceInfo,
+      ipAddress: attempt.ipAddress || attempt.ip_address,
+      location: attempt.location,
+      timestamp: attempt.timestamp || attempt.attempt_time,
+      status: attempt.status,
+      success: attempt.success,
+      reason: attempt.reason || attempt.failure_reason,
+      userId: attempt.userId || attempt.user_id
+    };
+  };
+
+  // Update statistics based on current data
+  const updateStatistics = (sessionsData, attemptsData) => {
+    const activeSessions = sessionsData.filter(s => s.isActive || s.status === 'Active' || s.is_active).length;
+    const successfulLogins = attemptsData.filter(a => a.status === 'success' || a.success === true).length;
+    const failedAttempts = attemptsData.filter(a => a.status === 'Failed' || a.success === false).length;
+    const securityAlerts = attemptsData.filter(a =>
+      a.reason === 'Suspicious location' ||
+      a.failure_reason === 'Suspicious location' ||
+      a.reason === 'Multiple failed attempts' ||
+      a.failure_reason === 'Multiple failed attempts'
+    ).length;
+
+    setStatistics({
+      activeSessions,
+      successfulLogins,
+      failedAttempts,
+      securityAlerts,
+      lastUpdated: new Date()
+    });
+  };
+
+  // Auto-refresh functionality
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const interval = setInterval(() => {
+      if (activeTab === 'sessions') {
+        loadSessions();
+      } else {
+        loadLoginAttempts();
+      }
+    }, refreshInterval);
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, refreshInterval, activeTab]);
 
   // Refresh data when search or filter changes
   useEffect(() => {
@@ -122,8 +197,8 @@ const SessionManagement = () => {
     if (!deviceType) {
       return <Globe className="h-5 w-5 text-gray-600" />;
     }
-    
-    switch(deviceType.toLowerCase()) {
+
+    switch (deviceType.toLowerCase()) {
       case 'desktop': return <Monitor className="h-5 w-5 text-gray-600" />;
       case 'mobile': return <Smartphone className="h-5 w-5 text-blue-600" />;
       case 'tablet': return <Tablet className="h-5 w-5 text-green-600" />;
@@ -139,7 +214,7 @@ const SessionManagement = () => {
       'Success': 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400',
       'Failed': 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400'
     };
-    
+
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusClasses[status] || statusClasses['Expired']}`}>
         {status}
@@ -151,8 +226,8 @@ const SessionManagement = () => {
   const handleViewSession = async (session) => {
     try {
       setLoading(true);
-      const sessionDetails = await sessionService.getSessionDetails(session.session_id);
-      
+      const sessionDetails = await sessionService.getSessionDetails(session.id);
+
       if (SessionValidation.validateSessionData(sessionDetails)) {
         setSelectedSession(sessionDetails);
         setShowSessionDetails(true);
@@ -167,22 +242,22 @@ const SessionManagement = () => {
     }
   };
 
-  const handleTerminateSession = async (sessionId) => {
-    const session = sessions.find(s => s.session_id === sessionId);
-    if (window.confirm(`Are you sure you want to terminate the session for ${session?.username}?`)) {
+  const handleTerminateSession = async (id) => {
+    const session = sessions.find(s => s.id === id);
+    if (window.confirm(`Are you sure you want to terminate the session for ${session?.userName}?`)) {
       try {
         setLoading(true);
-        await sessionService.revokeSession(sessionId);
-        
-        setSessions(sessions.map(session => 
-          session.session_id === sessionId 
-            ? { ...session, status: 'Terminated', last_activity: new Date().toISOString() }
+        await sessionService.revokeSession(id);
+
+        setSessions(sessions.map(session =>
+          session.id === id
+            ? { ...session, isActive: false, lastActivity: new Date() }
             : session
         ));
         alert('Session terminated successfully');
-        
+
         // Close details modal if the terminated session is currently being viewed
-        if (selectedSession?.session_id === sessionId) {
+        if (selectedSession?.id === id) {
           setShowSessionDetails(false);
           setSelectedSession(null);
         }
@@ -195,21 +270,21 @@ const SessionManagement = () => {
     }
   };
 
-  const handleRefreshSession = async (sessionId) => {
+  const handleRefreshSession = async (id) => {
     try {
       setLoading(true);
-      const refreshedSession = await sessionService.refreshSession(sessionId);
-      
+      const refreshedSession = await sessionService.refreshSession(id);
+
       if (SessionValidation.validateSessionData(refreshedSession)) {
-        setSessions(sessions.map(session => 
-          session.session_id === sessionId ? refreshedSession : session
+        setSessions(sessions.map(session =>
+          session.id === id ? refreshedSession : session
         ));
-        
+
         // Update selected session if it's the one being refreshed
-        if (selectedSession?.session_id === sessionId) {
+        if (selectedSession?.id === id) {
           setSelectedSession(refreshedSession);
         }
-        
+
         alert('Session data refreshed successfully');
       } else {
         throw new Error('Invalid refreshed session data received');
@@ -229,8 +304,8 @@ const SessionManagement = () => {
 
   const filteredSessions = sessions.filter(session => {
     const matchesSearch = (session.userName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (session.ipAddress || '').includes(searchTerm) ||
-                         (session.location || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (session.ipAddress || '').includes(searchTerm) ||
+      (session.location || '').toLowerCase().includes(searchTerm.toLowerCase());
     const sessionStatus = session.isActive ? 'active' : 'inactive';
     const matchesFilter = filterStatus === 'all' || sessionStatus === filterStatus;
     return matchesSearch && matchesFilter;
@@ -238,8 +313,9 @@ const SessionManagement = () => {
 
   const filteredAttempts = loginAttempts.filter(attempt => {
     const matchesSearch = (attempt.userName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (attempt.ipAddress || '').includes(searchTerm) ||
-                         (attempt.location || '').toLowerCase().includes(searchTerm.toLowerCase());
+      (attempt.ipAddress || '').includes(searchTerm) ||
+      (attempt.location || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (attempt.email || '').toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || (attempt.status || '').toLowerCase() === filterStatus.toLowerCase();
     return matchesSearch && matchesFilter;
   });
@@ -248,7 +324,7 @@ const SessionManagement = () => {
     const now = new Date();
     const time = new Date(timestamp);
     const diffInMinutes = Math.floor((now - time) / (1000 * 60));
-    
+
     if (diffInMinutes < 60) {
       return `${diffInMinutes}m ago`;
     } else if (diffInMinutes < 1440) {
@@ -325,7 +401,7 @@ const SessionManagement = () => {
                     Active Sessions
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                    {sessions.filter(s => s.status === 'Active').length}
+                    {statistics.activeSessions}
                   </dd>
                 </dl>
               </div>
@@ -345,7 +421,7 @@ const SessionManagement = () => {
                     Successful Logins
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                    {loginAttempts.filter(a => a.status === 'Success').length}
+                    {statistics.successfulLogins}
                   </dd>
                 </dl>
               </div>
@@ -365,7 +441,7 @@ const SessionManagement = () => {
                     Failed Attempts
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                    {loginAttempts.filter(a => a.status === 'Failed').length}
+                    {statistics.failedAttempts}
                   </dd>
                 </dl>
               </div>
@@ -385,7 +461,7 @@ const SessionManagement = () => {
                     Security Alerts
                   </dt>
                   <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                    {loginAttempts.filter(a => a.failure_reason === 'Suspicious location').length}
+                    {statistics.securityAlerts}
                   </dd>
                 </dl>
               </div>
@@ -400,21 +476,19 @@ const SessionManagement = () => {
           <nav className="-mb-px flex space-x-8 px-6">
             <button
               onClick={() => setActiveTab('sessions')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'sessions'
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'sessions'
                   ? 'border-primary-500 text-primary-600 dark:text-primary-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
+                }`}
             >
               Active Sessions
             </button>
             <button
               onClick={() => setActiveTab('attempts')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'attempts'
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'attempts'
                   ? 'border-primary-500 text-primary-600 dark:text-primary-400'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-              }`}
+                }`}
             >
               Login Attempts
             </button>
@@ -504,67 +578,70 @@ const SessionManagement = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredSessions.map((session) => (
-                  <tr key={session.session_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {getDeviceIcon(session.deviceType)}
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center">
-                            {session.username}
-                            {session.is_current && (
-                              <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
-                                Current
-                              </span>
-                            )}
+                  filteredSessions.map((session) => {
+                    return (
+                      <tr key={session.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {getDeviceIcon(session.deviceInfo?.device?.type || session.deviceType)}
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center">
+                                {session.userName}
+                                {session.is_current && (
+                                  <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
+                                    Current
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                                {session.deviceInfo?.browser?.name ? 
+                                  `${session.deviceInfo.browser.name} ${session.deviceInfo.browser.version || ''}` : 
+                                  session.browser}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {session.browser}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <MapPin className="h-4 w-4 text-gray-400 mr-2" />
+                            <div>
+                              <div className="text-sm text-gray-900 dark:text-white">
+                                {session.location}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                                {session.ipAddress}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                        <div>
-                          <div className="text-sm text-gray-900 dark:text-white">
-                            {session.location}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                            <div>
+                              <div className="text-sm text-gray-900 dark:text-white">
+                                Login: {getTimeAgo(session.issuedAt)}
+                              </div>
+                              <div className="text-sm text-gray-500 dark:text-gray-400">
+                                Active: {getTimeAgo(session.lastActivity)}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {session.ip_address}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 text-gray-400 mr-2" />
-                        <div>
-                          <div className="text-sm text-gray-900 dark:text-white">
-                            Login: {getTimeAgo(session.login_time)}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            Active: {getTimeAgo(session.last_activity)}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(session.status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(session.isActive ? 'Active' : 'Inactive')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="flex items-center justify-end space-x-2">
-                            <button 
+                            <button
                               onClick={() => handleViewSession(session)}
                               className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                               title="View Session Details"
                             >
                               <Eye className="h-4 w-4" />
                             </button>
-                            {session.status === 'Active' && !session.is_current && (
-                              <button 
-                                onClick={() => handleTerminateSession(session.session_id)}
+                            {session.isActive && !session.is_current && (
+                              <button
+                                onClick={() => handleTerminateSession(session.id)}
                                 className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
                                 title="Terminate Session"
                               >
@@ -573,8 +650,9 @@ const SessionManagement = () => {
                             )}
                           </div>
                         </td>
-                  </tr>
-                  ))
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -621,50 +699,50 @@ const SessionManagement = () => {
                   </tr>
                 ) : (
                   filteredAttempts.map((attempt) => (
-                  <tr key={attempt.attempt_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {getDeviceIcon(attempt.deviceType)}
-                        <div className="ml-3">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {attempt.username}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {attempt.browser}
+                    <tr key={attempt.attemptId || attempt.attempt_id || attempt.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {getDeviceIcon(attempt.deviceType)}
+                          <div className="ml-3">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {attempt.userName || attempt.username || attempt.email}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {attempt.browser}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <MapPin className="h-4 w-4 text-gray-400 mr-2" />
-                        <div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <MapPin className="h-4 w-4 text-gray-400 mr-2" />
+                          <div>
+                            <div className="text-sm text-gray-900 dark:text-white">
+                              {attempt.location}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {attempt.ipAddress || attempt.ip_address}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <Clock className="h-4 w-4 text-gray-400 mr-2" />
                           <div className="text-sm text-gray-900 dark:text-white">
-                            {attempt.location}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {attempt.ip_address}
+                            {getTimeAgo(attempt.timestamp || attempt.attempt_time)}
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(attempt.status)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">
-                          {getTimeAgo(attempt.attempt_time)}
+                          {attempt.reason || attempt.failure_reason || '-'}
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusBadge(attempt.status)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">
-                        {attempt.failure_reason || '-'}
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                    </tr>
                   ))
                 )}
               </tbody>

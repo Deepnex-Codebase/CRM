@@ -22,6 +22,7 @@ import {
 import TeamForm from './components/TeamForm';
 import TeamDetails from './components/TeamDetails';
 import teamService from '../../services/user_management/teamService';
+import userService from '../../services/user_management/userService';
 
 const TeamsManagement = () => {
   const [teams, setTeams] = useState([]);
@@ -94,7 +95,32 @@ const TeamsManagement = () => {
           teamService.transformTeamData(team)
         );
         
-        setTeams(transformedTeams);
+        // Fetch team lead details for each team
+        const teamsWithLeadDetails = await Promise.all(
+          transformedTeams.map(async (team) => {
+            if (team.team_lead_id) {
+              try {
+                const userResponse = await userService.getUser(team.team_lead_id);
+                
+                if (userResponse.success) {
+                  return {
+                    ...team,
+                    team_lead: {
+                      _id: team.team_lead_id,
+                      name: `${userResponse.data.first_name || ''} ${userResponse.data.last_name || ''}`.trim() || userResponse.data.email,
+                      email: userResponse.data.email
+                    }
+                  };
+                }
+              } catch (error) {
+                console.error(`Error fetching team lead details for team ${team.team_id}:`, error);
+              }
+            }
+            return team;
+          })
+        );
+        
+        setTeams(teamsWithLeadDetails);
         
         // Update pagination if available
         if (response.pagination) {
@@ -135,7 +161,9 @@ const TeamsManagement = () => {
   const filteredTeams = teams.filter(team => {
     const matchesSearch = team.team_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          team.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         team.team_lead.toLowerCase().includes(searchTerm.toLowerCase());
+                         (team.team_lead && typeof team.team_lead === 'string' 
+                           ? team.team_lead.toLowerCase().includes(searchTerm.toLowerCase())
+                           : team.team_lead?.name?.toLowerCase().includes(searchTerm.toLowerCase()) || false);
     const matchesDepartment = filterDepartment === 'all' || team.department === filterDepartment;
     return matchesSearch && matchesDepartment;
   });
@@ -144,6 +172,42 @@ const TeamsManagement = () => {
   const handleCreateTeam = () => {
     setEditingTeam(null);
     setShowTeamModal(true);
+  };
+
+  // Handle CSV export
+  const handleExportCSV = () => {
+    // Create CSV content
+    const headers = ['Team Name', 'Department', 'Team Lead', 'Territory', 'Members', 'Status', 'Created Date'];
+    
+    const csvRows = [
+      headers.join(','), // Header row
+      ...teams.map(team => [
+        `"${team.team_name || ''}"`,
+        `"${team.department || ''}"`,
+        `"${team.team_lead || ''}"`,
+        `"${team.territory || ''}"`,
+        team.member_count || 0,
+        `"${team.status || 'Inactive'}"`,
+        `"${new Date().toLocaleDateString() || ''}"`,
+      ].join(','))
+    ];
+    
+    const csvContent = csvRows.join('\n');
+    
+    // Create a blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    
+    // Set up download attributes
+    link.setAttribute('href', url);
+    link.setAttribute('download', `teams-export-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    
+    // Append to document, trigger download, and clean up
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleEditTeam = (team) => {
@@ -283,7 +347,10 @@ const TeamsManagement = () => {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
-          <button className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+          <button 
+            onClick={handleExportCSV}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
             <Download className="h-4 w-4 mr-2" />
             Export
           </button>
@@ -511,7 +578,7 @@ const TeamsManagement = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {team.team_lead}
+                      {typeof team.team_lead === 'object' ? team.team_lead.name : team.team_lead}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">

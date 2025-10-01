@@ -18,6 +18,16 @@ class AuthService {
         // Add +91 country code for Indian numbers
         payload.phone = `${cleanPhone}`;
       }
+      
+      // Get user's current location before login
+      try {
+        const locationData = await this.getUserCurrentLocation();
+        if (locationData) {
+          payload.current_location = locationData;
+        }
+      } catch (locationError) {
+        console.warn('Could not get user location:', locationError);
+      }
 
       const response = await api.post('/auth/login', payload);
 
@@ -65,6 +75,16 @@ class AuthService {
         payload.email = contact;
       } else {
         payload.phone = contact;
+      }
+      
+      // Get user's current location before login
+      try {
+        const locationData = await this.getUserCurrentLocation();
+        if (locationData) {
+          payload.current_location = locationData;
+        }
+      } catch (locationError) {
+        console.warn('Could not get user location:', locationError);
       }
 
       const response = await api.post('/auth/login/otp', payload);
@@ -232,6 +252,72 @@ class AuthService {
       localStorage.removeItem('user');
     }
   }
+  
+  // Get user's current location using browser geolocation API
+  async getUserCurrentLocation() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by this browser'));
+        return;
+      }
+      
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          try {
+            const { latitude, longitude } = position.coords;
+            
+            // Use reverse geocoding to get city and country
+            const locationData = await this.reverseGeocode(latitude, longitude);
+            resolve(locationData);
+          } catch (error) {
+            console.error('Error getting location details:', error);
+            reject(error);
+          }
+        },
+        (error) => {
+          console.error('Geolocation error:', error);
+          reject(error);
+        },
+        { timeout: 10000, enableHighAccuracy: false }
+      );
+    });
+  }
+  
+  // Reverse geocode coordinates to get location details
+  async reverseGeocode(latitude, longitude) {
+    try {
+      // Using a free reverse geocoding API
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10`);
+      const data = await response.json();
+      
+      if (data && data.address) {
+        return {
+          city: data.address.city || data.address.town || data.address.village || data.address.county || 'Unknown',
+          state: data.address.state || 'Unknown',
+          country: data.address.country || 'Unknown',
+          latitude,
+          longitude
+        };
+      }
+      
+      return {
+        city: 'Unknown',
+        state: 'Unknown',
+        country: 'Unknown',
+        latitude,
+        longitude
+      };
+    } catch (error) {
+      console.error('Reverse geocoding error:', error);
+      return {
+        city: 'Unknown',
+        state: 'Unknown',
+        country: 'Unknown',
+        latitude,
+        longitude
+      };
+    }
+  }
 
   // Get current user profile
   async getCurrentUser() {
@@ -368,6 +454,36 @@ class AuthService {
     } catch (error) {
       // If token is invalid, API will return 401
       return false;
+    }
+  }
+
+  // Check session status specifically
+  async validateSession() {
+    try {
+      const token = this.getStoredToken();
+      if (!token) return { valid: false, reason: 'No token found' };
+
+      // Make API call to validate session
+      const response = await api.get('/auth/me');
+      
+      if (response.data.success) {
+        return { valid: true, user: response.data.data };
+      }
+      
+      return { valid: false, reason: 'Invalid response' };
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || 'Unknown error';
+      
+      // Return specific reason for session invalidation
+      if (errorMessage.includes('session has been terminated')) {
+        return { valid: false, reason: 'session_terminated' };
+      } else if (errorMessage.includes('session has expired')) {
+        return { valid: false, reason: 'session_expired' };
+      } else if (errorMessage.includes('Session not found')) {
+        return { valid: false, reason: 'session_not_found' };
+      }
+      
+      return { valid: false, reason: 'authentication_failed' };
     }
   }
 }

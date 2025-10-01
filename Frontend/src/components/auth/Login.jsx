@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock, Phone } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, Phone, AlertCircle, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
@@ -11,8 +11,22 @@ const Login = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [sessionMessage, setSessionMessage] = useState(null);
   const { login, loading } = useAuth();
   const navigate = useNavigate();
+
+  // Check for session messages on component mount
+  useEffect(() => {
+    const message = localStorage.getItem('sessionMessage');
+    if (message) {
+      setSessionMessage(message);
+      localStorage.removeItem('sessionMessage'); // Clear after displaying
+    }
+  }, []);
+
+  const dismissSessionMessage = () => {
+    setSessionMessage(null);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -204,6 +218,32 @@ const Login = () => {
               <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h2>
               <p className="text-gray-600">Sign in to access your dashboard</p>
             </div>
+
+            {/* Session Message Display */}
+            {sessionMessage && (
+              <div className="mb-6 bg-amber-50 border-l-4 border-amber-400 p-4 rounded-lg relative">
+                <div className="flex items-start">
+                  <div className="flex-shrink-0">
+                    <AlertCircle className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div className="ml-3 flex-1">
+                    <p className="text-sm text-amber-700 font-medium">
+                      Session Notice
+                    </p>
+                    <p className="text-sm text-amber-600 mt-1">
+                      {sessionMessage}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={dismissSessionMessage}
+                    className="flex-shrink-0 ml-3 text-amber-400 hover:text-amber-600 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
             
             <form className="space-y-6" onSubmit={handleSubmit}>
               <div className="space-y-5">

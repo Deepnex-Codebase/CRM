@@ -16,10 +16,12 @@ exports.getTeams = asyncHandler(async (req, res, next) => {
 // @route   GET /api/v1/teams/:id
 // @access  Private
 exports.getTeam = asyncHandler(async (req, res, next) => {
-  const team = await Team.findById(req.params.id).populate({
-    path: 'created_by',
-    select: 'name email'
-  });
+  const team = await Team.findById(req.params.id)
+    .populate({
+      path: 'created_by',
+      select: 'name email'
+    })
+    .populate('member_count');
 
   if (!team) {
     return next(
@@ -40,7 +42,76 @@ exports.createTeam = asyncHandler(async (req, res, next) => {
   // Add user to req.body
   req.body.created_by = req.user.id;
 
+  // Validate team_lead exists
+  if (req.body.team_lead) {
+    const teamLead = await User.findById(req.body.team_lead);
+    if (!teamLead) {
+      return next(
+        new ErrorResponse(`Team Lead not found with id of ${req.body.team_lead}`, 404)
+      );
+    }
+  }
+
+  // Validate territory field
+  if (req.body.territory && req.body.territory.length > 100) {
+    return next(
+      new ErrorResponse('Territory cannot exceed 100 characters', 400)
+    );
+  }
+
+  // Validate target_goals field
+  if (req.body.target_goals && req.body.target_goals.length > 500) {
+    return next(
+      new ErrorResponse('Target Goals cannot exceed 500 characters', 400)
+    );
+  }
+
+  // Validate budget field
+  if (req.body.budget && req.body.budget < 0) {
+    return next(
+      new ErrorResponse('Budget cannot be negative', 400)
+    );
+  }
+
+  // Validate location field
+  if (req.body.location && req.body.location.length > 100) {
+    return next(
+      new ErrorResponse('Location cannot exceed 100 characters', 400)
+    );
+  }
+
+  // Validate contact_email field
+  if (req.body.contact_email) {
+    const emailRegex = /^([\w-\.]+@([\w-]+\.)+[\w-]{2,4})?$/;
+    if (!emailRegex.test(req.body.contact_email)) {
+      return next(
+        new ErrorResponse('Please provide a valid email address', 400)
+      );
+    }
+  }
+
+  // Validate contact_phone field
+  if (req.body.contact_phone) {
+    const phoneRegex = /^[0-9]{10,15}$/;
+    if (!phoneRegex.test(req.body.contact_phone)) {
+      return next(
+        new ErrorResponse('Please provide a valid phone number (10-15 digits)', 400)
+      );
+    }
+  }
+
+  // Create team with all fields
   const team = await Team.create(req.body);
+
+  // Create TeamUserMap entry for team lead if provided
+  if (req.body.team_lead) {
+    await TeamUserMap.create({
+      user_id: req.body.team_lead,
+      team_id: team._id,
+      role_within_team: 'team_lead',
+      created_by: req.user.id
+    });
+  }
 
   // Log the activity
   await UserActivityLog.create({
@@ -71,6 +142,64 @@ exports.updateTeam = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Validate team_lead exists if being updated
+  if (req.body.team_lead) {
+    const teamLead = await User.findById(req.body.team_lead);
+    if (!teamLead) {
+      return next(
+        new ErrorResponse(`Team Lead not found with id of ${req.body.team_lead}`, 404)
+      );
+    }
+  }
+
+  // Validate territory field
+  if (req.body.territory && req.body.territory.length > 100) {
+    return next(
+      new ErrorResponse('Territory cannot exceed 100 characters', 400)
+    );
+  }
+
+  // Validate target_goals field
+  if (req.body.target_goals && req.body.target_goals.length > 500) {
+    return next(
+      new ErrorResponse('Target Goals cannot exceed 500 characters', 400)
+    );
+  }
+
+  // Validate budget field
+  if (req.body.budget && req.body.budget < 0) {
+    return next(
+      new ErrorResponse('Budget cannot be negative', 400)
+    );
+  }
+
+  // Validate location field
+  if (req.body.location && req.body.location.length > 100) {
+    return next(
+      new ErrorResponse('Location cannot exceed 100 characters', 400)
+    );
+  }
+
+  // Validate contact_email field
+  if (req.body.contact_email) {
+    const emailRegex = /^([\w-\.]+@([\w-]+\.)+[\w-]{2,4})?$/;
+    if (!emailRegex.test(req.body.contact_email)) {
+      return next(
+        new ErrorResponse('Please provide a valid email address', 400)
+      );
+    }
+  }
+
+  // Validate contact_phone field
+  if (req.body.contact_phone) {
+    const phoneRegex = /^[0-9]{10,15}$/;
+    if (!phoneRegex.test(req.body.contact_phone)) {
+      return next(
+        new ErrorResponse('Please provide a valid phone number (10-15 digits)', 400)
+      );
+    }
+  }
+
   // Store previous state for activity log
   const previousState = { ...team.toObject() };
 
@@ -78,6 +207,23 @@ exports.updateTeam = asyncHandler(async (req, res, next) => {
     new: true,
     runValidators: true
   });
+
+  // Update TeamUserMap for team lead if changed
+  if (req.body.team_lead && (!team.team_lead || team.team_lead.toString() !== req.body.team_lead)) {
+    // Remove existing team lead role
+    await TeamUserMap.updateMany(
+      { team_id: team._id, role_within_team: 'team_lead', active_flag: true },
+      { active_flag: false }
+    );
+
+    // Create new team lead mapping
+    await TeamUserMap.create({
+      user_id: req.body.team_lead,
+      team_id: team._id,
+      role_within_team: 'team_lead',
+      created_by: req.user.id
+    });
+  }
 
   // Log the activity
   await UserActivityLog.create({
@@ -121,7 +267,7 @@ exports.deleteTeam = asyncHandler(async (req, res, next) => {
   // Store the team data for activity log
   const deletedTeam = { ...team.toObject() };
 
-  await team.remove();
+  await team.deleteOne();
 
   // Log the activity
   await UserActivityLog.create({
@@ -389,7 +535,7 @@ exports.removeTeamMember = asyncHandler(async (req, res, next) => {
   // Store the mapping data for activity log
   const deletedMapping = { ...teamUserMap.toObject() };
 
-  await teamUserMap.remove();
+  await teamUserMap.deleteOne();
 
   // Log the activity
   await UserActivityLog.create({
@@ -413,7 +559,23 @@ exports.removeTeamMember = asyncHandler(async (req, res, next) => {
 // @route   GET /api/v1/users/:userId/teams
 // @access  Private
 exports.getUserTeams = asyncHandler(async (req, res, next) => {
-  const user = await User.findById(req.params.userId);
+  const mongoose = require('mongoose');
+  let userId = req.params.userId;
+  
+  // Ensure userId is a valid ObjectId
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    // If userId is not a valid ObjectId, try to find the user by user_id
+    const userByDisplayId = await User.findOne({ user_id: userId });
+    if (userByDisplayId) {
+      userId = userByDisplayId._id;
+    } else {
+      return next(
+        new ErrorResponse(`User not found with id of ${req.params.userId}`, 404)
+      );
+    }
+  }
+  
+  const user = await User.findById(userId);
 
   if (!user) {
     return next(

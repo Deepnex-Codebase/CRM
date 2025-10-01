@@ -174,7 +174,7 @@ const UserManagement = () => {
   const handleToggleStatus = async (userId, currentStatus) => {
     try {
       const user = users.find(u => u.user_id === userId || u._id === userId);
-      const userIdToUse = user._id || user.user_id;
+      const userIdToUse = user._id;
       
       if (currentStatus === 'Active') {
         await userService.deactivateUser(userIdToUse);
@@ -195,7 +195,7 @@ const UserManagement = () => {
     const userToDelete = users.find(u => u.user_id === userId || u._id === userId);
     if (window.confirm(`Are you sure you want to delete user "${userToDelete?.username || userToDelete?.email}"? This action cannot be undone.`)) {
       try {
-        const userIdToUse = userToDelete._id || userToDelete.user_id;
+        const userIdToUse = userToDelete._id;
         await userService.deleteUser(userIdToUse);
         
         // Refresh the users list

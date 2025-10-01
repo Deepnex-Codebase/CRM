@@ -87,7 +87,6 @@ class SessionService {
     
     return {
       id: session._id,
-      sessionId: session.session_id || session._id,
       userId: userId,
       userName: userName,
       userEmail: userEmail,
@@ -96,7 +95,7 @@ class SessionService {
       issuedAt: new Date(session.issued_at),
       expiresAt: new Date(session.expires_at),
       isActive: session.is_active,
-      location: this.extractLocationFromIP(session.ip_address),
+      location: this.extractLocationFromIP(session.ip_address, session.location),
       deviceType: this.extractDeviceType(session.device_info),
       browser: this.extractBrowser(session.device_info),
       lastActivity: new Date(session.issued_at),
@@ -128,7 +127,7 @@ class SessionService {
       status: attempt.status,
       reason: attempt.reason || null,
       timestamp: new Date(attempt.timestamp || attempt.attempted_at),
-      location: this.extractLocationFromIP(attempt.ip_address),
+      location: this.extractLocationFromIP(attempt.ip_address, attempt.location),
       deviceType: this.extractDeviceType(attempt.device_info),
       browser: this.extractBrowser(attempt.device_info),
       success: attempt.status === 'success'
@@ -139,7 +138,7 @@ class SessionService {
    * Extract device type from user agent string
    */
   extractDeviceType(userAgent) {
-    if (!userAgent) return 'Unknown';
+    if (!userAgent || typeof userAgent !== 'string') return 'Unknown';
     
     const ua = userAgent.toLowerCase();
     if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
@@ -155,7 +154,7 @@ class SessionService {
    * Extract browser from user agent string
    */
   extractBrowser(userAgent) {
-    if (!userAgent) return 'Unknown';
+    if (!userAgent || typeof userAgent !== 'string') return 'Unknown';
     
     const ua = userAgent.toLowerCase();
     if (ua.includes('chrome')) return 'Chrome';
@@ -167,9 +166,26 @@ class SessionService {
   }
 
   /**
-   * Extract location from IP address (placeholder - would need IP geolocation service)
+   * Extract location from device info or use location data from backend
    */
-  extractLocationFromIP(ipAddress) {
+  extractLocationFromIP(ipAddress, locationData) {
+    // If location data is directly provided from backend, use it
+    if (locationData && typeof locationData === 'object') {
+      const { country, region, city } = locationData;
+      
+      if (city && region && country) {
+        return `${city}, ${region}, ${country}`;
+      } else if (city && country) {
+        return `${city}, ${country}`;
+      } else if (region && country) {
+        return `${region}, ${country}`;
+      } else if (country) {
+        return country;
+      } else if (city) {
+        return city;
+      }
+    }
+    
     if (!ipAddress || ipAddress === 'Unknown IP') return 'Unknown Location';
     
     // For localhost/development
@@ -177,7 +193,6 @@ class SessionService {
       return 'Local Development';
     }
     
-    // Placeholder - in real implementation, use IP geolocation service
     return 'Unknown Location';
   }
 
@@ -284,13 +299,13 @@ class SessionService {
   /**
    * Revoke a session
    */
-  async revokeSession(sessionId) {
-    if (!sessionId) {
+  async revokeSession(id) {
+    if (!id) {
       throw new Error('Session ID is required');
     }
 
     const requestFn = async () => {
-      const response = await api.put(`/auth/sessions/${sessionId}/revoke`);
+      const response = await api.put(`/auth/sessions/${id}/revoke`);
       
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to revoke session');
@@ -354,6 +369,64 @@ class SessionService {
     } catch (error) {
       console.error('Error fetching login attempts:', error);
       throw this.handleError(error, 'Failed to fetch login attempts');
+    }
+  }
+
+  /**
+   * Get session details by ID
+   */
+  async getSessionDetails(id) {
+    if (!id) {
+      throw new Error('Session ID is required');
+    }
+
+    const requestFn = async () => {
+      const response = await api.get(`/auth/sessions/${id}`);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to fetch session details');
+      }
+      
+      const sessionData = response.data.data;
+      this.validateSessionData(sessionData);
+      
+      return this.transformSessionData(sessionData);
+    };
+
+    try {
+      return await this.retryRequest(requestFn);
+    } catch (error) {
+      console.error('Error fetching session details:', error);
+      throw this.handleError(error, 'Failed to fetch session details');
+    }
+  }
+
+  /**
+   * Refresh session data by ID
+   */
+  async refreshSession(id) {
+    if (!id) {
+      throw new Error('Session ID is required');
+    }
+
+    const requestFn = async () => {
+      const response = await api.post(`/auth/sessions/${id}/refresh`);
+      
+      if (!response.data.success) {
+        throw new Error(response.data.message || 'Failed to refresh session');
+      }
+      
+      const sessionData = response.data.data;
+      this.validateSessionData(sessionData);
+      
+      return this.transformSessionData(sessionData);
+    };
+
+    try {
+      return await this.retryRequest(requestFn);
+    } catch (error) {
+      console.error('Error refreshing session:', error);
+      throw this.handleError(error, 'Failed to refresh session');
     }
   }
 

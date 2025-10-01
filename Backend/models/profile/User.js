@@ -14,6 +14,13 @@ const UserSchema = new mongoose.Schema({
       return `USR-${dateStr}-XXXX`; // This will be replaced by pre-save hook
     }
   },
+  username: {
+    type: String,
+    required: [true, 'Please add a username'],
+    unique: true,
+    trim: true,
+    maxlength: [50, 'Username cannot be more than 50 characters']
+  },
   first_name: {
     type: String,
     required: [true, 'Please add a first name']
@@ -54,6 +61,16 @@ const UserSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Role',
     required: true
+  },
+  team_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Team',
+    default: null
+  },
+  department: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Department name cannot be more than 100 characters']
   },
   is_active: {
     type: Boolean,

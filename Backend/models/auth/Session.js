@@ -22,12 +22,33 @@ const SessionSchema = new mongoose.Schema({
     required: true
   },
   device_info: {
-    type: String,
-    default: null
+    browser: {
+      name: { type: String, default: null },
+      version: { type: String, default: null }
+    },
+    os: {
+      name: { type: String, default: null },
+      version: { type: String, default: null }
+    },
+    device: {
+      type: { type: String, default: null }, // mobile, tablet, desktop
+      vendor: { type: String, default: null },
+      model: { type: String, default: null }
+    },
+    user_agent: { type: String, default: null }
   },
   ip_address: {
     type: String,
     default: null
+  },
+  location: {
+    country: { type: String, default: null },
+    region: { type: String, default: null },
+    city: { type: String, default: null },
+    timezone: { type: String, default: null },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null },
+    isp: { type: String, default: null }
   },
   issued_at: {
     type: Date,
