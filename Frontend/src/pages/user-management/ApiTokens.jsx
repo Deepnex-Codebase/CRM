@@ -1,44 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Key, 
-  Plus, 
   Search, 
-  Filter, 
-  Edit, 
   Trash2, 
   Eye,
   EyeOff,
   Copy,
   Calendar,
   Clock,
-  Shield,
   AlertTriangle,
   CheckCircle,
-  XCircle,
-  MoreVertical,
-  Download,
-  RefreshCw,
-  Settings,
-  Globe,
-  Lock,
-  Unlock,
-  Activity,
-  BarChart3
+  Download
 } from 'lucide-react';
 import TokenDetails from './components/TokenDetails';
-import TokenForm from './components/TokenForm';
+import api from '../../utils/api';
 
 const ApiTokens = () => {
   const [tokens, setTokens] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [filterScope, setFilterScope] = useState('all');
-  const [showTokenModal, setShowTokenModal] = useState(false);
   const [showTokenDetails, setShowTokenDetails] = useState(false);
   const [selectedToken, setSelectedToken] = useState(null);
-  const [editingToken, setEditingToken] = useState(null);
   const [showTokenValue, setShowTokenValue] = useState({});
-  const [newTokenGenerated, setNewTokenGenerated] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Mock data for API tokens
   const mockTokens = [
@@ -46,7 +31,7 @@ const ApiTokens = () => {
       token_id: 'token_001',
       token_name: 'Mobile App Production',
       description: 'Production API access for mobile application',
-     // token_value: 'sk_live_51H7qABC123DEF456GHI789JKL012MNO345PQR678STU901VWX234YZ567',
+     token_value: 'sk_live_51H7qABC123DEF456GHI789JKL012MNO345PQR678STU901VWX234YZ567',
       user_id: 'user_001',
       user_name: 'John Smith',
       created_at: '2024-01-15T10:30:00Z',
@@ -54,18 +39,7 @@ const ApiTokens = () => {
       last_used: '2024-03-15T14:22:00Z',
       status: 'Active',
       scopes: ['read:users', 'write:users', 'read:orders', 'write:orders'],
-      rate_limit: {
-        requests_per_minute: 1000,
-        requests_per_hour: 50000,
-        requests_per_day: 1000000
-      },
-      usage_stats: {
-        total_requests: 2456789,
-        requests_today: 15432,
-        requests_this_month: 456789,
-        last_request_ip: '192.168.1.100',
-        error_rate: 0.02
-      },
+
       permissions: {
         can_read: true,
         can_write: true,
@@ -77,7 +51,7 @@ const ApiTokens = () => {
       token_id: 'token_002',
       token_name: 'Web Dashboard',
       description: 'API access for web dashboard analytics',
-     // token_value: 'sk_test_51H7qABC789DEF012GHI345JKL678MNO901PQR234STU567VWX890YZ123',
+     token_value: 'sk_test_51H7qABC789DEF012GHI345JKL678MNO901PQR234STU567VWX890YZ123',
       user_id: 'user_002',
       user_name: 'Sarah Johnson',
       created_at: '2024-02-01T09:15:00Z',
@@ -85,18 +59,7 @@ const ApiTokens = () => {
       last_used: '2024-03-15T16:45:00Z',
       status: 'Active',
       scopes: ['read:analytics', 'read:reports', 'read:users'],
-      rate_limit: {
-        requests_per_minute: 500,
-        requests_per_hour: 25000,
-        requests_per_day: 500000
-      },
-      usage_stats: {
-        total_requests: 123456,
-        requests_today: 2341,
-        requests_this_month: 67890,
-        last_request_ip: '192.168.1.101',
-        error_rate: 0.01
-      },
+
       permissions: {
         can_read: true,
         can_write: false,
@@ -108,7 +71,7 @@ const ApiTokens = () => {
       token_id: 'token_003',
       token_name: 'Third Party Integration',
       description: 'Limited access for external partner integration',
-     // token_value: 'sk_live_51H7qABC456DEF789GHI012JKL345MNO678PQR901STU234VWX567YZ890',
+     token_value: 'sk_live_51H7qABC456DEF789GHI012JKL345MNO678PQR901STU234VWX567YZ890',
       user_id: 'user_003',
       user_name: 'Mike Wilson',
       created_at: '2024-01-20T14:20:00Z',
@@ -116,18 +79,7 @@ const ApiTokens = () => {
       last_used: '2024-03-10T12:30:00Z',
       status: 'Expired',
       scopes: ['read:products', 'read:orders'],
-      rate_limit: {
-        requests_per_minute: 100,
-        requests_per_hour: 5000,
-        requests_per_day: 100000
-      },
-      usage_stats: {
-        total_requests: 45678,
-        requests_today: 0,
-        requests_this_month: 1234,
-        last_request_ip: '203.0.113.45',
-        error_rate: 0.05
-      },
+
       permissions: {
         can_read: true,
         can_write: false,
@@ -139,7 +91,7 @@ const ApiTokens = () => {
       token_id: 'token_004',
       token_name: 'Development Testing',
       description: 'Development environment testing token',
-     // token_value: 'sk_test_51H7qABC012DEF345GHI678JKL901MNO234PQR567STU890VWX123YZ456',
+     token_value: 'sk_test_51H7qABC012DEF345GHI678JKL901MNO234PQR567STU890VWX123YZ456',
       user_id: 'user_004',
       user_name: 'Lisa Brown',
       created_at: '2024-03-01T11:00:00Z',
@@ -147,18 +99,7 @@ const ApiTokens = () => {
       last_used: '2024-03-15T18:15:00Z',
       status: 'Active',
       scopes: ['read:*', 'write:*'],
-      rate_limit: {
-        requests_per_minute: 200,
-        requests_per_hour: 10000,
-        requests_per_day: 200000
-      },
-      usage_stats: {
-        total_requests: 8901,
-        requests_today: 234,
-        requests_this_month: 5678,
-        last_request_ip: '192.168.1.102',
-        error_rate: 0.15
-      },
+
       permissions: {
         can_read: true,
         can_write: true,
@@ -170,7 +111,7 @@ const ApiTokens = () => {
       token_id: 'token_005',
       token_name: 'Suspicious Token',
       description: 'Token showing unusual activity patterns',
-     // token_value: 'sk_live_51H7qABC999DEF888GHI777JKL666MNO555PQR444STU333VWX222YZ111',
+     token_value: 'sk_live_51H7qABC999DEF888GHI777JKL666MNO555PQR444STU333VWX222YZ111',
       user_id: 'user_005',
       user_name: 'Unknown User',
       created_at: '2024-03-14T20:00:00Z',
@@ -178,18 +119,7 @@ const ApiTokens = () => {
       last_used: '2024-03-15T19:45:00Z',
       status: 'Suspended',
       scopes: ['read:users', 'read:orders'],
-      rate_limit: {
-        requests_per_minute: 50,
-        requests_per_hour: 2500,
-        requests_per_day: 50000
-      },
-      usage_stats: {
-        total_requests: 50000,
-        requests_today: 10000,
-        requests_this_month: 50000,
-        last_request_ip: '203.0.113.1',
-        error_rate: 0.25
-      },
+
       permissions: {
         can_read: true,
         can_write: false,
@@ -200,64 +130,79 @@ const ApiTokens = () => {
   ];
 
   const statusTypes = ['Active', 'Expired', 'Suspended', 'Revoked'];
-  const scopeTypes = ['read:users', 'write:users', 'read:orders', 'write:orders', 'read:analytics', 'read:reports', 'read:products', 'read:*', 'write:*'];
 
   useEffect(() => {
-    setTokens(mockTokens);
+    const fetchSessions = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await api.get('/auth/sessions');
+        const sessions = res.data?.data || res.data || [];
+        const mapped = sessions.map((s) => ({
+          token_id: s._id || s.session_id || `session_${Math.random().toString(36).slice(2)}`,
+          token_name: `${(s.device_info?.device?.vendor || '').trim()} ${(s.device_info?.device?.model || '').trim()}`.trim() || (s.device_info?.browser?.name || 'Unknown Client'),
+          description: `${s.device_info?.os?.name || 'Unknown OS'} ${s.device_info?.os?.version || ''} • ${s.device_info?.browser?.name || 'Unknown Browser'} ${s.device_info?.browser?.version || ''}`.trim(),
+          token_value: s.token,
+          user_id: s.user_id || 'unknown',
+          user_name: s.user_id.first_name + " " + s.user_id.last_name,
+          created_at: s.issued_at,
+          expires_at: s.expires_at,
+          last_used: null,
+          status: s.is_active === false ? 'Revoked' : 'Active',
+          ip_address: s.ip_address || 'unknown',
+          permissions: {
+            can_read: true,
+            can_write: false,
+            can_delete: false,
+            can_admin: false
+          },
+          _session_db_id: s._id || null,
+        }));
+        setTokens(mapped);
+      } catch (err) {
+        const message = err.response?.data?.message || 'Failed to fetch sessions';
+        setError(message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSessions();
   }, []);
 
-  // Filter tokens based on search, status, and scope
+  // Filter tokens based on search and status
   const filteredTokens = tokens.filter(token => {
     const matchesSearch = token.token_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          token.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         token.user_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         token.usage_stats.last_request_ip.includes(searchTerm);
+                         token.user_name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'all' || token.status === filterStatus;
-    const matchesScope = filterScope === 'all' || token.scopes.includes(filterScope);
-    return matchesSearch && matchesStatus && matchesScope;
+    return matchesSearch && matchesStatus;
   });
 
   // CRUD handlers
-  const handleCreateToken = () => {
-    setEditingToken(null);
-    setShowTokenModal(true);
-  };
-
   const handleViewToken = (token) => {
     setSelectedToken(token);
     setShowTokenDetails(true);
   };
 
-  const handleEditToken = (token) => {
-    setEditingToken(token);
-    setShowTokenModal(true);
-  };
-
-  const handleDeleteToken = (tokenId) => {
+  const handleDeleteToken = async (tokenId) => {
     const token = tokens.find(t => t.token_id === tokenId);
-    if (window.confirm(`Are you sure you want to revoke token "${token?.token_name}"? This action cannot be undone and will immediately disable API access.`)) {
-      setTokens(tokens.filter(t => t.token_id !== tokenId));
-      alert('Token revoked successfully');
+    if (!token) return;
+    const confirm = window.confirm(`Are you sure you want to revoke session/token "${token?.token_name}"? This action cannot be undone and will immediately terminate the session.`);
+    if (!confirm) return;
+
+    try {
+      const idForApi = token._session_db_id || tokenId;
+      await api.put(`/auth/sessions/${idForApi}/revoke`);
+      setTokens(tokens.map(t => t.token_id === tokenId ? { ...t, status: 'Revoked' } : t));
+      alert('Session revoked successfully');
+    } catch (err) {
+      const message = err.response?.data?.message || 'Failed to revoke session';
+      alert(message);
     }
   };
 
-  const handleSuspendToken = (tokenId) => {
-    setTokens(tokens.map(token => 
-      token.token_id === tokenId 
-        ? { ...token, status: 'Suspended', updated_at: new Date().toISOString() }
-        : token
-    ));
-    alert('Token suspended successfully');
-  };
 
-  const handleActivateToken = (tokenId) => {
-    setTokens(tokens.map(token => 
-      token.token_id === tokenId 
-        ? { ...token, status: 'Active', updated_at: new Date().toISOString() }
-        : token
-    ));
-    alert('Token activated successfully');
-  };
 
   const handleCopyToken = (tokenValue) => {
     navigator.clipboard.writeText(tokenValue);
@@ -269,39 +214,6 @@ const ApiTokens = () => {
       ...prev,
       [tokenId]: !prev[tokenId]
     }));
-  };
-
-  const handleFormSubmit = (tokenData) => {
-    if (editingToken) {
-      // Update existing token
-      setTokens(tokens.map(token => 
-        token.token_id === editingToken.token_id 
-          ? { ...token, ...tokenData, updated_at: new Date().toISOString() }
-          : token
-      ));
-      alert('Token updated successfully');
-    } else {
-      // Create new token
-      const newToken = {
-        ...tokenData,
-        token_id: `token_${Date.now()}`,
-        token_value: `sk_live_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`,
-        created_at: new Date().toISOString(),
-        last_used: null,
-        usage_stats: {
-          total_requests: 0,
-          requests_today: 0,
-          requests_this_month: 0,
-          last_request_ip: null,
-          error_rate: 0
-        }
-      };
-      setTokens([...tokens, newToken]);
-      setNewTokenGenerated(newToken);
-      alert('Token created successfully');
-    }
-    setShowTokenModal(false);
-    setEditingToken(null);
   };
 
   const getStatusBadge = (status) => {
@@ -319,19 +231,14 @@ const ApiTokens = () => {
     );
   };
 
+  // Format last used date - simplified version
   const formatLastUsed = (dateString) => {
     if (!dateString) return 'Never';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInMinutes = Math.floor((now - date) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
-    return `${Math.floor(diffInMinutes / 1440)}d ago`;
+    return new Date(dateString).toLocaleDateString();
   };
 
   const formatExpiryDate = (dateString) => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
     const now = new Date();
     const diffInDays = Math.floor((date - now) / (1000 * 60 * 60 * 24));
@@ -344,8 +251,57 @@ const ApiTokens = () => {
   };
 
   const maskToken = (token) => {
+    if (!token) return ''; // Handle undefined or null tokens
     if (token.length <= 8) return token;
     return `${token.substring(0, 8)}...${token.substring(token.length - 8)}`;
+  };
+  
+  // Function to export tokens data to CSV
+  const exportTokensData = () => {
+    try {
+      // Prepare data for export (excluding sensitive information)
+      const exportData = filteredTokens.map(token => ({
+        Name: token.token_name,
+        Description: token.description,
+        User: token.user_name,
+        Status: token.status,
+        Created: new Date(token.created_at).toLocaleString(),
+        Expires: new Date(token.expires_at).toLocaleString(),
+        'Last Used': token.last_used ? new Date(token.last_used).toLocaleString() : 'Never',
+        IP: token.ip_address || 'N/A'
+      }));
+      
+      // Convert to CSV
+      const headers = Object.keys(exportData[0]);
+      const csvContent = [
+        headers.join(','),
+        ...exportData.map(row => 
+          headers.map(header => {
+            // Escape commas and quotes in the data
+            const cell = row[header] || '';
+            const escaped = cell.toString().replace(/"/g, '""');
+            return `"${escaped}"`;
+          }).join(',')
+        )
+      ].join('\n');
+      
+      // Create and download the file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `api-tokens-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Show success message
+      alert('Export completed successfully');
+    } catch (error) {
+      console.error('Export failed:', error);
+      alert(`Export failed: ${error.message || 'Unknown error occurred'}`);
+    }
   };
 
   return (
@@ -359,22 +315,27 @@ const ApiTokens = () => {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
-          <button className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+          <button 
+            onClick={exportTokensData}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+            disabled={filteredTokens.length === 0 || loading}
+            title={filteredTokens.length === 0 ? "No data to export" : "Export tokens to CSV"}
+          >
             <Download className="h-4 w-4 mr-2" />
             Export
-          </button>
-          <button 
-            onClick={handleCreateToken}
-            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Generate Token
           </button>
         </div>
       </div>
 
+      {loading && (
+        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded">Loading sessions...</div>
+      )}
+      {error && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded">{error}</div>
+      )}
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
           <div className="p-5">
             <div className="flex items-center">
@@ -442,26 +403,6 @@ const ApiTokens = () => {
           <div className="p-5">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Activity className="h-6 w-6 text-blue-400" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
-                    Requests Today
-                  </dt>
-                  <dd className="text-lg font-medium text-gray-900 dark:text-white">
-                    {tokens.reduce((sum, token) => sum + token.usage_stats.requests_today, 0).toLocaleString()}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg">
-          <div className="p-5">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
                 <AlertTriangle className="h-6 w-6 text-red-400" />
               </div>
               <div className="ml-5 w-0 flex-1">
@@ -488,7 +429,7 @@ const ApiTokens = () => {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search tokens, users, or IP addresses..."
+                  placeholder="Search tokens or users..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -507,18 +448,6 @@ const ApiTokens = () => {
                 ))}
               </select>
             </div>
-            <div className="sm:w-48">
-              <select
-                value={filterScope}
-                onChange={(e) => setFilterScope(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              >
-                <option value="all">All Scopes</option>
-                {scopeTypes.map(scope => (
-                  <option key={scope} value={scope}>{scope}</option>
-                ))}
-              </select>
-            </div>
           </div>
         </div>
 
@@ -532,12 +461,6 @@ const ApiTokens = () => {
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Scopes
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Usage
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
@@ -586,30 +509,9 @@ const ApiTokens = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900 dark:text-white">{token.user_name}</div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">{token.usage_stats.last_request_ip || 'No requests'}</div>
+                    <div className="text-sm text-gray-500 dark:text-gray-400">{token.ip_address || 'No requests'}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-wrap gap-1">
-                      {token.scopes.slice(0, 2).map((scope, index) => (
-                        <span key={index} className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400">
-                          {scope}
-                        </span>
-                      ))}
-                      {token.scopes.length > 2 && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400">
-                          +{token.scopes.length - 2}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">
-                      {token.usage_stats.requests_today.toLocaleString()} today
-                    </div>
-                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                      {token.usage_stats.total_requests.toLocaleString()} total
-                    </div>
-                  </td>
+
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="space-y-1">
                       {getStatusBadge(token.status)}
@@ -635,38 +537,15 @@ const ApiTokens = () => {
                       >
                         <Eye className="h-4 w-4" />
                       </button>
-                      <button 
-                        onClick={() => handleEditToken(token)}
-                        className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300"
-                        title="Edit Token"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      {token.status === 'Suspended' ? (
+                        
                         <button 
-                          onClick={() => handleActivateToken(token.token_id)}
-                          className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
-                          title="Activate Token"
+                          onClick={() => handleDeleteToken(token.token_id)}
+                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                          title="Revoke Token"
                         >
-                          <Unlock className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
-                      ) : token.status === 'Active' ? (
-                        <button 
-                          onClick={() => handleSuspendToken(token.token_id)}
-                          className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300"
-                          title="Suspend Token"
-                        >
-                          <Lock className="h-4 w-4" />
-                        </button>
-                      ) : null}
-                      <button 
-                        onClick={() => handleDeleteToken(token.token_id)}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                        title="Revoke Token"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                      </div>
                   </td>
                 </tr>
               ))}
@@ -679,39 +558,14 @@ const ApiTokens = () => {
             <Key className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No tokens found</h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {searchTerm || filterStatus !== 'all' || filterScope !== 'all'
+              {searchTerm || filterStatus !== 'all'
                 ? 'Try adjusting your search or filter criteria.'
-                : 'Get started by generating your first API token.'
+                : 'No API tokens available to display.'
               }
             </p>
-            {(!searchTerm && filterStatus === 'all' && filterScope === 'all') && (
-              <div className="mt-6">
-                <button
-                  onClick={handleCreateToken}
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Generate Token
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>
-
-      {/* Token Form Modal */}
-      {showTokenModal && (
-        <TokenForm
-          token={editingToken}
-          isOpen={showTokenModal}
-          onClose={() => {
-            setShowTokenModal(false);
-            setEditingToken(null);
-          }}
-          onSubmit={handleFormSubmit}
-          title={editingToken ? 'Edit API Token' : 'Generate New API Token'}
-        />
-      )}
 
       {/* Token Details Modal */}
       <TokenDetails
@@ -719,63 +573,6 @@ const ApiTokens = () => {
         onClose={() => setShowTokenDetails(false)}
         tokenId={selectedToken?.token_id}
       />
-
-      {/* New Token Generated Modal */}
-      {newTokenGenerated && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-2xl">
-            <div className="p-6">
-              <div className="flex items-center mb-4">
-                <CheckCircle className="h-6 w-6 text-green-500 mr-2" />
-                <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                  Token Generated Successfully
-                </h3>
-              </div>
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md p-4 mb-4">
-                <div className="flex">
-                  <AlertTriangle className="h-5 w-5 text-yellow-400 mr-2 mt-0.5" />
-                  <div>
-                    <h4 className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                      Important: Save this token now
-                    </h4>
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
-                      This is the only time you'll be able to see the full token. Make sure to copy it and store it securely.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Your new API token:
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={newTokenGenerated.token_value}
-                    readOnly
-                    className="flex-1 font-mono text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2"
-                  />
-                  <button
-                    onClick={() => handleCopyToken(newTokenGenerated.token_value)}
-                    className="px-3 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 flex items-center"
-                  >
-                    <Copy className="h-4 w-4 mr-1" />
-                    Copy
-                  </button>
-                </div>
-              </div>
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setNewTokenGenerated(null)}
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700"
-                >
-                  I've saved the token
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

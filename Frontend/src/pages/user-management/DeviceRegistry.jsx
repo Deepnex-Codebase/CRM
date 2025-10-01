@@ -28,6 +28,18 @@ import {
 } from 'lucide-react';
 import DeviceForm from './components/DeviceForm';
 import DeviceDetails from './components/DeviceDetails';
+import { 
+  getAllDevices, 
+  getUserDevices, 
+  registerDevice, 
+  updateDevice, 
+  deleteDevice, 
+  trustDevice, 
+  blockDevice, 
+  unblockDevice 
+} from '../../services/deviceService';
+import { useAuth } from "../../context/AuthContext";
+import { toast } from 'react-toastify';
 
 const DeviceRegistry = () => {
   const [devices, setDevices] = useState([]);
@@ -38,8 +50,38 @@ const DeviceRegistry = () => {
   const [showDeviceDetails, setShowDeviceDetails] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [editingDevice, setEditingDevice] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
 
-  // Mock data for devices
+  // Fetch devices from API
+  useEffect(() => {
+    fetchDevices();
+  }, []);
+
+  const fetchDevices = async () => {
+    try {
+      setLoading(true);
+      let response;
+      
+      // If user is admin, fetch all devices, otherwise fetch only user's devices
+      if (user?.role === 'admin') {
+        response = await getAllDevices();
+      } else {
+        response = await getUserDevices(user?.id);
+      }
+      
+      if (response.data) {
+        setDevices(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching devices:', error);
+      toast.error('Failed to load devices. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // For backward compatibility during development, using mock data as fallback
   const mockDevices = [
     {
       device_id: 'dev_001',
@@ -227,7 +269,10 @@ const DeviceRegistry = () => {
   const statusTypes = ['Active', 'Inactive', 'Blocked', 'Pending'];
 
   useEffect(() => {
-    setDevices(mockDevices);
+    // Initial load - use fetchDevices instead of mock data
+    if (devices.length === 0) {
+      fetchDevices();
+    }
   }, []);
 
   // Filter devices based on search, status, and type
@@ -252,39 +297,63 @@ const DeviceRegistry = () => {
     setShowDeviceModal(true);
   };
 
-  const handleDeleteDevice = (deviceId) => {
+  const handleDeleteDevice = async (deviceId) => {
     const device = devices.find(d => d.device_id === deviceId);
     if (window.confirm(`Are you sure you want to remove device "${device?.device_name}"? This will revoke access for this device.`)) {
-      setDevices(devices.filter(d => d.device_id !== deviceId));
-      alert('Device removed successfully');
+      try {
+        const response = await deleteDevice(deviceId);
+        if (response.success) {
+          toast.success('Device removed successfully');
+          fetchDevices(); // Refresh the device list
+        }
+      } catch (error) {
+        console.error('Error deleting device:', error);
+        toast.error(error.message || 'Failed to delete device');
+      }
     }
   };
 
-  const handleBlockDevice = (deviceId) => {
-    setDevices(devices.map(device => 
-      device.device_id === deviceId 
-        ? { ...device, status: 'Blocked', updated_at: new Date().toISOString() }
-        : device
-    ));
-    alert('Device blocked successfully');
+  const handleBlockDevice = async (deviceId) => {
+    try {
+      const response = await blockDevice(deviceId);
+      if (response.success) {
+        toast.success('Device blocked successfully');
+        fetchDevices(); // Refresh the device list
+      }
+    } catch (error) {
+      console.error('Error blocking device:', error);
+      toast.error(error.message || 'Failed to block device');
+    }
   };
 
-  const handleUnblockDevice = (deviceId) => {
-    setDevices(devices.map(device => 
-      device.device_id === deviceId 
-        ? { ...device, status: 'Active', updated_at: new Date().toISOString() }
-        : device
-    ));
-    alert('Device unblocked successfully');
+  const handleUnblockDevice = async (deviceId) => {
+    try {
+      const response = await unblockDevice(deviceId);
+      if (response.success) {
+        toast.success('Device unblocked successfully');
+        fetchDevices(); // Refresh the device list
+      }
+    } catch (error) {
+      console.error('Error unblocking device:', error);
+      toast.error(error.message || 'Failed to unblock device');
+    }
   };
 
-  const handleTrustDevice = (deviceId) => {
-    setDevices(devices.map(device => 
-      device.device_id === deviceId 
-        ? { ...device, is_trusted: !device.is_trusted, updated_at: new Date().toISOString() }
-        : device
-    ));
-    alert('Device trust status updated');
+  const handleTrustDevice = async (deviceId) => {
+    try {
+      const device = devices.find(d => d.device_id === deviceId);
+      const response = device.is_trusted 
+        ? await untrustDevice(deviceId)
+        : await trustDevice(deviceId);
+      
+      if (response.success) {
+        toast.success(`Device ${device.is_trusted ? 'untrusted' : 'trusted'} successfully`);
+        fetchDevices(); // Refresh the device list
+      }
+    } catch (error) {
+      console.error('Error updating device trust status:', error);
+      toast.error(error.message || 'Failed to update device trust status');
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -348,9 +417,11 @@ const DeviceRegistry = () => {
           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex space-x-3">
-          <button className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
+          <button 
+            onClick={fetchDevices}
+            className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Loading...' : 'Refresh'}
           </button>
           <button className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700">
             <Download className="h-4 w-4 mr-2" />

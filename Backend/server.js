@@ -17,6 +17,7 @@ const cookieParser = require('cookie-parser');
 
 // Import auth routes
 const authRoutes = require('./routes/auth');
+const securityRoutes = require('./routes/auth/security');
 
 // Import profile routes
 const projectProfileRoutes = require('./routes/profile/projectProfiles');
@@ -34,6 +35,7 @@ const userActivityLogRoutes = require('./routes/profile/userActivityLogs');
 const customerMasterRoutes = require('./routes/profile/customerMaster');
 const employeeRoutes = require('./routes/profile/employees');
 const roleRoutes = require('./routes/profile/roles');
+const deviceRegistryRoutes = require('./routes/profile/deviceRegistry');
 
 // Import Info routes
 const infoTypesRoutes = require('./routes/info/infoTypes');
@@ -80,6 +82,7 @@ app.use(cors({
 
 // Authentication API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/security', securityRoutes);
 
 // API Routes
 app.use('/api/profiles/project', projectProfileRoutes);
@@ -97,6 +100,7 @@ app.use('/api/user-activity-logs', userActivityLogRoutes);
 app.use('/api/customers', customerMasterRoutes);
 app.use('/api/employees', employeeRoutes);
 app.use('/api/roles', roleRoutes);
+app.use('/api/devices', deviceRegistryRoutes);
 
 // Info Management API Routes
 app.use('/api/info/types', infoTypesRoutes);

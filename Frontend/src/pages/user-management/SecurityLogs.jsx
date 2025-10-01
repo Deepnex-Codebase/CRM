@@ -39,6 +39,8 @@ import {
   Phone,
   MessageSquare
 } from 'lucide-react';
+import { getSecurityLogs, getHighRiskSecurityLogs, exportSecurityLogs } from '../../services/securityLogService';
+import { toast } from 'react-hot-toast';
 
 const SecurityLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -49,8 +51,67 @@ const SecurityLogs = () => {
   const [selectedLog, setSelectedLog] = useState(null);
   const [showLogDetails, setShowLogDetails] = useState(false);
   const [realTimeEnabled, setRealTimeEnabled] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Mock data for security logs
+  // Fetch security logs from backend
+  useEffect(() => {
+    const fetchSecurityLogs = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Prepare params based on filters
+        const params = {};
+        if (filterType !== 'all') params.event_type = filterType;
+        if (filterSeverity !== 'all') params.severity = filterSeverity;
+        
+        // Set time range
+        if (filterTimeRange === '24h') {
+          params.from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        } else if (filterTimeRange === '7d') {
+          params.from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        } else if (filterTimeRange === '30d') {
+          params.from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        }
+        
+        // Fetch logs from API
+        const response = await getSecurityLogs(params);
+        
+        if (response.success && response.data) {
+          setLogs(response.data);
+        } else {
+          // Fallback to mock data if API doesn't return expected format
+          console.warn('API returned unexpected format, using mock data');
+          setLogs(mockLogs);
+        }
+      } catch (err) {
+        console.error('Error fetching security logs:', err);
+        setError('Failed to fetch security logs. Using mock data instead.');
+        toast.error('Failed to fetch security logs. Using mock data instead.');
+        // Fallback to mock data on error
+        setLogs(mockLogs);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSecurityLogs();
+    
+    // Set up polling if real-time is enabled
+    let interval;
+    if (realTimeEnabled) {
+      interval = setInterval(() => {
+        fetchSecurityLogs();
+      }, 30000); // Poll every 30 seconds
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [filterType, filterSeverity, filterTimeRange, realTimeEnabled]);
+
+  // Fallback mock data for security logs (will be used if API fails)
   const mockLogs = [
     {
       log_id: 'log_001',
@@ -285,9 +346,70 @@ const SecurityLogs = () => {
   const severityLevels = ['low', 'medium', 'high', 'critical'];
   const timeRanges = ['1h', '24h', '7d', '30d', 'custom'];
 
-  useEffect(() => {
-    setLogs(mockLogs);
-  }, []);
+  // This useEffect is now replaced by the one that fetches from API
+
+  // Handle export logs
+  const handleExportLogs = async () => {
+    try {
+      setLoading(true);
+      // Prepare params based on filters
+      const params = {};
+      if (filterType !== 'all') params.event_type = filterType;
+      if (filterSeverity !== 'all') params.severity = filterSeverity;
+      
+      // Set time range
+      if (filterTimeRange === '24h') {
+        params.from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      } else if (filterTimeRange === '7d') {
+        params.from = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      } else if (filterTimeRange === '30d') {
+        params.from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      }
+      
+      // Try to export from API
+      const response = await exportSecurityLogs(params);
+      
+      if (response.success && response.data) {
+        // If API returns CSV data directly
+        const csvContent = "data:text/csv;charset=utf-8," + response.data;
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `security_logs_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('Logs exported successfully');
+      } else {
+        // Fallback to client-side export if API doesn't return expected format
+        fallbackExport();
+      }
+    } catch (err) {
+      console.error('Error exporting logs:', err);
+      toast.error('Failed to export from API, using client-side export');
+      // Fallback to client-side export
+      fallbackExport();
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  // Fallback export function that uses client-side data
+  const fallbackExport = () => {
+    const csvContent = "data:text/csv;charset=utf-8," + 
+      "Timestamp,Event Type,Severity,Status,Username,IP Address,Location,Details,Action Taken\n" +
+      filteredLogs.map(log => 
+        `${log.timestamp},${log.event_type},${log.severity},${log.status},${log.username},${log.ip_address},${log.location},"${log.details?.reason || ''}","${log.action_taken}"`
+      ).join("\n");
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `security_logs_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Filter logs based on search, type, severity, and time range
   const filteredLogs = logs.filter(log => {
@@ -321,21 +443,12 @@ const SecurityLogs = () => {
     setShowLogDetails(true);
   };
 
-  const handleExportLogs = () => {
-    const csvContent = "data:text/csv;charset=utf-8," + 
-      "Timestamp,Event Type,Severity,Status,Username,IP Address,Location,Details,Action Taken\n" +
-      filteredLogs.map(log => 
-        `${log.timestamp},${log.event_type},${log.severity},${log.status},${log.username},${log.ip_address},${log.location},"${log.details.reason}","${log.action_taken}"`
-      ).join("\n");
-    
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `security_logs_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+  // This function is already defined above - removing duplicate declaration
+  // const handleExportLogs = async () => { ... };
+  
+  // This function is already defined above - removing duplicate declaration
+  // const fallbackExport = () => { ... };
+
 
   const getSeverityBadge = (severity) => {
     const severityConfig = {

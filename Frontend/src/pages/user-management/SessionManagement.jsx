@@ -56,7 +56,7 @@ const SessionManagement = () => {
     loadLoginAttempts();
   }, [pagination.page, pagination.limit]);
 
-  // Load sessions from API
+  // Load sessions from API with pagination
   const loadSessions = async () => {
     try {
       setLoading(true);
@@ -75,7 +75,7 @@ const SessionManagement = () => {
       setPagination(prev => ({
         ...prev,
         total: response.total || 0,
-        totalPages: response.totalPages || 0
+        totalPages: response.totalPages || Math.ceil((response.total || 0) / pagination.limit) || 1
       }));
 
       // Update statistics for active sessions
@@ -89,7 +89,7 @@ const SessionManagement = () => {
     }
   };
 
-  // Load login attempts from API
+  // Load login attempts from API with pagination
   const loadLoginAttempts = async () => {
     try {
       setLoading(true);
@@ -110,7 +110,7 @@ const SessionManagement = () => {
       setPagination(prev => ({
         ...prev,
         total: response.total || 0,
-        totalPages: response.totalPages || 0
+        totalPages: response.totalPages || Math.ceil((response.total || 0) / pagination.limit) || 1
       }));
 
       // Update statistics for login attempts
@@ -122,6 +122,93 @@ const SessionManagement = () => {
     } finally {
       setLoading(false);
     }
+  };
+  
+  // Generate pagination buttons
+  const renderPaginationButtons = () => {
+    const buttons = [];
+    const maxButtonsToShow = 5;
+    
+    // Always show first page
+    buttons.push(
+      <button
+        key="first"
+        onClick={() => handlePageChange(1)}
+        disabled={pagination.page === 1 || loading}
+        className={`px-3 py-1 rounded-md text-sm ${
+          pagination.page === 1
+            ? 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
+            : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+        }`}
+      >
+        1
+      </button>
+    );
+    
+    // Calculate range of pages to show
+    let startPage = Math.max(2, pagination.page - Math.floor(maxButtonsToShow / 2));
+    let endPage = Math.min(pagination.totalPages - 1, startPage + maxButtonsToShow - 3);
+    
+    // Adjust start if we're near the end
+    if (endPage === pagination.totalPages - 1) {
+      startPage = Math.max(2, endPage - (maxButtonsToShow - 3));
+    }
+    
+    // Add ellipsis if needed
+    if (startPage > 2) {
+      buttons.push(
+        <span key="ellipsis1" className="px-2 py-1 text-gray-500">
+          ...
+        </span>
+      );
+    }
+    
+    // Add middle pages
+    for (let i = startPage; i <= endPage; i++) {
+      buttons.push(
+        <button
+          key={i}
+          onClick={() => handlePageChange(i)}
+          disabled={pagination.page === i || loading}
+          className={`px-3 py-1 rounded-md text-sm ${
+            pagination.page === i
+              ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 font-medium'
+              : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+          }`}
+        >
+          {i}
+        </button>
+      );
+    }
+    
+    // Add ellipsis if needed
+    if (endPage < pagination.totalPages - 1 && pagination.totalPages > 2) {
+      buttons.push(
+        <span key="ellipsis2" className="px-2 py-1 text-gray-500">
+          ...
+        </span>
+      );
+    }
+    
+    // Always show last page if there is more than one page
+    if (pagination.totalPages > 1) {
+      buttons.push(
+        <button
+          key="last"
+          onClick={() => handlePageChange(pagination.totalPages)}
+          disabled={pagination.page === pagination.totalPages || loading}
+          className={`px-3 py-1 rounded-md text-sm ${
+            pagination.page === pagination.totalPages
+              ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400 font-medium'
+              : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+          }`}
+        >
+          {pagination.totalPages}
+        </button>
+      );
+    }
+    
+    return buttons;
   };
 
   // Transform login attempt data to normalize field names
@@ -334,6 +421,35 @@ const SessionManagement = () => {
     }
   };
 
+  // Handle pagination changes
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({
+      ...prev,
+      page: newPage
+    }));
+  };
+
+  const handleNextPage = () => {
+    if (pagination.page < pagination.totalPages) {
+      handlePageChange(pagination.page + 1);
+    }
+  };
+
+  const handlePrevPage = () => {
+    if (pagination.page > 1) {
+      handlePageChange(pagination.page - 1);
+    }
+  };
+
+  const handleLimitChange = (e) => {
+    const newLimit = parseInt(e.target.value, 10);
+    setPagination(prev => ({
+      ...prev,
+      page: 1, // Reset to first page when changing limit
+      limit: newLimit
+    }));
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -344,20 +460,32 @@ const SessionManagement = () => {
             Monitor active sessions and security events
           </p>
         </div>
-        <button
-          onClick={() => {
-            if (activeTab === 'sessions') {
-              loadSessions();
-            } else {
-              loadLoginAttempts();
-            }
-          }}
-          disabled={loading}
-          className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center space-x-2">
+          <select
+            value={pagination.limit}
+            onChange={handleLimitChange}
+            className="border border-gray-300 dark:border-gray-600 rounded-md px-2 py-1 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          >
+            <option value="10">10 per page</option>
+            <option value="25">25 per page</option>
+            <option value="50">50 per page</option>
+            <option value="100">100 per page</option>
+          </select>
+          <button
+            onClick={() => {
+              if (activeTab === 'sessions') {
+                loadSessions();
+              } else {
+                loadLoginAttempts();
+              }
+            }}
+            disabled={loading}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {/* Error Display */}
@@ -750,6 +878,50 @@ const SessionManagement = () => {
           )}
         </div>
       </div>
+
+      {/* Pagination Controls */}
+      {(activeTab === 'sessions' ? sessions.length > 0 : loginAttempts.length > 0) && (
+        <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200 dark:border-gray-700">
+          <div className="text-sm text-gray-500 dark:text-gray-400">
+            Showing <span className="font-medium">{((pagination.page - 1) * pagination.limit) + 1}</span> to{' '}
+            <span className="font-medium">
+              {Math.min(pagination.page * pagination.limit, pagination.total)}
+            </span> of{' '}
+            <span className="font-medium">{pagination.total}</span> results
+          </div>
+          
+          <div className="flex space-x-1">
+            {/* Previous Page Button */}
+            <button
+              onClick={() => handlePageChange(pagination.page - 1)}
+              disabled={pagination.page === 1 || loading}
+              className={`px-3 py-1 rounded-md text-sm ${
+                pagination.page === 1
+                  ? 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+            >
+              Previous
+            </button>
+            
+            {/* Page Number Buttons */}
+            {renderPaginationButtons()}
+            
+            {/* Next Page Button */}
+            <button
+              onClick={() => handlePageChange(pagination.page + 1)}
+              disabled={pagination.page === pagination.totalPages || loading}
+              className={`px-3 py-1 rounded-md text-sm ${
+                pagination.page === pagination.totalPages
+                  ? 'bg-gray-100 text-gray-400 dark:bg-gray-700 dark:text-gray-500 cursor-not-allowed'
+                  : 'bg-white text-gray-700 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Session Details Modal */}
       <SessionDetails

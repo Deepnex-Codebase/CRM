@@ -8,7 +8,7 @@ const User = require('../../models/profile/User');
 // @access  Private (Admin only)
 exports.getAuditLogs = asyncHandler(async (req, res, next) => {
   // Only admin can view audit logs
-  if (req.user.role !== 'Admin') {
+  if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'admin') {
     return next(new ErrorResponse('Not authorized to view audit logs', 403));
   }
 
@@ -60,7 +60,7 @@ exports.getAuditLogs = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin only)
 exports.getAuditLogById = asyncHandler(async (req, res, next) => {
   // Only admin can view audit logs
-  if (req.user.role !== 'admin') {
+  if (req.user.role.toLowerCase() !== 'admin') {
     return next(new ErrorResponse('Not authorized to view audit logs', 403));
   }
 
@@ -116,7 +116,7 @@ exports.getUserActivity = asyncHandler(async (req, res, next) => {
   const { start_date, end_date, limit = 50 } = req.query;
 
   // Users can only view their own activity unless admin
-  if (user_id !== req.user.id && req.user.role !== 'admin') {
+  if (user_id !== req.user.id && (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'admin')) {
     return next(new ErrorResponse('Not authorized to view this user activity', 403));
   }
 
@@ -157,7 +157,7 @@ exports.getEntityHistory = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin only)
 exports.getSystemActivitySummary = asyncHandler(async (req, res, next) => {
   // Only admin can view system activity summary
-  if (req.user.role !== 'admin') {
+  if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'admin') {
     return next(new ErrorResponse('Not authorized to view system activity summary', 403));
   }
 
@@ -176,7 +176,7 @@ exports.getSystemActivitySummary = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin only)
 exports.getAuditAnalytics = asyncHandler(async (req, res, next) => {
   // Only admin can view audit analytics
-  if (req.user.role !== 'admin') {
+  if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'admin') {
     return next(new ErrorResponse('Not authorized to view audit analytics', 403));
   }
 
@@ -233,7 +233,7 @@ exports.getAuditAnalytics = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin only)
 exports.getMostActiveUsers = asyncHandler(async (req, res, next) => {
   // Only admin can view user activity analytics
-  if (req.user.role !== 'admin') {
+  if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'admin') {
     return next(new ErrorResponse('Not authorized to view user activity analytics', 403));
   }
 
@@ -302,7 +302,7 @@ exports.getMostActiveUsers = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin only)
 exports.getSecurityEvents = asyncHandler(async (req, res, next) => {
   // Only admin can view security events
-  if (req.user.role !== 'admin') {
+  if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'admin') {
     return next(new ErrorResponse('Not authorized to view security events', 403));
   }
 
@@ -334,7 +334,7 @@ exports.getSecurityEvents = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin only)
 exports.getFailedLoginAttempts = asyncHandler(async (req, res, next) => {
   // Only admin can view failed login attempts
-  if (req.user.role !== 'admin') {
+  if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'admin') {
     return next(new ErrorResponse('Not authorized to view failed login attempts', 403));
   }
 
@@ -393,7 +393,7 @@ exports.getFailedLoginAttempts = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin only)
 exports.exportAuditLogs = asyncHandler(async (req, res, next) => {
   // Only admin can export audit logs
-  if (req.user.role !== 'admin') {
+  if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'admin') {
     return next(new ErrorResponse('Not authorized to export audit logs', 403));
   }
 
@@ -456,7 +456,7 @@ exports.exportAuditLogs = asyncHandler(async (req, res, next) => {
 // @access  Private (Admin only)
 exports.archiveOldLogs = asyncHandler(async (req, res, next) => {
   // Only admin can archive logs
-  if (req.user.role !== 'admin') {
+  if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'admin') {
     return next(new ErrorResponse('Not authorized to archive audit logs', 403));
   }
 
@@ -497,7 +497,7 @@ exports.deleteAuditLog = asyncHandler(async (req, res, next) => {
   }
 
   // Only allow super admin to delete audit logs
-  if (req.user.role !== 'admin' || !req.user.is_super_admin) {
+  if (req.user.role !== 'Admin' || !req.user.is_super_admin) {
     return next(new ErrorResponse('Not authorized to delete audit logs', 403));
   }
 

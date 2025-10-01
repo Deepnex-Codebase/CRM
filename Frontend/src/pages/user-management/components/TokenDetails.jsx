@@ -1,88 +1,59 @@
 import React, { useState, useEffect } from 'react';
 import { X, Key, Calendar, Activity, Shield, AlertTriangle, Copy, Eye, EyeOff } from 'lucide-react';
+import api from '../../../utils/api';
 
 const TokenDetails = ({ isOpen, onClose, tokenId }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [tokenData, setTokenData] = useState(null);
   const [showToken, setShowToken] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Mock token data
-  const mockTokenData = {
-    id: 'token_001',
-    name: 'Production API Key',
-    //token_value: 'sk_live_51H7qYKJ2eZvKYlo2C8ZJQXhYcVSaEiB9qI',
-    type: 'API Key',
-    status: 'active',
-    created_at: '2024-01-15 10:30:00',
-    last_used: '2024-01-20 14:22:00',
-    expires_at: '2024-12-31 23:59:59',
-    permissions: ['read', 'write', 'delete'],
-    scope: 'full_access',
-    rate_limit: '1000/hour',
-    usage_stats: {
-      total_requests: 15420,
-      requests_today: 234,
-      requests_this_month: 8750,
-      success_rate: 98.5,
-      error_rate: 1.5
-    },
-    recent_activity: [
-      {
-        id: 'activity_001',
-        action: 'API Call',
-        endpoint: '/api/v1/users',
-        method: 'GET',
-        status: 'success',
-        timestamp: '2024-01-20 14:22:00',
-        ip_address: '192.168.1.100'
+  const mapSessionToTokenData = (s) => {
+    const name = `${(s.device_info?.device?.vendor || '').trim()} ${(s.device_info?.device?.model || '').trim()}`.trim();
+    const status = s.is_active === false ? 'inactive' : 'active';
+    return {
+      id: s._id || s.session_id || 'unknown',
+      name: name || (s.device_info?.browser?.name || 'Unknown Client'),
+      token_value: s.token,
+      type: 'Session Token',
+      status,
+      created_at: s.issued_at || s.created_at,
+      last_used: s.last_used || s.updated_at || s.issued_at,
+      expires_at: s.expires_at,
+      permissions: [],
+      scope: s.scope || 'session',
+      rate_limit: s.rate_limit || 'N/A',
+      usage_stats: {
+        total_requests: s.usage_stats?.total_requests || 0,
+        requests_today: s.usage_stats?.requests_today || 0,
+        requests_this_month: s.usage_stats?.requests_this_month || 0,
+        success_rate: s.usage_stats?.success_rate || 0,
+        error_rate: s.usage_stats?.error_rate || 0
       },
-      {
-        id: 'activity_002',
-        action: 'API Call',
-        endpoint: '/api/v1/orders',
-        method: 'POST',
-        status: 'success',
-        timestamp: '2024-01-20 14:15:00',
-        ip_address: '192.168.1.100'
-      },
-      {
-        id: 'activity_003',
-        action: 'API Call',
-        endpoint: '/api/v1/products',
-        method: 'GET',
-        status: 'error',
-        timestamp: '2024-01-20 14:10:00',
-        ip_address: '192.168.1.100'
-      }
-    ],
-    security_events: [
-      {
-        id: 'security_001',
-        type: 'Rate Limit Exceeded',
-        severity: 'medium',
-        timestamp: '2024-01-20 13:45:00',
-        details: 'Rate limit of 1000/hour exceeded'
-      },
-      {
-        id: 'security_002',
-        type: 'Unusual IP Access',
-        severity: 'low',
-        timestamp: '2024-01-20 12:30:00',
-        details: 'Access from new IP address: 203.0.113.1'
-      }
-    ]
+      recent_activity: [],
+      security_events: []
+    };
   };
 
   useEffect(() => {
-    if (isOpen && tokenId) {
+    const fetchSession = async () => {
+      if (!isOpen || !tokenId) return;
       setLoading(true);
-      // Simulate API call
-      setTimeout(() => {
-        setTokenData(mockTokenData);
+      setError(null);
+      try {
+        const res = await api.get(`/auth/sessions/${tokenId}`);
+        const s = res.data?.data || res.data;
+        setTokenData(mapSessionToTokenData(s));
+      } catch (err) {
+        const message = err.response?.data?.message || 'Failed to load session details';
+        setError(message);
+      } finally {
         setLoading(false);
-      }, 500);
-    }
+      }
+    };
+
+    fetchSession();
   }, [isOpen, tokenId]);
 
   const copyToClipboard = (text) => {
@@ -142,14 +113,19 @@ const TokenDetails = ({ isOpen, onClose, tokenId }) => {
           </div>
         ) : (
           <>
+            {error && (
+              <div className="px-6 pt-4">
+                <div className="p-3 rounded bg-red-50 text-red-700">{error}</div>
+              </div>
+            )}
             {/* Tabs */}
             <div className="border-b border-gray-200">
               <nav className="flex space-x-8 px-6">
                 {[
                   { id: 'overview', label: 'Overview', icon: Key },
-                  { id: 'usage', label: 'Usage Analytics', icon: Activity },
-                  { id: 'security', label: 'Security', icon: Shield },
-                  { id: 'activity', label: 'Recent Activity', icon: Calendar }
+                  // { id: 'usage', label: 'Usage Analytics', icon: Activity },
+                  // { id: 'security', label: 'Security', icon: Shield },
+                  // { id: 'activity', label: 'Recent Activity', icon: Calendar }
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -178,7 +154,7 @@ const TokenDetails = ({ isOpen, onClose, tokenId }) => {
                       
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Token Name</label>
+                          <label className="block text-sm font-medium text-gray-700">Browser</label>
                           <p className="mt-1 text-sm text-gray-900">{tokenData.name}</p>
                         </div>
                         
@@ -195,20 +171,22 @@ const TokenDetails = ({ isOpen, onClose, tokenId }) => {
                         </div>
                         
                         <div>
-                          <label className="block text-sm font-medium text-gray-700">Token Value</label>
+                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Token Value</label>
                           <div className="mt-1 flex items-center space-x-2">
-                            <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                              {showToken ? tokenData.token_value : '••••••••••••••••••••••••••••••••'}
+                            <code className="text-sm bg-gray-100 dark:bg-gray-700 px-3 py-2 rounded font-mono w-full overflow-x-auto whitespace-nowrap">
+                              {showToken ? tokenData?.token_value : '••••••••••••••••••••••••••••••••'}
                             </code>
                             <button
                               onClick={() => setShowToken(!showToken)}
-                              className="text-gray-400 hover:text-gray-600"
+                              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              aria-label={showToken ? "Hide token" : "Show token"}
                             >
                               {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                             </button>
                             <button
-                              onClick={() => copyToClipboard(tokenData.token_value)}
-                              className="text-gray-400 hover:text-gray-600"
+                              onClick={() => copyToClipboard(tokenData?.token_value)}
+                              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                              aria-label="Copy to clipboard"
                             >
                               <Copy className="h-4 w-4" />
                             </button>
@@ -221,7 +199,7 @@ const TokenDetails = ({ isOpen, onClose, tokenId }) => {
                       <h3 className="text-lg font-medium text-gray-900">Configuration</h3>
                       
                       <div className="space-y-3">
-                        <div>
+                        {/* <div>
                           <label className="block text-sm font-medium text-gray-700">Scope</label>
                           <p className="mt-1 text-sm text-gray-900">{tokenData.scope}</p>
                         </div>
@@ -229,7 +207,7 @@ const TokenDetails = ({ isOpen, onClose, tokenId }) => {
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Rate Limit</label>
                           <p className="mt-1 text-sm text-gray-900">{tokenData.rate_limit}</p>
-                        </div>
+                        </div> */}
                         
                         <div>
                           <label className="block text-sm font-medium text-gray-700">Permissions</label>
@@ -265,7 +243,7 @@ const TokenDetails = ({ isOpen, onClose, tokenId }) => {
                 </div>
               )}
 
-              {activeTab === 'usage' && (
+              {/* {activeTab === 'usage' && (
                 <div className="space-y-6">
                   <h3 className="text-lg font-medium text-gray-900">Usage Analytics</h3>
                   
@@ -354,7 +332,7 @@ const TokenDetails = ({ isOpen, onClose, tokenId }) => {
                     ))}
                   </div>
                 </div>
-              )}
+              )} */}
             </div>
           </>
         )}

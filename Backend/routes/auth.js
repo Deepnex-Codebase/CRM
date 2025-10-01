@@ -24,6 +24,9 @@ const {
   revokeSession
 } = require('../controllers/auth');
 
+// Import role assignments routes
+const roleAssignmentsRouter = require('./auth/roleAssignments');
+
 const router = express.Router();
 
 const { protect, authorize } = require('../middleware/auth');
@@ -42,6 +45,9 @@ router.get('/logout', logout);
 router.get('/me', getMe);
 router.put('/updatedetails', updateDetails);
 router.put('/updatepassword', updatePassword);
+
+// Mount role assignments router
+router.use('/role-assignments', roleAssignmentsRouter);
 
 // Admin only routes
 router.use(authorize('Admin'));

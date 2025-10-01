@@ -16,10 +16,22 @@ exports.getTeams = asyncHandler(async (req, res, next) => {
 // @route   GET /api/v1/teams/:id
 // @access  Private
 exports.getTeam = asyncHandler(async (req, res, next) => {
-  const team = await Team.findById(req.params.id)
+  // Check if the id is a team_id string (like TEM-20250926-0001) or MongoDB ObjectId
+  let query = {};
+  if (req.params.id.match(/^TEM-/)) {
+    query = { team_id: req.params.id };
+  } else {
+    query = { _id: req.params.id };
+  }
+
+  const team = await Team.findOne(query)
     .populate({
       path: 'created_by',
       select: 'name email'
+    })
+    .populate({
+      path: 'team_lead',
+      select: 'name email phone profile_image'
     })
     .populate('member_count');
 
@@ -29,9 +41,20 @@ exports.getTeam = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Get team members
+  const teamMembers = await TeamUserMap.find({ team_id: team._id, active_flag: true })
+    .populate({
+      path: 'user_id',
+      select: 'name email phone profile_image'
+    })
+    .select('user_id role_within_team created_at');
+
   res.status(200).json({
     success: true,
-    data: team
+    data: {
+      ...team.toObject(),
+      members: teamMembers
+    }
   });
 });
 
@@ -134,7 +157,15 @@ exports.createTeam = asyncHandler(async (req, res, next) => {
 // @route   PUT /api/v1/teams/:id
 // @access  Private/Admin
 exports.updateTeam = asyncHandler(async (req, res, next) => {
-  let team = await Team.findById(req.params.id);
+  // Check if the id is a team_id string (like TEM-20250926-0001) or MongoDB ObjectId
+  let query = {};
+  if (req.params.id.match(/^TEM-/)) {
+    query = { team_id: req.params.id };
+  } else {
+    query = { _id: req.params.id };
+  }
+
+  let team = await Team.findOne(query);
 
   if (!team) {
     return next(
@@ -312,8 +343,8 @@ exports.getTeamMembers = asyncHandler(async (req, res, next) => {
   const members = teamUserMaps.map(map => ({
     id: map._id,
     user: map.user_id,
-    role: map.role,
-    is_team_lead: map.is_team_lead,
+    role: map.role_within_team,
+    is_team_lead: map.team_id.team_lead && map.team_id.team_lead.toString() === map.user_id._id.toString(),
     joined_at: map.created_at
   }));
 
@@ -360,7 +391,8 @@ exports.addTeamMember = asyncHandler(async (req, res, next) => {
   if (req.body.is_team_lead) {
     const existingTeamLead = await TeamUserMap.findOne({
       team_id: team._id,
-      is_team_lead: true
+      role_within_team: 'team_lead',
+      active_flag: true
     });
 
     if (existingTeamLead && !req.body.force_team_lead) {
@@ -376,7 +408,7 @@ exports.addTeamMember = asyncHandler(async (req, res, next) => {
     if (existingTeamLead && req.body.force_team_lead) {
       await TeamUserMap.findByIdAndUpdate(
         existingTeamLead._id,
-        { is_team_lead: false },
+        { role_within_team: 'member' },
         { new: true }
       );
 
@@ -397,10 +429,15 @@ exports.addTeamMember = asyncHandler(async (req, res, next) => {
   const teamUserMap = await TeamUserMap.create({
     team_id: team._id,
     user_id: user._id,
-    role: req.body.role || 'member',
-    is_team_lead: req.body.is_team_lead || false,
+    role_within_team: req.body.role_within_team || 'member',
+    active_flag: true,
     created_by: req.user.id
   });
+  
+  // Update the team's team_lead field if this user is the team lead
+  if (req.body.is_team_lead) {
+    await Team.findByIdAndUpdate(team._id, { team_lead: user._id });
+  }
 
   // Log the activity
   await UserActivityLog.create({
@@ -443,7 +480,8 @@ exports.updateTeamMember = asyncHandler(async (req, res, next) => {
   if (req.body.is_team_lead) {
     const existingTeamLead = await TeamUserMap.findOne({
       team_id: teamUserMap.team_id._id,
-      is_team_lead: true,
+      role_within_team: 'team_lead',
+      active_flag: true,
       _id: { $ne: teamUserMap._id }
     });
 
@@ -460,7 +498,7 @@ exports.updateTeamMember = asyncHandler(async (req, res, next) => {
     if (existingTeamLead && req.body.force_team_lead) {
       await TeamUserMap.findByIdAndUpdate(
         existingTeamLead._id,
-        { is_team_lead: false },
+        { role_within_team: 'member' },
         { new: true }
       );
 
@@ -484,14 +522,18 @@ exports.updateTeamMember = asyncHandler(async (req, res, next) => {
   teamUserMap = await TeamUserMap.findByIdAndUpdate(
     req.params.id,
     {
-      role: req.body.role,
-      is_team_lead: req.body.is_team_lead
+      role_within_team: req.body.role_within_team || teamUserMap.role_within_team
     },
     {
       new: true,
       runValidators: true
     }
   );
+  
+  // Update team's team_lead field if this user is being set as team lead
+  if (req.body.is_team_lead) {
+    await Team.findByIdAndUpdate(teamUserMap.team_id._id, { team_lead: teamUserMap.user_id._id });
+  }
 
   // Log the activity
   await UserActivityLog.create({
