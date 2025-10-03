@@ -67,6 +67,10 @@ const UserSchema = new mongoose.Schema({
     ref: 'Team',
     default: null
   },
+  is_team_lead: {
+    type: Boolean,
+    default: false
+  },
   department: {
     type: String,
     trim: true,

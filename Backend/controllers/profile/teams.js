@@ -9,7 +9,47 @@ const UserActivityLog = require('../../models/profile/UserActivityLog');
 // @route   GET /api/v1/teams
 // @access  Private
 exports.getTeams = asyncHandler(async (req, res, next) => {
-  res.status(200).json(res.advancedResults);
+  // Add populate options to advancedResults middleware
+  if (req.query.populate !== 'false') {
+    req.query.populate = [
+      { path: 'created_by', select: 'name email' },
+      { path: 'team_lead', select: 'name email phone profile_image' },
+      { path: 'member_count' }
+    ];
+  }
+  
+  // Get teams with basic population
+  const advancedResults = res.advancedResults;
+  
+  // If there are teams, add members to each team
+  if (advancedResults.data && advancedResults.data.length > 0) {
+    const teamsWithMembers = await Promise.all(advancedResults.data.map(async (team) => {
+      // Get team members for this team
+      const teamMembers = await TeamUserMap.find({ team_id: team._id, active_flag: true })
+        .populate({
+          path: 'user_id',
+          select: 'name email phone profile_image'
+        })
+        .select('user_id role_within_team created_at');
+      
+      // Add members directly to team object
+      const teamObj = team.toObject();
+      teamObj.team_members = teamMembers.map(member => ({
+        _id: member._id,
+        user_id: member.user_id,
+        role_within_team: member.role_within_team,
+        created_at: member.created_at
+      }));
+      teamObj.member_count = teamMembers.length; // Override with actual count
+      
+      return teamObj;
+    }));
+    
+    // Replace teams in response with teams that have members
+    advancedResults.data = teamsWithMembers;
+  }
+  
+  res.status(200).json(advancedResults);
 });
 
 // @desc    Get single team
@@ -52,12 +92,19 @@ exports.getTeam = asyncHandler(async (req, res, next) => {
   // Calculate actual member count from teamMembers array
   const actualMemberCount = teamMembers.length;
   
-  // Create response object with correct member count
+  // Create response object with correct member count and add members directly to team object
   const responseData = {
     ...team.toObject(),
-    member_count: actualMemberCount, // Override virtual field with actual count
-    members: teamMembers
+    member_count: actualMemberCount // Override virtual field with actual count
   };
+  
+  // Add team_members directly to the team object
+  responseData.team_members = teamMembers.map(member => ({
+    _id: member._id,
+    user_id: member.user_id,
+    role_within_team: member.role_within_team,
+    created_at: member.created_at
+  }));
 
   res.status(200).json({
     success: true,
@@ -140,6 +187,12 @@ exports.createTeam = asyncHandler(async (req, res, next) => {
       team_id: team._id,
       role_within_team: 'team_lead',
       created_by: req.user.id
+    });
+    
+    // Update user's team_id field and set is_team_lead flag to true
+    await User.findByIdAndUpdate(req.body.team_lead, {
+      team_id: team._id,
+      is_team_lead: true
     });
   }
 
@@ -254,6 +307,13 @@ exports.updateTeam = asyncHandler(async (req, res, next) => {
       { active_flag: false }
     );
 
+    // If there was a previous team lead, update their is_team_lead flag to false
+    if (team.team_lead) {
+      await User.findByIdAndUpdate(team.team_lead, {
+        is_team_lead: false
+      });
+    }
+
     // Create new team lead mapping
     await TeamUserMap.create({
       user_id: req.body.team_lead,
@@ -261,7 +321,33 @@ exports.updateTeam = asyncHandler(async (req, res, next) => {
       role_within_team: 'team_lead',
       created_by: req.user.id
     });
+    
+    // Update new team lead's user profile
+    await User.findByIdAndUpdate(req.body.team_lead, {
+      team_id: team._id,
+      is_team_lead: true
+    });
+    
+    // Add team lead to team_members array if not already there
+    await Team.findByIdAndUpdate(
+      team._id,
+      { $addToSet: { team_members: req.body.team_lead } }
+    );
   }
+  
+  // Update team_members array based on active TeamUserMap entries
+  const activeTeamMembers = await TeamUserMap.find({ 
+    team_id: team._id, 
+    active_flag: true 
+  }).select('user_id');
+  
+  const memberIds = activeTeamMembers.map(member => member.user_id);
+  
+  // Update team_members array with all active members
+  await Team.findByIdAndUpdate(
+    team._id,
+    { team_members: memberIds }
+  );
 
   // Log the activity
   await UserActivityLog.create({
@@ -286,7 +372,13 @@ exports.updateTeam = asyncHandler(async (req, res, next) => {
 // @route   DELETE /api/v1/teams/:id
 // @access  Private/Admin
 exports.deleteTeam = asyncHandler(async (req, res, next) => {
-  const team = await Team.findById(req.params.id);
+  // Check if the id is a team_id string (like TEM-20250926-0001) or MongoDB ObjectId
+  let team;
+  if (req.params.id.match(/^TEM-/)) {
+    team = await Team.findOne({ team_id: req.params.id });
+  } else {
+    team = await Team.findById(req.params.id);
+  }
 
   if (!team) {
     return next(
@@ -446,6 +538,12 @@ exports.addTeamMember = asyncHandler(async (req, res, next) => {
     await Team.findByIdAndUpdate(team._id, { team_lead: user._id });
   }
 
+  // Add user to team_members array
+  await Team.findByIdAndUpdate(
+    team._id,
+    { $addToSet: { team_members: user._id } }
+  );
+
   // Log the activity
   await UserActivityLog.create({
     user_id: req.user.id,
@@ -542,6 +640,12 @@ exports.updateTeamMember = asyncHandler(async (req, res, next) => {
     await Team.findByIdAndUpdate(teamUserMap.team_id._id, { team_lead: teamUserMap.user_id._id });
   }
 
+  // Ensure user is in team_members array
+  await Team.findByIdAndUpdate(
+    teamUserMap.team_id._id,
+    { $addToSet: { team_members: teamUserMap.user_id._id } }
+  );
+
   // Log the activity
   await UserActivityLog.create({
     user_id: req.user.id,
@@ -585,6 +689,22 @@ exports.removeTeamMember = asyncHandler(async (req, res, next) => {
   const deletedMapping = { ...teamUserMap.toObject() };
 
   await teamUserMap.deleteOne();
+
+  // Remove user from team_members array
+  await Team.findByIdAndUpdate(
+    teamUserMap.team_id._id,
+    { $pull: { team_members: teamUserMap.user_id._id } }
+  );
+  
+  // Update user's profile to remove team_id
+  await User.findByIdAndUpdate(
+    teamUserMap.user_id._id,
+    { 
+      team_id: null,
+      // If user is a team lead, also update is_team_lead flag
+      ...(teamUserMap.role_within_team === 'team_lead' ? { is_team_lead: false } : {})
+    }
+  );
 
   // Log the activity
   await UserActivityLog.create({

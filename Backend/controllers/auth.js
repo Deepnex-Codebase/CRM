@@ -6,6 +6,8 @@ const Role = require('../models/auth/Role');
 const Session = require('../models/auth/Session');
 const LoginAttempt = require('../models/auth/LoginAttempt');
 const EmployeeRoleAssignment = require('../models/auth/EmployeeRoleAssignment');
+const TeamUserMap = require('../models/profile/TeamUserMap');
+const Team = require('../models/profile/Team');
 const sendEmail = require('../utils/sendEmail');
 const { getDeviceAndLocationInfo, isSameDevice, isDifferentLocation } = require('../utils/deviceTracker');
 
@@ -41,8 +43,8 @@ exports.register = asyncHandler(async (req, res, next) => {
   let { username } = req.body;
 
   // Validate required fields
-  if (!first_name || !last_name || !email || !role_name) {
-    return next(new ErrorResponse('Please provide first name, last name, email, and role', 400));
+  if (!first_name || !last_name || !email || !role_name || !team_id) {
+    return next(new ErrorResponse('Please provide first name, last name, email, role and team_id', 400));
   }
    
   // Generate username if not provided
@@ -69,6 +71,12 @@ exports.register = asyncHandler(async (req, res, next) => {
 
   if (existingUser) {
     return next(new ErrorResponse('User with this email, phone, or username already exists', 400));
+  }
+
+  // Check if team exists
+  const team = await Team.findById(team_id);
+  if (!team) {
+    return next(new ErrorResponse('Team not found', 404));
   }
 
   // Find the role by role_id, role_name, or MongoDB _id
@@ -119,7 +127,23 @@ exports.register = asyncHandler(async (req, res, next) => {
     userData.password = password;
   }
 
+// Create user
   const user = await User.create(userData);
+
+  // Add user to team
+  await TeamUserMap.create({
+    user_id: user._id,
+    team_id: team_id,
+    role_within_team: 'member',
+    active_flag: true,
+    created_by: req.user.id
+  });
+  
+  // Add user to team_members array
+  await Team.findByIdAndUpdate(
+    team_id,
+    { $addToSet: { team_members: user._id } }
+  );
 
   // Create role assignment
   await EmployeeRoleAssignment.create({
@@ -818,20 +842,26 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
 
   const { role_name, team_id, ...otherFields } = req.body;
   
+  // Store original team_id for comparison later
+  const originalTeamId = user.team_id;
+  
   // Ensure team_id is properly handled - use MongoDB ObjectId (_id) instead of display ID
+  let newTeamId = null;
   if (team_id === '' || team_id === null || team_id === undefined) {
     otherFields.team_id = null;
   } else if (team_id) {
     const mongoose = require('mongoose');
     // If team_id is a valid MongoDB ObjectId, use it directly
     if (mongoose.Types.ObjectId.isValid(team_id) && team_id.match(/^[0-9a-fA-F]{24}$/)) {
-      otherFields.team_id = new mongoose.Types.ObjectId(team_id);
+      newTeamId = new mongoose.Types.ObjectId(team_id);
+      otherFields.team_id = newTeamId;
     } else {
       // If team_id is provided as a display ID (like TEM-20250926-0001), find the actual ObjectId
       const Team = require('../models/profile/Team');
       const team = await Team.findOne({ team_id: team_id });
       if (team) {
-        otherFields.team_id = team._id;
+        newTeamId = team._id;
+        otherFields.team_id = newTeamId;
       } else {
         return next(new ErrorResponse(`Invalid team ID: ${team_id}`, 400));
       }
@@ -843,6 +873,41 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
     new: true,
     runValidators: true
   }).select('-password');
+  
+  // Handle team change if team_id was provided and is different from original
+  if (newTeamId && (!originalTeamId || newTeamId.toString() !== originalTeamId.toString())) {
+    const TeamUserMap = require('../models/profile/TeamUserMap');
+    
+    // Deactivate user from previous team if exists
+    if (originalTeamId) {
+      await TeamUserMap.updateMany(
+        { user_id: user._id, team_id: originalTeamId, active_flag: true },
+        { active_flag: false }
+      );
+      
+      // Remove user from previous team's team_members array
+      const Team = require('../models/profile/Team');
+      await Team.findByIdAndUpdate(
+        originalTeamId,
+        { $pull: { team_members: user._id } }
+      );
+    }
+    
+    // Add user to new team
+    const newTeamUserMap = await TeamUserMap.create({
+      user_id: user._id,
+      team_id: newTeamId,
+      role_within_team: 'member', // Default role
+      active_flag: true,
+      created_by: req.user.id
+    });
+    
+    // Add user to new team's team_members array
+    await Team.findByIdAndUpdate(
+      newTeamId,
+      { $addToSet: { team_members: user._id } }
+    );
+  }
 
   // Handle role change if specified
   if (role_name) {
@@ -957,6 +1022,22 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
   // Prevent admin from deleting themselves
   if (user._id.toString() === req.user._id.toString()) {
     return next(new ErrorResponse('You cannot delete your own account', 400));
+  }
+
+  // Get user's team_id before deletion
+  const userTeamId = user.team_id;
+
+  // Remove user from TeamUserMap
+  const TeamUserMap = require('../models/profile/TeamUserMap');
+  await TeamUserMap.deleteMany({ user_id: user._id });
+
+  // Remove user from team_members array in Team model
+  if (userTeamId) {
+    const Team = require('../models/profile/Team');
+    await Team.findByIdAndUpdate(
+      userTeamId,
+      { $pull: { team_members: user._id } }
+    );
   }
 
   await user.deleteOne();

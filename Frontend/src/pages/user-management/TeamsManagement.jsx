@@ -297,9 +297,13 @@ const TeamsManagement = () => {
     }
   };
 
-  const handleDeleteTeam = async (teamId) => {
-    const team = teams.find(t => t.team_id === teamId);
-    if (window.confirm(`Are you sure you want to delete team "${team?.team_name}"? This action cannot be undone.`)) {
+  const handleDeleteTeam = async (teamIdOrTeam) => {
+    // Check if the parameter is a team object or just an ID
+    const teamId = typeof teamIdOrTeam === 'object' ? teamIdOrTeam.team_id : teamIdOrTeam;
+    const teamName = typeof teamIdOrTeam === 'object' ? teamIdOrTeam.team_name : 
+                    teams.find(t => t.team_id === teamId)?.team_name || 'this team';
+    
+    if (window.confirm(`Are you sure you want to delete team "${teamName}"? This action cannot be undone.`)) {
       try {
         setActionLoading(true);
         setError(null); // Clear any previous errors
@@ -307,7 +311,10 @@ const TeamsManagement = () => {
         const response = await teamService.deleteTeam(teamId);
         if (response.success) {
           alert(response.message);
-          await fetchTeams(); // Refresh teams list
+          // Remove the team from local state to update UI immediately
+          setTeams(prevTeams => prevTeams.filter(t => t.team_id !== teamId));
+          // Don't refresh teams list as it might bring back the "deleted" team
+          // await fetchTeams();
         } else {
           setError(response.message);
         }

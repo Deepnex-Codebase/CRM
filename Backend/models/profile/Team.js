@@ -75,6 +75,7 @@ const TeamSchema = new mongoose.Schema({
       'HR',
       'Operations',
       'Management',
+      'Legal',
       'Other'
     ]
   },
@@ -97,6 +98,10 @@ const TeamSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  team_members: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
   created_by: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
