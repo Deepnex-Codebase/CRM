@@ -83,6 +83,10 @@ const CommunicationLogSchema = new mongoose.Schema({
   delivery_timestamp: {
     type: Date
   },
+  metadata: {
+    type: Object,
+    default: {}
+  },
   read_timestamp: {
     type: Date
   },

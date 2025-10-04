@@ -1,5 +1,5 @@
 import DOMPurify from 'dompurify';
-import api from '../utils/api';
+import api from '../../utils/api';
 
 // Helper function to sanitize input data
 const sanitizeData = (data) => {
@@ -102,6 +102,20 @@ const communicationLogService = {
       if (!logData.communication_type) throw new Error('Communication type is required');
       if (!logData.enquiry_id) throw new Error('Enquiry ID is required');
       if (!logData.message_content) throw new Error('Message content is required');
+      
+      // Validate communication type specific fields
+      if (logData.communication_type === 'email' && !logData.subject) {
+        throw new Error('Subject is required for email communications');
+      }
+      
+      if (logData.communication_type === 'email' && !logData.contact_details?.email && !logData.recipient?.external_contact?.email) {
+        throw new Error('Recipient email is required for email communications');
+      }
+      
+      if ((logData.communication_type === 'sms' || logData.communication_type === 'whatsapp') && 
+          !logData.contact_details?.phone && !logData.recipient?.external_contact?.phone) {
+        throw new Error(`Recipient phone number is required for ${logData.communication_type} communications`);
+      }
       
       const sanitizedData = sanitizeData(logData);
       const response = await api.post('/communication-logs', sanitizedData);

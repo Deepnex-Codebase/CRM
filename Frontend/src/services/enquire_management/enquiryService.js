@@ -6,6 +6,10 @@ class EnquiryService {
     try {
       const queryParams = new URLSearchParams();
       
+      // Add pagination parameters with defaults if not provided
+      queryParams.append('page', filters.page || 1);
+      queryParams.append('limit', filters.limit || 100); // Get more results by default for dropdowns
+      
       // Add filters to query params
       if (filters.status) queryParams.append('status', filters.status);
       if (filters.source_type) queryParams.append('source_type', filters.source_type);
@@ -19,10 +23,40 @@ class EnquiryService {
       if (filters.search) queryParams.append('search', filters.search);
       
       const response = await api.get(`/enquiries?${queryParams.toString()}`);
+      
+      // Validate response structure
+      if (!response.data) {
+        throw new Error('Invalid response format: missing data');
+      }
+      
+      // For dropdown usage (CommunicationLog.jsx), return the structured format
+      if (filters.forDropdown) {
+        return {
+          success: true,
+          data: {
+            docs: response.data.data || response.data.docs || [],
+            total: response.data.total || response.data.count || 0,
+            page: response.data.page || filters.page || 1,
+            limit: response.data.limit || filters.limit || 100
+          },
+          message: response.data.message || 'Enquiries fetched successfully'
+        };
+      }
+      
+      // For EnquiryList.jsx, return the original format that it expects
       return response.data;
     } catch (error) {
       console.error('Error fetching enquiries:', error);
-      throw error;
+      // Return a structured error response instead of throwing
+      if (filters.forDropdown) {
+        return {
+          success: false,
+          data: { docs: [], total: 0, page: 1, limit: 10 },
+          message: error.response?.data?.message || error.message || 'Failed to fetch enquiries'
+        };
+      }
+      // For list view, return an empty array to prevent map errors
+      return { data: [], total: 0 };
     }
   }
 
@@ -30,10 +64,20 @@ class EnquiryService {
   async getEnquiryById(id) {
     try {
       const response = await api.get(`/enquiries/${id}`);
-      return response.data;
+      
+      // Return standardized response format
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        message: response.data.message || 'Enquiry fetched successfully'
+      };
     } catch (error) {
       console.error(`Error fetching enquiry ${id}:`, error);
-      throw error;
+      return {
+        success: false,
+        data: null,
+        message: error.response?.data?.message || error.message || `Failed to fetch enquiry ${id}`
+      };
     }
   }
 

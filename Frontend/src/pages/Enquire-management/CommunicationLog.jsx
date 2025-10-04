@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import communicationLogService from '../../services/communicationLogService';
+import communicationLogService from '../../services/enquire_management/communicationLogService';
 import { toast } from 'react-toastify';
 
 const CommunicationLog = () => {
@@ -8,6 +8,7 @@ const CommunicationLog = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [enquiryOptions, setEnquiryOptions] = useState([]);
+  const [isLoadingEnquiries, setIsLoadingEnquiries] = useState(false);
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -45,8 +46,12 @@ const CommunicationLog = () => {
   // Fetch communication logs on component mount and when filters change
   useEffect(() => {
     fetchCommunicationLogs();
-    fetchEnquiryOptions();
   }, [filters, pagination.page, pagination.limit]);
+  
+  // Fetch enquiry options on component mount
+  useEffect(() => {
+    fetchEnquiryOptions();
+  }, []);
 
   // Fetch communication logs from API
   const fetchCommunicationLogs = async () => {
@@ -64,7 +69,11 @@ const CommunicationLog = () => {
       const response = await communicationLogService.getAllLogs(queryParams);
       
       if (response.success) {
-        setCommunications(response.data.docs || []);
+        // Sort communications by created_at date to ensure proper threading
+        const sortedCommunications = (response.data.docs || []).sort((a, b) => 
+          new Date(a.created_at) - new Date(b.created_at)
+        );
+        setCommunications(sortedCommunications);
         setPagination(prev => ({
           ...prev,
           total: response.data.totalDocs || 0
@@ -85,15 +94,38 @@ const CommunicationLog = () => {
   // Fetch enquiry options for dropdown
   const fetchEnquiryOptions = async () => {
     try {
-      // This would be replaced with an actual API call to get enquiries
-      // For now, we'll use the sample data
-      setEnquiryOptions([
-        { _id: 'ENQ001', enquiry_id: 'ENQ001' },
-        { _id: 'ENQ002', enquiry_id: 'ENQ002' },
-        { _id: 'ENQ003', enquiry_id: 'ENQ003' }
-      ]);
+      setIsLoadingEnquiries(true);
+      // Import the enquiry service
+      const enquiryService = (await import('../../services/enquire_management/enquiryService')).default;
+      
+      // Fetch all enquiries with minimal data for dropdown
+      const response = await enquiryService.getEnquiries({
+        // Add pagination to get more results
+        page: 1,
+        limit: 500, // Fetch a larger number to ensure we get all enquiries
+        sortBy: 'created_at',
+        sortOrder: 'desc',
+        forDropdown: true // Flag to indicate this is for dropdown usage
+      });
+      
+      if (response.success) {
+        if (Array.isArray(response.data.docs) && response.data.docs.length > 0) {
+          setEnquiryOptions(response.data.docs);
+          toast.success(`Loaded ${response.data.docs.length} enquiries successfully`);
+        } else {
+          console.warn('No enquiry options returned from API');
+          setEnquiryOptions([]);
+          toast.warning('No enquiries found. Please create enquiries first.');
+        }
+      } else {
+        console.error('Failed to fetch enquiry options:', response.message);
+        setEnquiryOptions([]);
+        toast.error(`Failed to load enquiries: ${response.message}`);
+      }
     } catch (err) {
       console.error('Error fetching enquiry options:', err);
+      setEnquiryOptions([]);
+      toast.error(`Error loading enquiries: ${err.message}`);
     }
   };
 
@@ -105,46 +137,155 @@ const CommunicationLog = () => {
     setPagination(prev => ({ ...prev, page: 1 }));
   };
 
+  // Fetch detailed enquiry data by ID
+  const fetchEnquiryDetails = async (enquiryId) => {
+    try {
+      // Import the enquiry service
+      const enquiryService = (await import('../../services/enquire_management/enquiryService')).default;
+      
+      // Fetch the specific enquiry by ID
+      const response = await enquiryService.getEnquiryById(enquiryId);
+      
+      if (response.success && response.data) {
+        console.log('Fetched enquiry details:', response.data);
+        return response.data;
+      } else {
+        console.error('Failed to fetch enquiry details:', response.message);
+        toast.error(`Failed to load enquiry details: ${response.message}`);
+        return null;
+      }
+    } catch (err) {
+      console.error('Error fetching enquiry details:', err);
+      toast.error(`Error loading enquiry details: ${err.message}`);
+      return null;
+    }
+  };
+
   // Handle form change
-  const handleFormChange = (e) => {
+  const handleFormChange = async (e) => {
     const { name, value } = e.target;
     
-    // Handle nested form fields
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setCommForm(prev => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
-      }));
-    } else {
+    // Special handling for enquiry_id to auto-populate contact details
+    if (name === 'enquiry_id' && value) {
+      // First update the enquiry_id in the form
       setCommForm(prev => ({ ...prev, [name]: value }));
-    }
-    
-    // Clear error for this field when user types
-    if (formErrors[name]) {
-      setFormErrors(prev => ({ ...prev, [name]: '' }));
+      
+      // Clear error for this field
+      if (formErrors[name]) {
+        setFormErrors(prev => ({ ...prev, [name]: '' }));
+      }
+      
+      // Fetch the enquiry details to get contact information
+      const enquiryDetails = await fetchEnquiryDetails(value);
+      
+      if (enquiryDetails) {
+        // Extract contact details from the enquiry
+        const contactName = enquiryDetails.name || '';
+        const contactEmail = enquiryDetails.email || '';
+        const contactPhone = enquiryDetails.mobile || '';
+        
+        // Update the form with the contact details
+        setCommForm(prev => ({
+          ...prev,
+          contact_details: {
+            ...prev.contact_details,
+            name: contactName,
+            email: contactEmail,
+            phone: contactPhone
+          }
+        }));
+        
+        toast.info('Contact details auto-populated from enquiry');
+      }
+    } else {
+      // Handle nested form fields
+      if (name.includes('.')) {
+        const [parent, child] = name.split('.');
+        setCommForm(prev => ({
+          ...prev,
+          [parent]: {
+            ...prev[parent],
+            [child]: value
+          }
+        }));
+      } else {
+        setCommForm(prev => ({ ...prev, [name]: value }));
+      }
+      
+      // Clear error for this field when user types
+      if (formErrors[name]) {
+        setFormErrors(prev => ({ ...prev, [name]: '' }));
+      }
     }
   };
 
   // Handle add communication
-  const handleAddCommunication = () => {
+  const handleAddCommunication = async () => {
+    // Reset form state
     setCommForm({
       communication_type: 'email',
       enquiry_id: '',
       direction: 'outbound',
       subject: '',
       content: '',
+      message_content: '', // Added to match backend API
       contact_details: {
         name: '',
         email: '',
         phone: ''
+      },
+      sender: {
+        user_id: null,
+        external_contact: null
+      },
+      recipient: {
+        user_id: null,
+        external_contact: null
       }
     });
     setFormErrors({});
+    
+    // First show the modal, then fetch enquiry options
     setShowModal(true);
+    
+    // Always fetch fresh enquiry options when opening the modal
+    // Use setTimeout to ensure modal is rendered before fetching
+    setTimeout(async () => {
+      try {
+        // Import the enquiry service directly to ensure it's loaded
+        const enquiryService = (await import('../../services/enquire_management/enquiryService')).default;
+        
+        setIsLoadingEnquiries(true);
+        // Fetch all enquiries with minimal data for dropdown
+        const response = await enquiryService.getEnquiries({
+          page: 1,
+          limit: 500, // Fetch a larger number to ensure we get all enquiries
+          sortBy: 'created_at',
+          sortOrder: 'desc',
+          forDropdown: true // Flag to indicate this is for dropdown usage
+        });
+        
+        if (response.success) {
+          if (Array.isArray(response.data.docs) && response.data.docs.length > 0) {
+            setEnquiryOptions(response.data.docs);
+          } else {
+            console.warn('No enquiry options returned from API for modal');
+            setEnquiryOptions([]);
+            toast.warning('No enquiries found. Please create enquiries first.');
+          }
+        } else {
+          console.error('Failed to fetch enquiry options for modal:', response.message);
+          setEnquiryOptions([]);
+          toast.error(`Failed to load enquiries: ${response.message}`);
+        }
+      } catch (error) {
+        console.error('Failed to load enquiry options for modal:', error);
+        toast.error('Could not load enquiry options. Please try again.');
+        setEnquiryOptions([]);
+      } finally {
+        setIsLoadingEnquiries(false);
+      }
+    }, 100); // Small delay to ensure modal is rendered
   };
 
   // Validate form
@@ -152,7 +293,7 @@ const CommunicationLog = () => {
     const errors = {};
     
     if (!commForm.enquiry_id) errors.enquiry_id = 'Enquiry ID is required';
-    if (!commForm.content) errors.content = 'Message content is required';
+    if (!commForm.message_content) errors.message_content = 'Message content is required';
     
     if (commForm.communication_type === 'email') {
       if (!commForm.subject) errors.subject = 'Subject is required for emails';
@@ -178,15 +319,75 @@ const CommunicationLog = () => {
     try {
       setIsSubmitting(true);
       
-      const response = await communicationLogService.createLog(commForm);
+      // Prepare data for API
+      const formData = {
+        ...commForm,
+        // Ensure message_content is set (API expects this field)
+        message_content: commForm.message_content || commForm.content,
+        // Set up sender and recipient based on direction
+        sender: commForm.direction === 'outbound' 
+          ? { user_id: localStorage.getItem('userId') || null } 
+          : { external_contact: { 
+              name: commForm.contact_details.name,
+              email: commForm.contact_details.email,
+              phone: commForm.contact_details.phone
+            } 
+          },
+        recipient: commForm.direction === 'inbound'
+          ? { user_id: localStorage.getItem('userId') || null }
+          : { external_contact: { 
+              name: commForm.contact_details.name,
+              email: commForm.contact_details.email,
+              phone: commForm.contact_details.phone
+            } 
+          }
+      };
+      
+      // Additional validation based on communication type
+      let validationError = null;
+      
+      // Check if recipient and external_contact exist before validation
+      const hasExternalContact = formData.recipient && formData.recipient.external_contact;
+      
+      if (formData.communication_type === 'email' && !formData.subject) {
+        validationError = 'Subject is required for email communications';
+      } else if (formData.communication_type === 'email' && 
+                (!hasExternalContact || !formData.recipient.external_contact.email)) {
+        validationError = 'Recipient email is required for email communications';
+      } else if ((formData.communication_type === 'sms' || formData.communication_type === 'whatsapp') && 
+                (!hasExternalContact || !formData.recipient.external_contact.phone)) {
+        validationError = `Recipient phone number is required for ${formData.communication_type} communications`;
+      }
+      
+      if (validationError) {
+        toast.error(validationError);
+        setFormErrors(prev => ({
+          ...prev,
+          ...(formData.communication_type === 'email' && !formData.subject ? { subject: validationError } : {}),
+          ...(formData.communication_type === 'email' && (!hasExternalContact || !formData.recipient.external_contact.email) ? 
+              { 'contact_details.email': validationError } : {}),
+          ...((formData.communication_type === 'sms' || formData.communication_type === 'whatsapp') && 
+              (!hasExternalContact || !formData.recipient.external_contact.phone) ? { 'contact_details.phone': validationError } : {})
+        }));
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Show sending status
+      const toastId = toast.info(`Sending ${formData.communication_type}...`, { autoClose: false });
+      
+      const response = await communicationLogService.createLog(formData);
+      
+      // Close the sending toast
+      toast.dismiss(toastId);
       
       if (response.success) {
-        toast.success('Communication log created successfully');
+        toast.success(`${formData.communication_type.charAt(0).toUpperCase() + formData.communication_type.slice(1)} sent successfully`);
         setShowModal(false);
         // Refresh the list
         fetchCommunicationLogs();
       } else {
-        toast.error('Failed to create communication log');
+        toast.error('Failed to send communication: ' + (response.error || 'Unknown error'));
       }
     } catch (err) {
       console.error('Error creating communication log:', err);
@@ -314,88 +515,167 @@ const CommunicationLog = () => {
                   No communications found
                 </div>
               ) : (
-                communications.map((comm) => (
-                  <div key={comm._id} className="bg-gray-50 p-4 rounded-md">
-                    <div className="flex flex-wrap justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          comm.communication_type === 'email' ? 'bg-blue-100 text-blue-800' : 
-                          comm.communication_type === 'whatsapp' ? 'bg-green-100 text-green-800' : 
-                          comm.communication_type === 'sms' ? 'bg-purple-100 text-purple-800' :
-                          comm.communication_type === 'voice_call' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {comm.communication_type.charAt(0).toUpperCase() + comm.communication_type.slice(1)}
-                        </span>
-                        <span className={`px-2 py-1 text-xs rounded-full ${
-                          comm.direction === 'inbound' ? 'bg-indigo-100 text-indigo-800' : 
-                          'bg-pink-100 text-pink-800'
-                        }`}>
-                          {comm.direction.charAt(0).toUpperCase() + comm.direction.slice(1)}
-                        </span>
-                        <a href={`/enquiry/${comm.enquiry_id}`} className="text-indigo-600 hover:text-indigo-900 text-sm">
-                          {typeof comm.enquiry_id === 'object' ? comm.enquiry_id.enquiry_id : comm.enquiry_id}
+                // Group communications by enquiry_id and thread_id to show replies together
+                Object.values(communications.reduce((groups, comm) => {
+                  // Use enquiry_id as the primary grouping key
+                  const enquiryId = typeof comm.enquiry_id === 'object' ? comm.enquiry_id._id : comm.enquiry_id;
+                  
+                  // Create a thread ID based on subject (for emails) or first message in a sequence
+                  let threadKey = enquiryId;
+                  if (comm.subject) {
+                    // Remove Re:, Fwd: etc. to group related emails
+                    const baseSubject = comm.subject.replace(/^(Re|Fwd|FW|RE|FWD):\s*/i, '').trim();
+                    threadKey = `${enquiryId}-${baseSubject}`;
+                  }
+                  
+                  if (!groups[threadKey]) {
+                    groups[threadKey] = {
+                      threadKey,
+                      enquiryId,
+                      enquiryName: typeof comm.enquiry_id === 'object' ? comm.enquiry_id.enquiry_id : comm.enquiry_id,
+                      communications: []
+                    };
+                  }
+                  
+                  groups[threadKey].communications.push(comm);
+                  return groups;
+                }, {})).map(group => (
+                  <div key={group.threadKey} className="mb-6 border border-gray-200 rounded-lg overflow-hidden">
+                    <div className="bg-gray-100 p-3 border-b border-gray-200">
+                      <h3 className="font-medium">
+                        <a href={`/enquiry/${group.enquiryId}`} className="text-indigo-600 hover:text-indigo-900">
+                          {group.enquiryName}
                         </a>
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {new Date(comm.created_at).toLocaleString()}
-                      </div>
+                        {group.communications[0].subject && (
+                          <span className="ml-2 text-gray-600">
+                            - {group.communications[0].subject.replace(/^(Re|Fwd|FW|RE|FWD):\s*/i, '').trim()}
+                          </span>
+                        )}
+                      </h3>
                     </div>
                     
-                    <div className="mb-2">
-                      {comm.sender && (
-                        <p className="text-sm">
-                          <span className="font-medium">From:</span> {
-                            comm.sender.user_id ? 
-                              (typeof comm.sender.user_id === 'object' ? comm.sender.user_id.name : comm.sender.user_id) : 
-                              (comm.sender.external_contact ? comm.sender.external_contact.name : 'Unknown')
-                          }
-                        </p>
-                      )}
-                      {comm.recipient && (
-                        <p className="text-sm">
-                          <span className="font-medium">To:</span> {
-                            comm.recipient.user_id ? 
-                              (typeof comm.recipient.user_id === 'object' ? comm.recipient.user_id.name : comm.recipient.user_id) : 
-                              (comm.recipient.external_contact ? comm.recipient.external_contact.name : 'Unknown')
-                          }
-                        </p>
-                      )}
-                      {comm.subject && (
-                        <p className="text-sm">
-                          <span className="font-medium">Subject:</span> {comm.subject}
-                        </p>
-                      )}
-                      <p className="text-sm">
-                        <span className="font-medium">Status:</span> {' '}
-                        <span className={`px-2 py-0.5 text-xs rounded-full ${
-                          comm.delivery_status === 'delivered' ? 'bg-green-100 text-green-800' : 
-                          comm.delivery_status === 'sent' ? 'bg-blue-100 text-blue-800' : 
-                          comm.delivery_status === 'failed' ? 'bg-red-100 text-red-800' : 
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {comm.delivery_status.charAt(0).toUpperCase() + comm.delivery_status.slice(1)}
-                        </span>
-                      </p>
-                    </div>
-                    
-                    <div className="bg-white p-3 rounded border border-gray-200 text-gray-700">
-                      <p className="whitespace-pre-wrap">{comm.message_content}</p>
-                    </div>
-                    
-                    <div className="mt-2 flex justify-end">
-                      <button 
-                        onClick={() => communicationLogService.markAsRead(comm._id)}
-                        className="text-indigo-600 hover:text-indigo-900 text-sm mr-3"
-                      >
-                        Mark as Read
-                      </button>
-                      <button className="text-indigo-600 hover:text-indigo-900 text-sm mr-3">
-                        Reply
-                      </button>
-                      <button className="text-gray-600 hover:text-gray-900 text-sm">
-                        Forward
-                      </button>
+                    <div className="divide-y divide-gray-100">
+                      {group.communications.map((comm) => (
+                        <div key={comm._id} className={`p-4 ${comm.direction === 'inbound' ? 'bg-gray-50' : 'bg-white'}`}>
+                          <div className="flex flex-wrap justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <span className={`px-2 py-1 text-xs rounded-full ${
+                                comm.communication_type === 'email' ? 'bg-blue-100 text-blue-800' : 
+                                comm.communication_type === 'whatsapp' ? 'bg-green-100 text-green-800' : 
+                                comm.communication_type === 'sms' ? 'bg-purple-100 text-purple-800' :
+                                comm.communication_type === 'voice_call' ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {comm.communication_type.charAt(0).toUpperCase() + comm.communication_type.slice(1)}
+                              </span>
+                              <span className={`px-2 py-1 text-xs rounded-full ${
+                                comm.direction === 'inbound' ? 'bg-indigo-100 text-indigo-800' : 
+                                'bg-pink-100 text-pink-800'
+                              }`}>
+                                {comm.direction.charAt(0).toUpperCase() + comm.direction.slice(1)}
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              {new Date(comm.created_at).toLocaleString()}
+                            </div>
+                          </div>
+                          
+                          <div className="mb-2">
+                            {comm.sender && (
+                              <p className="text-sm">
+                                <span className="font-medium">From:</span> {
+                                  comm.sender.user_id ? 
+                                    (typeof comm.sender.user_id === 'object' ? comm.sender.user_id.name : comm.sender.user_id) : 
+                                    (comm.sender.external_contact ? comm.sender.external_contact.name : 'Unknown')
+                                }
+                              </p>
+                            )}
+                            {comm.recipient && (
+                              <p className="text-sm">
+                                <span className="font-medium">To:</span> {
+                                  comm.recipient.user_id ? 
+                                    (typeof comm.recipient.user_id === 'object' ? comm.recipient.user_id.name : comm.recipient.user_id) : 
+                                    (comm.recipient.external_contact ? comm.recipient.external_contact.name : 'Unknown')
+                                }
+                              </p>
+                            )}
+                            {comm.subject && (
+                              <p className="text-sm">
+                                <span className="font-medium">Subject:</span> {comm.subject}
+                              </p>
+                            )}
+                            <p className="text-sm">
+                              <span className="font-medium">Status:</span> {' '}
+                              <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                comm.delivery_status === 'delivered' ? 'bg-green-100 text-green-800' : 
+                                comm.delivery_status === 'sent' ? 'bg-blue-100 text-blue-800' : 
+                                comm.delivery_status === 'failed' ? 'bg-red-100 text-red-800' : 
+                                'bg-yellow-100 text-yellow-800'
+                              }`}>
+                                {comm.delivery_status.charAt(0).toUpperCase() + comm.delivery_status.slice(1)}
+                              </span>
+                            </p>
+                          </div>
+                          
+                          <div className="bg-white p-3 rounded border border-gray-200 text-gray-700">
+                            <p className="whitespace-pre-wrap">{comm.message_content}</p>
+                          </div>
+                          
+                          <div className="mt-2 flex justify-end">
+                            <button 
+                              onClick={() => communicationLogService.markAsRead(comm._id)}
+                              className="text-indigo-600 hover:text-indigo-900 text-sm mr-3"
+                            >
+                              Mark as Read
+                            </button>
+                            <button 
+                              className="text-indigo-600 hover:text-indigo-900 text-sm mr-3"
+                              onClick={() => {
+                                // Pre-fill the reply form
+                                const replyDirection = comm.direction === 'inbound' ? 'outbound' : 'inbound';
+                                const replySubject = comm.subject ? `Re: ${comm.subject}` : '';
+                                
+                                setCommForm({
+                                  communication_type: comm.communication_type,
+                                  enquiry_id: typeof comm.enquiry_id === 'object' ? comm.enquiry_id._id : comm.enquiry_id,
+                                  direction: replyDirection,
+                                  subject: replySubject,
+                                  content: '',
+                                  message_content: '',
+                                  contact_details: {
+                                    name: comm.direction === 'inbound' 
+                                      ? (comm.sender?.external_contact?.name || '') 
+                                      : (comm.recipient?.external_contact?.name || ''),
+                                    email: comm.direction === 'inbound' 
+                                      ? (comm.sender?.external_contact?.email || '') 
+                                      : (comm.recipient?.external_contact?.email || ''),
+                                    phone: comm.direction === 'inbound' 
+                                      ? (comm.sender?.external_contact?.phone || '') 
+                                      : (comm.recipient?.external_contact?.phone || '')
+                                  },
+                                  sender: {
+                                    user_id: null,
+                                    external_contact: null
+                                  },
+                                  recipient: {
+                                    user_id: null,
+                                    external_contact: null
+                                  }
+                                });
+                                
+                                setShowModal(true);
+                              }}
+                            >
+                              Reply
+                            </button>
+                            <button 
+                              className="text-gray-600 hover:text-gray-900 text-sm"
+                            >
+                              Forward
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))
@@ -524,14 +804,34 @@ const CommunicationLog = () => {
                   value={commForm.enquiry_id}
                   onChange={handleFormChange}
                   className={`w-full rounded-md border ${formErrors.enquiry_id ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-sm`}
+                  disabled={isLoadingEnquiries}
                 >
-                  <option value="">Select Enquiry</option>
-                  {enquiryOptions.map(enquiry => (
-                    <option key={enquiry._id} value={enquiry._id}>{enquiry.enquiry_id}</option>
-                  ))}
+                  <option value="">
+                    {isLoadingEnquiries 
+                      ? "Loading enquiries..." 
+                      : enquiryOptions.length === 0 
+                        ? "No enquiries available" 
+                        : "Select Enquiry"}
+                  </option>
+                  {enquiryOptions && enquiryOptions.length > 0 && (
+                    enquiryOptions.map(enquiry => (
+                      <option key={enquiry._id} value={enquiry._id}>
+                        {enquiry.enquiry_id || `Enquiry #${enquiry._id.substring(0, 8)}`}
+                      </option>
+                    ))
+                  )}
                 </select>
                 {formErrors.enquiry_id && (
                   <p className="mt-1 text-xs text-red-500">{formErrors.enquiry_id}</p>
+                )}
+                {enquiryOptions.length === 0 && !isLoadingEnquiries && (
+                  <button 
+                    type="button" 
+                    onClick={fetchEnquiryOptions} 
+                    className="mt-1 text-xs text-blue-500 hover:text-blue-700"
+                  >
+                    Refresh enquiry list
+                  </button>
                 )}
               </div>
               
@@ -604,15 +904,15 @@ const CommunicationLog = () => {
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
                 <textarea 
-                  name="content"
-                  value={commForm.content}
+                  name="message_content"
+                  value={commForm.message_content}
                   onChange={handleFormChange}
-                  className={`w-full rounded-md border ${formErrors.content ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-sm`}
+                  className={`w-full rounded-md border ${formErrors.message_content ? 'border-red-500' : 'border-gray-300'} px-3 py-2 text-sm`}
                   rows="5"
                   placeholder="Message content"
                 ></textarea>
-                {formErrors.content && (
-                  <p className="mt-1 text-xs text-red-500">{formErrors.content}</p>
+                {formErrors.message_content && (
+                  <p className="mt-1 text-xs text-red-500">{formErrors.message_content}</p>
                 )}
               </div>
             </div>

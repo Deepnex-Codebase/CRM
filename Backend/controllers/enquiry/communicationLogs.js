@@ -87,7 +87,7 @@ exports.getCommunicationLogById = asyncHandler(async (req, res, next) => {
 });
 
 // @desc    Create communication log
-// @route   POST /api/v1/communication-logs
+// @route   POST /api/communication-logs
 // @access  Private
 exports.createCommunicationLog = asyncHandler(async (req, res, next) => {
   const { 
@@ -95,10 +95,12 @@ exports.createCommunicationLog = asyncHandler(async (req, res, next) => {
     communication_type, 
     direction, 
     subject, 
-    content, 
+    message_content, 
     contact_details,
     scheduled_at,
-    metadata 
+    metadata,
+    sender,
+    recipient
   } = req.body;
 
   // Validate enquiry exists
@@ -107,21 +109,136 @@ exports.createCommunicationLog = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Enquiry not found', 404));
   }
 
+  // Validate required fields based on communication type
+  if (communication_type === 'email' && !subject) {
+    return next(new ErrorResponse('Subject is required for email communications', 400));
+  }
+
+  if (!message_content) {
+    return next(new ErrorResponse('Message content is required', 400));
+  }
+
+  // Create communication log
   const communicationLog = await CommunicationLog.create({
     enquiry_id,
     communication_type,
     direction,
     subject,
-    content,
-    contact_details,
+    message_content,
+    sender,
+    recipient,
     scheduled_at,
     created_by: req.user.id,
     metadata: {
       ...metadata,
       user_agent: req.get('User-Agent'),
       ip_address: req.ip
-    }
+    },
+    delivery_status: 'pending'
   });
+
+  // Send the communication based on type
+  try {
+    // Import utility functions
+    const sendEmail = require('../../utils/sendEmail');
+    const sendSMS = require('../../utils/sendSMS');
+    
+    let deliveryResult = null;
+    
+    // Determine recipient contact details
+    const recipientEmail = recipient?.external_contact?.email || contact_details?.email;
+    const recipientPhone = recipient?.external_contact?.phone || contact_details?.phone;
+    
+    if (direction === 'outbound') {
+      switch (communication_type) {
+        case 'email':
+          if (!recipientEmail) {
+            throw new Error('Recipient email is required for sending emails');
+          }
+          
+          try {
+            await sendEmail({
+              email: recipientEmail,
+              subject: subject || 'Communication from CRM',
+              message: message_content,
+              html: `<div>${message_content}</div>`
+            });
+            
+            deliveryResult = 'sent';
+          } catch (emailError) {
+            console.error('Email sending error:', emailError);
+            throw new Error(`Failed to send email: ${emailError.message}`);
+          }
+          break;
+          
+        case 'sms':
+          if (!recipientPhone) {
+            throw new Error('Recipient phone number is required for sending SMS');
+          }
+          
+          try {
+            await sendSMS({
+              to: recipientPhone,
+              message: message_content
+            });
+            
+            deliveryResult = 'sent';
+          } catch (smsError) {
+            console.error('SMS sending error:', smsError);
+            throw new Error(`Failed to send SMS: ${smsError.message}`);
+          }
+          break;
+          
+        case 'whatsapp':
+          if (!recipientPhone) {
+            throw new Error('Recipient phone number is required for sending WhatsApp messages');
+          }
+          
+          // For now, we'll use SMS as a fallback since WhatsApp API integration
+          // would require additional setup
+          try {
+            await sendSMS({
+              to: recipientPhone,
+              message: `[WhatsApp] ${message_content}`
+            });
+            
+            deliveryResult = 'sent';
+          } catch (whatsappError) {
+            console.error('WhatsApp sending error:', whatsappError);
+            throw new Error(`Failed to send WhatsApp message: ${whatsappError.message}`);
+          }
+          break;
+          
+        default:
+          // For other communication types, just log without sending
+          deliveryResult = 'pending';
+      }
+      
+      // Update delivery status if message was sent
+      if (deliveryResult === 'sent') {
+        communicationLog.delivery_status = 'sent';
+        communicationLog.delivery_timestamp = new Date();
+        await communicationLog.save();
+      }
+    }
+  } catch (error) {
+    console.error(`Error sending ${communication_type}:`, error);
+    
+    // Update communication log with error status
+    communicationLog.delivery_status = 'failed';
+    communicationLog.metadata = {
+      ...communicationLog.metadata,
+      error_message: error.message
+    };
+    await communicationLog.save();
+    
+    // Return the communication log with error status
+    return res.status(200).json({
+      success: true,
+      data: communicationLog,
+      message: `Communication log created but delivery failed: ${error.message}`
+    });
+  }
 
   await communicationLog.populate([
     { path: 'enquiry_id', select: 'enquiry_id name mobile' },
