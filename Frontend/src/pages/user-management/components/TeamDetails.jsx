@@ -56,27 +56,33 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
         // Handle team lead from the response
         const fetchTeamLead = async () => {
           try {
+            let leadId = null;
+            
             if (typeof team.team_lead === 'object' && team.team_lead !== null) {
-              setTeamLead(team.team_lead);
+              leadId = team.team_lead._id;
             } else if (team.data && typeof team.data.team_lead === 'object' && team.data.team_lead !== null) {
-              setTeamLead(team.data.team_lead);
+              leadId = team.data.team_lead._id;
             } else if (typeof team.team_lead === 'string' && team.team_lead) {
-              // If team_lead is a string ID, fetch the user details
-              const leadResponse = await userService.getUser(team.team_lead);
-              if (leadResponse.success && leadResponse.data) {
-                setTeamLead(leadResponse.data);
-              }
+              leadId = team.team_lead;
             } else if (team.team_lead_id) {
-              // If team has team_lead_id, fetch the user details
-              const leadResponse = await userService.getUser(team.team_lead_id);
-              if (leadResponse.success && leadResponse.data) {
-                setTeamLead(leadResponse.data);
-              }
+              leadId = team.team_lead_id;
             } else if (team.data && team.data.team_lead_id) {
-              // If team.data has team_lead_id, fetch the user details
-              const leadResponse = await userService.getUser(team.data.team_lead_id);
+              leadId = team.data.team_lead_id;
+            }
+            
+            if (leadId) {
+              // Always fetch complete user details from backend
+              const leadResponse = await userService.getUser(leadId);
               if (leadResponse.success && leadResponse.data) {
-                setTeamLead(leadResponse.data);
+                // Use team's isActive instead of team lead's isActive
+                const teamIsActive = team.is_active !== undefined ? team.is_active : (team.data?.is_active !== undefined ? team.data.is_active : true);
+                console.log('Team is_active value:', teamIsActive);
+                
+                const teamLeadData = {
+                  ...leadResponse.data,
+                  isActive: teamIsActive
+                };
+                setTeamLead(teamLeadData);
               }
             }
           } catch (error) {
@@ -131,7 +137,11 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
           console.log(`Member ${index + 1}:`, member);
           console.log(`Member ${index + 1} ID:`, member._id || member.id);
           console.log(`Member ${index + 1} User:`, member.user_id || member.user);
-          console.log(`Member ${index + 1} Active:`, member.active_flag !== undefined ? member.active_flag : true);
+          
+          // Get team's is_active value
+          const teamIsActive = team.is_active !== undefined ? team.is_active : (team.data?.is_active !== undefined ? team.data.is_active : true);
+          console.log(`Team is_active value:`, teamIsActive);
+          
           console.log(`Member ${index + 1} Role:`, member.role_within_team || member.role);
           console.log('-----------------------------------');
         });
@@ -156,7 +166,7 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                 
                 return {
                   ...member,
-                  active_flag: member.active_flag !== undefined ? member.active_flag : true,
+                  active_flag: team.is_active !== undefined ? team.is_active : (team.data?.is_active !== undefined ? team.data.is_active : true),
                   user: {
                     ...userData,
                     name: fullName
@@ -506,21 +516,49 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
   // Fetch all users who are not already in the team
   const fetchAllUsers = async () => {
     try {
+      // First, get the current team data to ensure we have the latest information
+      let teamId = null;
+      if (currentTeamData) {
+        teamId = currentTeamData.team_id || currentTeamData._id || (currentTeamData.data && currentTeamData.data._id);
+        console.log('Current Team ID:', teamId);
+      }
+      
+      if (!teamId) {
+        console.error('No team ID found, cannot filter users properly');
+        return;
+      }
+      
+      // Fetch the latest team members to ensure we have the most up-to-date list
+      const teamMembersResponse = await teamService.getTeamMembers(teamId);
+      let currentTeamMembers = [];
+      if (teamMembersResponse.success) {
+        currentTeamMembers = teamMembersResponse.data;
+        console.log('Current team members:', currentTeamMembers);
+      }
+      
+      // Now fetch all users
       const response = await userService.getUsers();
       if (response.success) {
         // Get all users
         const allUsersFromAPI = response.data;
-        
-        // Get current team ID
-        const teamId = currentTeamData?.team_id || currentTeamData?._id || (currentTeamData?.data && currentTeamData.data._id);
+        console.log('All users from API:', allUsersFromAPI);
         
         // Create a Set of all existing team member IDs for faster lookup
         const existingMemberIds = new Set();
         
-        // Add all team members to the Set
+        // Add all team members to the Set - using the freshly fetched team members
+        currentTeamMembers.forEach(member => {
+          if (member.user_id) existingMemberIds.add(member.user_id);
+          if (member._id) existingMemberIds.add(member._id);
+          // Also add the user ID if it exists in a nested user object
+          if (member.user && member.user._id) existingMemberIds.add(member.user._id);
+        });
+        
+        // Also add team members from the state (as a backup)
         teamMembers.forEach(member => {
           if (member.user_id) existingMemberIds.add(member.user_id);
           if (member._id) existingMemberIds.add(member._id);
+          if (member.user && member.user._id) existingMemberIds.add(member.user._id);
         });
         
         // Add team lead to the Set
@@ -529,15 +567,19 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
           if (teamLead._id) existingMemberIds.add(teamLead._id);
         }
         
+        console.log('Existing member IDs:', Array.from(existingMemberIds));
+        
         // Hard filter - explicitly remove Tushar Patil, existing team members, and users who already have this team
         const availableUsers = allUsersFromAPI.filter(user => {
           // Skip users who are already team members (using Set for faster lookup)
           const isAlreadyTeamMember = existingMemberIds.has(user._id);
           
           // Skip users who already have this team assigned
-          const hasTeamAssigned = user.team_id === teamId || 
-                                 (user.team && user.team._id === teamId) ||
-                                 (user.team && user.team.team_id === teamId);
+          const hasTeamAssigned = 
+            user.team_id === teamId || 
+            (user.team && user.team._id === teamId) ||
+            (user.team && user.team.team_id === teamId) ||
+            (user.teams && user.teams.includes(teamId));
           
           // Skip Tushar Patil by name or ID
           const isTusharPatil = 
@@ -605,9 +647,11 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
           const userResponse = await userService.getUser(userId);
           if (userResponse.success && userResponse.data) {
             const userData = userResponse.data;
-            // Update user with team assignment
-            userData.team_id = teamId;
-            await userService.updateUser(userId, userData);
+            // Only update specific fields needed for team assignment
+            const updateData = {
+              team: teamId  // Use 'team' instead of 'team_id' based on backend schema
+            };
+            await userService.updateUser(userId, updateData);
             console.log('User profile updated with team assignment');
           }
         } catch (userError) {
@@ -619,14 +663,44 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
         const membersResponse = await teamService.getTeamMembers(teamId, { includeDetails: true });
         
         if (membersResponse.success) {
-          // Update members list with fresh data
-          setTeamMembers(membersResponse.data);
+          // Create enhanced member data with user details for ALL members
+          let enhancedMembers = [...membersResponse.data];
+          
+          // Fetch and enhance ALL members with complete user details
+          enhancedMembers = await Promise.all(enhancedMembers.map(async (member) => {
+            // Get user ID from member data
+            const memberId = member.user_id?._id || member.user_id || member.user?._id || member.user;
+            
+            if (memberId && typeof memberId === 'string') {
+              try {
+                const userResponse = await userService.getUser(memberId);
+                if (userResponse.success && userResponse.data) {
+                  return {
+                    ...member,
+                    user: {
+                      ...member.user,
+                      name: userResponse.data.name || `${userResponse.data.first_name || ''} ${userResponse.data.last_name || ''}`.trim(),
+                      first_name: userResponse.data.first_name,
+                      last_name: userResponse.data.last_name,
+                      email: userResponse.data.email
+                    }
+                  };
+                }
+              } catch (error) {
+                console.error(`Error fetching details for member ${memberId}:`, error);
+              }
+            }
+            return member;
+          }));
+          
+          // Update members list with enhanced data
+          setTeamMembers(enhancedMembers);
           
           // Update team stats
           setTeamStats(prev => ({
             ...prev,
-            total_members: membersResponse.data.length,
-            active_members: membersResponse.data.filter(m => m.active_flag !== false).length
+            total_members: enhancedMembers.length,
+            active_members: enhancedMembers.filter(m => m.active_flag !== false).length
           }));
           
           // Close the dropdown and reset selection
@@ -639,8 +713,8 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
         console.error('Failed to add member:', response.message);
       }
     } catch (error) {
-      console.error('Error adding team member:', error);
-      alert(`Error adding team member: ${error.message || 'Unknown error'}`);
+      console.error('Error adding member to team:', error);
+      setError(error.message || 'Failed to add member to team');
     } finally {
       setLoading(false);
     }
@@ -668,6 +742,20 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
         // Get the correct member ID (could be _id or id)
         const memberIdToUse = memberId?.id || memberId?._id || memberId;
         console.log('Removing member with ID:', memberIdToUse);
+        
+        // Check if the member is a team lead
+        const memberToRemove = teamMembers.find(member => 
+          member.id === memberIdToUse || member._id === memberIdToUse
+        );
+        
+        // Prevent removing team lead
+        if (memberToRemove?.is_team_lead || memberToRemove?.role === 'team_lead' || 
+            (teamLead && (teamLead._id === memberIdToUse || teamLead.id === memberIdToUse))) {
+          console.error('Cannot remove team lead from the team');
+          setError('Team lead cannot be removed from the team');
+          setLoading(false);
+          return;
+        }
         
         // Remove member from team
         const response = await teamService.removeTeamMember(teamId, memberIdToUse);
@@ -746,8 +834,8 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                     {currentTeamData.name || 'Team Details'}
                   </h3>
                   <div className="flex items-center mt-1 space-x-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(currentTeamData.is_active ? 'Active' : 'Inactive')}`}>
-                      {currentTeamData.is_active ? 'Active' : 'Inactive'}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(team.is_active !== undefined ? (team.is_active ? 'Active' : 'Inactive') : (team.data?.is_active ? 'Active' : 'Inactive'))}`}>
+                      {team.is_active !== undefined ? (team.is_active ? 'Active' : 'Inactive') : (team.data?.is_active ? 'Active' : 'Inactive')}
                     </span>
                     <span className="text-sm text-gray-500 dark:text-gray-400">
                       {currentTeamData.department || 'No Department'}
@@ -758,14 +846,7 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                   </div>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => onEdit && onEdit(currentTeamData)}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit
-                </button>
+              <div className="flex items-center">
                 <button
                   onClick={onClose}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
@@ -994,17 +1075,10 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                         )}
                         <div className="ml-4">
                           <h5 className="text-sm font-medium text-gray-900 dark:text-white">
-                            {teamLead?.name || 
-                             (teamLead?.first_name || teamLead?.last_name ? 
-                              `${teamLead?.first_name || ''} ${teamLead?.last_name || ''}`.trim() : 
-                              teamLead?.emails) || 
-                             (typeof teamData?.team_lead === 'object' ? 
-                              (teamData?.team_lead?.name || 
-                               (teamData?.team_lead?.first_name || teamData?.team_lead?.last_name ? 
-                                `${teamData?.team_lead?.first_name || ''} ${teamData?.team_lead?.last_name || ''}`.trim() : 
-                                teamData?.team_lead?.email)) : 
-                              teamData?.team_lead) || 
-                             'Tushar Patil'}
+                             {teamLead.first_name && teamLead.last_name 
+                                            ? `${teamLead.first_name} ${teamLead.last_name}` 
+                                            : teamLead.name}
+                            {console.log(teamLead)}
                           </h5>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             {teamLead?.role || 'Team Lead'}
@@ -1106,8 +1180,6 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                             onChange={(e) => setSelectedRole(e.target.value)}
                           >
                             <option value="member">Member</option>
-                            <option value="team_lead">Team Lead</option>
-                            <option value="admin">Admin</option>
                           </select>
                         </div>
                         
@@ -1148,8 +1220,8 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                               <div className="ml-4">
                                 <div className="flex items-center">
                                   <h5 className="text-sm font-medium text-gray-900 dark:text-white">{member?.user?.name || member?.user?.first_name ? `${member.user.first_name || ''} ${member.user.last_name || ''}`.trim() : member?.name || (member?.user_id?.name) || 'Team Member'}</h5>
-                                  <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member?.status || member?.active_flag ? 'active' : 'inactive')}`}>
-                                    {member?.status || (member?.active_flag ? 'Active' : 'Inactive')}
+                                  <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(member?.status || (member?.active_flag !== false ? 'active' : 'inactive'))}`}>
+                                    {member?.status || (member?.active_flag !== false ? 'Active' : 'Inactive')}
                                   </span>
                                 </div>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">{member?.role || 'Team Member'}</p>
