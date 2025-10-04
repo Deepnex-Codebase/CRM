@@ -299,13 +299,13 @@ class SessionService {
   /**
    * Revoke a session
    */
-  async revokeSession(id) {
+  async revokeSession(id, data = {}) {
     if (!id) {
       throw new Error('Session ID is required');
     }
 
     const requestFn = async () => {
-      const response = await api.put(`/auth/sessions/${id}/revoke`);
+      const response = await api.put(`/auth/sessions/${id}/revoke`, data);
       
       if (!response.data.success) {
         throw new Error(response.data.message || 'Failed to revoke session');

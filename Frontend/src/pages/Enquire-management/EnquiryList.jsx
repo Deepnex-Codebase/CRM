@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import enquiryService from '../../services/enquire_management/enquiryService';
 
 // Function to export data to CSV
 const exportToCSV = (data, filename) => {
@@ -28,128 +30,197 @@ const exportToCSV = (data, filename) => {
 };
 
 const EnquiryList = () => {
-  // Sample data for demonstration
-  const [enquiries, setEnquiries] = useState([
-    {
-      enquiry_id: 'ENQ001',
-      customer_name: 'Rahul Sharma',
-      contact_number: '9876543210',
-      enquiry_type: 'Product',
-      status: 'New',
-      priority: 'High',
-      assigned_to: 'Amit Kumar',
-      created_at: '2023-07-15',
-      next_task_due: '2023-07-20'
-    },
-    {
-      enquiry_id: 'ENQ002',
-      customer_name: 'Priya Patel',
-      contact_number: '8765432109',
-      enquiry_type: 'Service',
-      status: 'In Progress',
-      priority: 'Medium',
-      assigned_to: 'Neha Singh',
-      created_at: '2023-07-14',
-      next_task_due: '2023-07-19'
-    },
-    {
-      enquiry_id: 'ENQ003',
-      customer_name: 'Vikram Malhotra',
-      contact_number: '7654321098',
-      enquiry_type: 'AMC',
-      status: 'Qualified',
-      priority: 'Low',
-      assigned_to: 'Raj Verma',
-      created_at: '2023-07-13',
-      next_task_due: '2023-07-18'
-    }
-  ]);
-
+  // State for enquiries data
+  const [enquiries, setEnquiries] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
   // Filter states
   const [filters, setFilters] = useState({
     status: '',
-    source: '',
-    assigned: '',
-    dateRange: '',
+    source_type: '',
+    assigned_to: '',
     priority: '',
-    enquiryType: '',
+    enquiry_profile: '',
     dateFrom: '',
     dateTo: '',
     sortBy: 'created_at',
-    sortOrder: 'desc'
+    sortOrder: 'desc',
+    search: ''
   });
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Selected enquiries for bulk actions
+  const [selectedEnquiries, setSelectedEnquiries] = useState([]);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [totalCount, setTotalCount] = useState(0);
+  
+  // Calculate total pages
+  const totalPages = Math.ceil(totalCount / pageSize);
   
   // Advanced filter visibility
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  
+  // Filter options
+  const [filterOptions, setFilterOptions] = useState({
+    statuses: [],
+    sources: [],
+    users: []
+  });
+
+  // Fetch enquiries based on filters
+  useEffect(() => {
+    const fetchEnquiries = async () => {
+      try {
+        setLoading(true);
+        // Add search term to filters
+        const searchFilters = { ...filters };
+        if (searchTerm) {
+          searchFilters.search = searchTerm;
+        }
+        
+        const response = await enquiryService.getEnquiries(searchFilters);
+        setEnquiries(response.data || []);
+        setError(null);
+      } catch (err) {
+        console.error('Failed to fetch enquiries:', err);
+        setError('Failed to load enquiries. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEnquiries();
+  }, [filters, searchTerm]);
+  
+  // Fetch filter options
+  useEffect(() => {
+    const fetchFilterOptions = async () => {
+      try {
+        const response = await enquiryService.getEnquiryFilters();
+        setFilterOptions(response.data || {
+          statuses: [],
+          sources: [],
+          users: []
+        });
+      } catch (err) {
+        console.error('Failed to fetch filter options:', err);
+      }
+    };
+    
+    fetchFilterOptions();
+  }, []);
+
+  // Handle selection of all enquiries
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedEnquiries(enquiries.map(enquiry => enquiry._id));
+    } else {
+      setSelectedEnquiries([]);
+    }
+  };
+  
+  // Handle selection of a single enquiry
+  const handleSelectEnquiry = (e, id) => {
+    if (e.target.checked) {
+      setSelectedEnquiries([...selectedEnquiries, id]);
+    } else {
+      setSelectedEnquiries(selectedEnquiries.filter(item => item !== id));
+    }
+  };
+  
+  // Handle deletion of an enquiry
+  const handleDeleteEnquiry = async (id) => {
+    if (window.confirm('Are you sure you want to delete this enquiry?')) {
+      try {
+        await enquiryService.deleteEnquiry(id);
+        setEnquiries(enquiries.filter(e => e._id !== id));
+      } catch (err) {
+        console.error('Error deleting enquiry:', err);
+        alert('Failed to delete enquiry');
+      }
+    }
+  };
 
   // Handle filter change
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
-  // Handle search
+  // Handle search input
   const handleSearch = (e) => {
     setSearchTerm(e.target.value);
+    setCurrentPage(1); // Reset to first page when search changes
   };
-
   // Handle bulk actions
-  const handleBulkAction = (action) => {
-    if (action === 'export') {
-      exportToCSV(sortedEnquiries, `enquiries_export_${new Date().toISOString().slice(0,10)}.csv`);
-    } else {
-      console.log(`Bulk action: ${action}`);
-      // Implementation would go here
+  const handleBulkAction = async (action) => {
+    if (selectedEnquiries.length === 0) {
+      alert('Please select at least one enquiry');
+      return;
+    }
+    
+    try {
+      switch (action) {
+        case 'export':
+          const response = await enquiryService.exportEnquiries(filters);
+          exportToCSV(response.data, `enquiries_export_${new Date().toISOString().slice(0,10)}.csv`);
+          break;
+          
+        case 'status':
+          const statusOptions = filterOptions.statuses || ['NEW', 'IN_PROGRESS', 'QUALIFIED', 'CONVERTED', 'LOST'];
+          const newStatus = prompt(`Enter new status (${statusOptions.join(', ')})`);
+          
+          if (newStatus && statusOptions.includes(newStatus)) {
+            await enquiryService.bulkUpdateStatus(selectedEnquiries, newStatus);
+            alert(`Status updated to ${newStatus} for ${selectedEnquiries.length} enquiries`);
+            
+            // Refresh enquiries
+            const updatedResponse = await enquiryService.getEnquiries({
+              ...filters,
+              search: searchTerm
+            });
+            setEnquiries(updatedResponse.data || []);
+            setSelectedEnquiries([]);
+          } else if (newStatus) {
+            alert(`Invalid status. Please use one of: ${statusOptions.join(', ')}`);
+          }
+          break;
+          
+        case 'assign':
+          // Show user selection dialog with available users
+          const userOptions = filterOptions.users || [];
+          const userList = userOptions.map(user => `${user._id}: ${user.first_name} ${user.last_name}`).join('\n');
+          const userId = prompt(`Enter user ID to assign to:\n${userList}`);
+          
+          if (userId) {
+            await enquiryService.bulkAssign(selectedEnquiries, userId);
+            alert(`Assigned ${selectedEnquiries.length} enquiries to user ${userId}`);
+            
+            // Refresh enquiries
+            const updatedResponse = await enquiryService.getEnquiries({
+              ...filters,
+              search: searchTerm
+            });
+            setEnquiries(updatedResponse.data || []);
+            setSelectedEnquiries([]);
+          }
+          break;
+          
+        default:
+          break;
+      }
+    } catch (err) {
+      console.error(`Error performing bulk action ${action}:`, err);
+      alert(`Failed to perform ${action} operation. Please try again.`);
     }
   };
-
-  // Filter enquiries based on search term and filters
-  const filteredEnquiries = enquiries.filter(enquiry => {
-    // Search term filter
-    const matchesSearch = searchTerm === '' || 
-      enquiry.enquiry_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      enquiry.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      enquiry.contact_number.includes(searchTerm);
-    
-    // Status filter
-    const matchesStatus = filters.status === '' || enquiry.status === filters.status;
-    
-    // Priority filter
-    const matchesPriority = filters.priority === '' || enquiry.priority === filters.priority;
-    
-    // Assigned filter
-    const matchesAssigned = filters.assigned === '' || enquiry.assigned_to === filters.assigned;
-    
-    // Enquiry type filter
-    const matchesType = filters.enquiryType === '' || enquiry.enquiry_type === filters.enquiryType;
-    
-    // Date range filter
-    let matchesDateRange = true;
-    if (filters.dateFrom && filters.dateTo) {
-      const enquiryDate = new Date(enquiry.created_at);
-      const fromDate = new Date(filters.dateFrom);
-      const toDate = new Date(filters.dateTo);
-      toDate.setHours(23, 59, 59, 999); // Include the entire "to" day
-      
-      matchesDateRange = enquiryDate >= fromDate && enquiryDate <= toDate;
-    }
-    
-    return matchesSearch && matchesStatus && matchesPriority && 
-           matchesAssigned && matchesType && matchesDateRange;
-  });
-  
-  // Sort the filtered enquiries
-  const sortedEnquiries = [...filteredEnquiries].sort((a, b) => {
-    const sortField = filters.sortBy;
-    const sortOrder = filters.sortOrder === 'asc' ? 1 : -1;
-    
-    if (a[sortField] < b[sortField]) return -1 * sortOrder;
-    if (a[sortField] > b[sortField]) return 1 * sortOrder;
-    return 0;
-  });
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -167,43 +238,42 @@ const EnquiryList = () => {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             >
               <option value="">All Status</option>
-              <option value="New">New</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Qualified">Qualified</option>
-              <option value="Converted">Converted</option>
-              <option value="Closed">Closed</option>
+              {filterOptions.statuses.map(status => (
+                <option key={status} value={status}>{status}</option>
+              ))}
             </select>
           </div>
           
           <div className="w-full md:w-auto">
             <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
             <select 
-              name="source" 
-              value={filters.source} 
+              name="source_type" 
+              value={filters.source_type} 
               onChange={handleFilterChange}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             >
               <option value="">All Sources</option>
-              <option value="Web">Web</option>
-              <option value="WhatsApp">WhatsApp</option>
-              <option value="Email">Email</option>
-              <option value="IndiaMart">IndiaMart</option>
-              <option value="JustDial">JustDial</option>
+              {filterOptions.sources.map(source => (
+                <option key={source} value={source}>{source}</option>
+              ))}
             </select>
           </div>
           
           <div className="w-full md:w-auto">
             <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
             <select 
-              name="assigned" 
-              value={filters.assigned} 
+              name="assigned_to" 
+              value={filters.assigned_to} 
               onChange={handleFilterChange}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             >
               <option value="">All Users</option>
-              <option value="Amit Kumar">Amit Kumar</option>
-              <option value="Neha Singh">Neha Singh</option>
-              <option value="Raj Verma">Raj Verma</option>
+              {filterOptions.users?.map(user => (
+                <option key={user._id} value={user._id}>
+                  {user.first_name} {user.last_name}
+                </option>
+              ))}
+              <option value="unassigned">Unassigned</option>
             </select>
           </div>
           
@@ -216,9 +286,9 @@ const EnquiryList = () => {
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             >
               <option value="">All Priorities</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
+              <option value="HIGH">High</option>
+              <option value="MEDIUM">Medium</option>
+              <option value="LOW">Low</option>
             </select>
           </div>
         </div>
@@ -274,17 +344,19 @@ const EnquiryList = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Enquiry Type</label>
                 <select 
-                  name="enquiryType" 
-                  value={filters.enquiryType} 
+                  name="enquiry_profile" 
+                  value={filters.enquiry_profile} 
                   onChange={handleFilterChange}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 >
                   <option value="">All Types</option>
-                  <option value="Product">Product</option>
-                  <option value="Service">Service</option>
-                  <option value="AMC">AMC</option>
                   <option value="Project">Project</option>
+                  <option value="Product">Product</option>
+                  <option value="AMC/Service">AMC/Service</option>
                   <option value="Complaint">Complaint</option>
+                  <option value="Job">Job</option>
+                  <option value="Info Request">Info Request</option>
+                  <option value="Installation">Installation</option>
                 </select>
               </div>
               
@@ -373,7 +445,12 @@ const EnquiryList = () => {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <input type="checkbox" className="rounded text-blue-600" />
+                <input 
+                  type="checkbox" 
+                  className="rounded text-blue-600" 
+                  onChange={handleSelectAll}
+                  checked={selectedEnquiries.length === enquiries.length && enquiries.length > 0}
+                />
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 ID
@@ -408,54 +485,75 @@ const EnquiryList = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {sortedEnquiries.map((enquiry) => (
-              <tr key={enquiry.enquiry_id} className="hover:bg-gray-50">
+            {enquiries.map((enquiry) => (
+              <tr key={enquiry._id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <input type="checkbox" className="rounded text-blue-600" />
+                  <input 
+                    type="checkbox" 
+                    className="rounded text-blue-600" 
+                    checked={selectedEnquiries.includes(enquiry._id)}
+                    onChange={(e) => handleSelectEnquiry(e, enquiry._id)}
+                  />
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {enquiry.enquiry_id}
+                  {enquiry.enquiry_id || enquiry._id.substring(0, 8)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {enquiry.customer_name}
+                  {enquiry.name}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {enquiry.contact_number}
+                  {enquiry.mobile}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {enquiry.enquiry_type}
+                  {enquiry.enquiry_profile}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${enquiry.status === 'New' ? 'bg-blue-100 text-blue-800' : 
-                      enquiry.status === 'In Progress' ? 'bg-yellow-100 text-yellow-800' : 
-                      enquiry.status === 'Qualified' ? 'bg-green-100 text-green-800' : 
-                      enquiry.status === 'Converted' ? 'bg-purple-100 text-purple-800' : 
+                    ${enquiry.status === 'NEW' ? 'bg-blue-100 text-blue-800' : 
+                      enquiry.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' : 
+                      enquiry.status === 'QUALIFIED' ? 'bg-green-100 text-green-800' : 
+                      enquiry.status === 'CONVERTED' ? 'bg-purple-100 text-purple-800' : 
                       'bg-gray-100 text-gray-800'}`}>
                     {enquiry.status}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${enquiry.priority === 'High' ? 'bg-red-100 text-red-800' : 
-                      enquiry.priority === 'Medium' ? 'bg-orange-100 text-orange-800' : 
+                    ${enquiry.priority === 'HIGH' ? 'bg-red-100 text-red-800' : 
+                      enquiry.priority === 'MEDIUM' ? 'bg-orange-100 text-orange-800' : 
                       'bg-green-100 text-green-800'}`}>
                     {enquiry.priority}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {enquiry.assigned_to}
+                  {enquiry.assigned_to ? 
+                    (typeof enquiry.assigned_to === 'object' && enquiry.assigned_to !== null ? 
+                      (filterOptions.users?.find(u => u._id === enquiry.assigned_to._id) ? 
+                        `${filterOptions.users.find(u => u._id === enquiry.assigned_to._id).first_name} ${filterOptions.users.find(u => u._id === enquiry.assigned_to._id).last_name}` : 
+                        `${enquiry.assigned_to.first_name || ''} ${enquiry.assigned_to.last_name || ''}`) :
+                      (filterOptions.users?.find(u => u._id === enquiry.assigned_to) ? 
+                        `${filterOptions.users.find(u => u._id === enquiry.assigned_to).first_name} ${filterOptions.users.find(u => u._id === enquiry.assigned_to).last_name}` : 
+                        enquiry.assigned_to)) : 
+                    'Unassigned'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {enquiry.created_at}
+                  {new Date(enquiry.created_at).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {enquiry.next_task_due}
+                  {enquiry.next_task_due ? new Date(enquiry.next_task_due).toLocaleDateString() : 'None'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <a href={`/enquiry/${enquiry.enquiry_id}`} className="text-indigo-600 hover:text-indigo-900">
-                    View
-                  </a>
+                  <div className="flex space-x-2">
+                    <Link to={`/enquiry/${enquiry._id}`} className="text-indigo-600 hover:text-indigo-900">
+                      View
+                    </Link>
+                    <button 
+                      onClick={() => handleDeleteEnquiry(enquiry._id)} 
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Delete
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -465,18 +563,27 @@ const EnquiryList = () => {
         {/* Pagination */}
         <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
           <div className="flex-1 flex justify-between sm:hidden">
-            <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <button 
+              onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+              disabled={currentPage === 1}
+              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
               Previous
             </button>
-            <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+            <button 
+              onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+              disabled={currentPage === totalPages}
+              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+            >
               Next
             </button>
           </div>
           <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">1</span> to <span className="font-medium">3</span> of{' '}
-                <span className="font-medium">3</span> results
+                Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{' '}
+                <span className="font-medium">{Math.min(currentPage * pageSize, totalCount)}</span> of{' '}
+                <span className="font-medium">{totalCount}</span> results
               </p>
             </div>
             <div>

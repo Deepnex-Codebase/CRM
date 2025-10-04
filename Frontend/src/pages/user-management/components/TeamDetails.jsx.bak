@@ -503,56 +503,12 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
   const [selectedRole, setSelectedRole] = useState('member');
   const [selectedUserId, setSelectedUserId] = useState(null);
   
-  // Fetch all users who are not already in the team
+  // Fetch all users
   const fetchAllUsers = async () => {
     try {
       const response = await userService.getUsers();
       if (response.success) {
-        // Get all users
-        const allUsersFromAPI = response.data;
-        
-        // Get current team ID
-        const teamId = currentTeamData?.team_id || currentTeamData?._id || (currentTeamData?.data && currentTeamData.data._id);
-        
-        // Create a Set of all existing team member IDs for faster lookup
-        const existingMemberIds = new Set();
-        
-        // Add all team members to the Set
-        teamMembers.forEach(member => {
-          if (member.user_id) existingMemberIds.add(member.user_id);
-          if (member._id) existingMemberIds.add(member._id);
-        });
-        
-        // Add team lead to the Set
-        if (teamLead) {
-          if (teamLead.user_id) existingMemberIds.add(teamLead.user_id);
-          if (teamLead._id) existingMemberIds.add(teamLead._id);
-        }
-        
-        // Hard filter - explicitly remove Tushar Patil, existing team members, and users who already have this team
-        const availableUsers = allUsersFromAPI.filter(user => {
-          // Skip users who are already team members (using Set for faster lookup)
-          const isAlreadyTeamMember = existingMemberIds.has(user._id);
-          
-          // Skip users who already have this team assigned
-          const hasTeamAssigned = user.team_id === teamId || 
-                                 (user.team && user.team._id === teamId) ||
-                                 (user.team && user.team.team_id === teamId);
-          
-          // Skip Tushar Patil by name or ID
-          const isTusharPatil = 
-            (user.first_name === 'Tushar' && user.last_name === 'Patil') || 
-            user._id === '68ce363dccd03d0be2ab1d31';
-          
-          // Debug log to see what's happening with each user
-          console.log(`User ${user.first_name} ${user.last_name} (${user._id}): isTeamMember=${isAlreadyTeamMember}, hasTeam=${hasTeamAssigned}, isTushar=${isTusharPatil}`);
-          
-          // Only include users who are not team members, don't have this team, and are not Tushar Patil
-          return !isAlreadyTeamMember && !hasTeamAssigned && !isTusharPatil;
-        });
-        
-        console.log('Available users after filtering:', availableUsers);
-        setAllUsers(availableUsers);
+        setAllUsers(response.data);
       } else {
         console.error('Failed to fetch users:', response.message);
       }
@@ -583,13 +539,6 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
       setLoading(true);
       setSelectedUserId(userId);
       
-      // Get the correct team ID
-      const teamId = currentTeamData?.team_id || currentTeamData?._id || (currentTeamData?.data && currentTeamData.data._id);
-      
-      if (!teamId) {
-        throw new Error('Valid team ID is required');
-      }
-      
       // Add member to team
       const memberData = {
         user_id: userId,
@@ -597,26 +546,11 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
         active_flag: true
       };
       
-      const response = await teamService.addTeamMember(teamId, memberData);
+      const response = await teamService.addTeamMember(teamData.team_id, memberData);
       
       if (response.success) {
-        // Also update the user's profile to assign this team
-        try {
-          const userResponse = await userService.getUser(userId);
-          if (userResponse.success && userResponse.data) {
-            const userData = userResponse.data;
-            // Update user with team assignment
-            userData.team_id = teamId;
-            await userService.updateUser(userId, userData);
-            console.log('User profile updated with team assignment');
-          }
-        } catch (userError) {
-          console.error('Error updating user profile with team:', userError);
-          // Continue even if user update fails
-        }
-        
         // Fetch updated team members
-        const membersResponse = await teamService.getTeamMembers(teamId, { includeDetails: true });
+        const membersResponse = await teamService.getTeamMembers(teamData.team_id, { includeDetails: true });
         
         if (membersResponse.success) {
           // Update members list with fresh data
@@ -1051,84 +985,6 @@ const TeamDetails = ({ team, isOpen, onClose, onEdit, onDelete }) => {
                         Add Member
                       </button>
                     </div>
-                    
-                    {/* User Dropdown */}
-                    {showUserDropdown && (
-                      <div className="mx-6 mt-4 mb-2 p-4 bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
-                        <div className="mb-3">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Select User to Add
-                          </label>
-                          <div className="max-h-60 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-md">
-                            {allUsers.length > 0 ? (
-                              <ul className="divide-y divide-gray-200 dark:divide-gray-700">
-                                {allUsers.map(user => (
-                                  <li 
-                                    key={user._id} 
-                                    className={`p-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedUserId === user._id ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
-                                    onClick={() => setSelectedUserId(user._id)}
-                                  >
-                                    <div className="flex items-center">
-                                      {user.profile_image ? (
-                                        <img src={user.profile_image} alt={user.name} className="w-8 h-8 rounded-full mr-2" />
-                                      ) : (
-                                        <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center mr-2">
-                                          <User className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                                        </div>
-                                      )}
-                                      <div>
-                                        <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                          {user.first_name && user.last_name 
-                                            ? `${user.first_name} ${user.last_name}` 
-                                            : user.name || user.email}
-                                        </p>
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
-                                      </div>
-                                    </div>
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : (
-                              <p className="p-3 text-sm text-gray-500 dark:text-gray-400">
-                                {allUsers.length === 0 ? "No available users to add" : "Loading users..."}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="mb-3">
-                          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                            Role
-                          </label>
-                          <select
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                            value={selectedRole}
-                            onChange={(e) => setSelectedRole(e.target.value)}
-                          >
-                            <option value="member">Member</option>
-                            <option value="team_lead">Team Lead</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                        </div>
-                        
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-md"
-                            onClick={() => setShowUserDropdown(false)}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-400 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                            onClick={() => handleUserSelect(selectedUserId)}
-                            disabled={!selectedUserId}
-                          >
-                            Add to Team
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    
                     <div className="divide-y divide-gray-200 dark:divide-gray-600">
                       {teamMembers.length > 0 ? teamMembers.map((member, index) => (
                         <div key={member?.id || index} className="p-6">

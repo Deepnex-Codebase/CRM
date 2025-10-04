@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const TaskSchema = new mongoose.Schema({
   task_id: {
@@ -63,6 +64,10 @@ const TaskSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: [true, 'Task must have an assigner']
+  },
+  created_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
   },
   team_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -436,5 +441,8 @@ TaskSchema.statics.getTaskAnalytics = function(startDate, endDate, filters = {})
     }
   ]);
 };
+
+// Apply the pagination plugin to the schema
+TaskSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('Task', TaskSchema);

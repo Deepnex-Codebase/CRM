@@ -481,6 +481,8 @@ class AuthService {
         return { valid: false, reason: 'session_expired' };
       } else if (errorMessage.includes('Session not found')) {
         return { valid: false, reason: 'session_not_found' };
+      } else if (errorMessage.includes('no longer active')) {
+        return { valid: false, reason: 'session_inactive' };
       }
       
       return { valid: false, reason: 'authentication_failed' };

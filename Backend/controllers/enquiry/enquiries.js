@@ -773,7 +773,86 @@ exports.getEnquiryFilters = asyncHandler(async (req, res) => {
       statuses,
       sources,
       priorities,
-      assignedUsers: users.map(u => ({ id: u._id, name: `${u.first_name} ${u.last_name}` }))
+      users: users.map(u => ({ _id: u._id, first_name: u.first_name, last_name: u.last_name }))
+    }
+  });
+});
+
+
+// Bulk update status
+exports.bulkUpdateStatus = asyncHandler(async (req, res) => {
+  const { ids, status } = req.body;
+  
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide an array of enquiry IDs'
+    });
+  }
+  
+  if (!status) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide a status'
+    });
+  }
+  
+  const result = await Enquiry.updateMany(
+    { _id: { $in: ids } },
+    { $set: { status } }
+  );
+  
+  res.status(200).json({
+    success: true,
+    message: `${result.modifiedCount} enquiries updated successfully`,
+    data: {
+      modifiedCount: result.modifiedCount
+    }
+  });
+});
+
+    // Bulk assign enquiries
+exports.bulkAssignEnquiries = asyncHandler(async (req, res) => {
+  const { ids, assigned_to } = req.body;
+  
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide an array of enquiry IDs'
+    });
+  }
+  
+  if (!assigned_to) {
+    return res.status(400).json({
+      success: false,
+      message: 'Please provide a user ID to assign to'
+    });
+  }
+  
+  // Check if user exists
+  const user = await User.findById(assigned_to);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: `User not found with id of ${assigned_to}`
+    });
+  }
+  
+  const result = await Enquiry.updateMany(
+    { _id: { $in: ids } },
+    { 
+      $set: { 
+        assigned_to,
+        stage: 'Assigned' // Update stage if not already assigned
+      } 
+    }
+  );
+  
+  res.status(200).json({
+    success: true,
+    message: `${result.modifiedCount} enquiries assigned successfully`,
+    data: {
+      modifiedCount: result.modifiedCount
     }
   });
 });
@@ -785,7 +864,7 @@ const autoAssignEnquiry = async (enquiry) => {
     // Find applicable assignment rules
     const rules = await AssignmentRule.find({ is_active: true })
       .sort({ priority: -1 }); // Highest priority first
-
+      
     // Find matching rule
     let matchedRule = null;
     for (const rule of rules) {

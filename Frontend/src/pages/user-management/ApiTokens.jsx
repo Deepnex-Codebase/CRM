@@ -296,11 +296,8 @@ const ApiTokens = () => {
       link.click();
       document.body.removeChild(link);
       
-      // Show success message
-      alert('Export completed successfully');
     } catch (error) {
-      console.error('Export failed:', error);
-      alert(`Export failed: ${error.message || 'Unknown error occurred'}`);
+      console.error('Export failed:', error.message);
     }
   };
 

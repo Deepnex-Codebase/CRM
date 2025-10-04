@@ -39,17 +39,33 @@ exports.getCommunicationLogs = asyncHandler(async (req, res, next) => {
     limit: parseInt(limit),
     sort: { created_at: -1 },
     populate: [
-      { path: 'enquiry_id', select: 'enquiry_id name mobile' },
-      { path: 'created_by', select: 'name email' }
+      { path: 'enquiry_id', select: 'enquiry_id name mobile' }
     ]
   };
 
-  const communicationLogs = await CommunicationLog.paginate(filter, options);
+  try {
+    const communicationLogs = await CommunicationLog.paginate(filter, options);
 
-  res.status(200).json({
-    success: true,
-    data: communicationLogs
+    res.status(200).json({
+      success: true,
+      data: {
+        docs: communicationLogs.docs,
+        pagination: {
+          total: communicationLogs.totalDocs,
+          limit: communicationLogs.limit,
+          page: communicationLogs.page,
+          pages: communicationLogs.totalPages,
+          hasNextPage: communicationLogs.hasNextPage,
+          hasPrevPage: communicationLogs.hasPrevPage,
+          nextPage: communicationLogs.nextPage,
+        prevPage: communicationLogs.prevPage
+      }
+    }
   });
+  } catch (error) {
+    console.error('Error in getCommunicationLogs:', error);
+    return next(new ErrorResponse('Error retrieving communication logs', 500));
+  }
 });
 
 // @desc    Get communication log by ID
@@ -401,7 +417,19 @@ exports.getEnquiryCommunications = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    data: communications
+    data: {
+      docs: communications.docs,
+      pagination: {
+        total: communications.totalDocs,
+        limit: communications.limit,
+        page: communications.page,
+        pages: communications.totalPages,
+        hasNextPage: communications.hasNextPage,
+        hasPrevPage: communications.hasPrevPage,
+        nextPage: communications.nextPage,
+        prevPage: communications.prevPage
+      }
+    }
   });
 });
 
@@ -429,7 +457,19 @@ exports.getUserCommunications = asyncHandler(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    data: communications
+    data: {
+      docs: communications.docs,
+      pagination: {
+        total: communications.totalDocs,
+        limit: communications.limit,
+        page: communications.page,
+        pages: communications.totalPages,
+        hasNextPage: communications.hasNextPage,
+        hasPrevPage: communications.hasPrevPage,
+        nextPage: communications.nextPage,
+        prevPage: communications.prevPage
+      }
+    }
   });
 });
 

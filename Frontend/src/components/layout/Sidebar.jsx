@@ -73,7 +73,6 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
   // Enquiry management items
   const enquiryManagementItems = [
     { name: 'Enquiry List', href: '/enquiry-management', icon: MessageSquare, current: location.pathname === '/enquiry-management' },
-    { name: 'Enquiry Detail', href: '/enquiry-management/detail', icon: FileText, current: location.pathname === '/enquiry-management/detail' },
     { name: 'Tasks', href: '/enquiry-management/tasks', icon: ClipboardList, current: location.pathname === '/enquiry-management/tasks' },
     { name: 'Communication', href: '/enquiry-management/communication', icon: Mail, current: location.pathname === '/enquiry-management/communication' },
     { name: 'Conversion', href: '/enquiry-management/conversion', icon: UserPlus, current: location.pathname === '/enquiry-management/conversion' },

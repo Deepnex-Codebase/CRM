@@ -26,7 +26,7 @@ import AutomatedSecurityRules from './pages/user-management/AutomatedSecurityRul
 
 // Enquiry Management Pages
 import EnquiryList from './pages/Enquire-management/EnquiryList';
-import EnquiryDetail from './pages/Enquire-management/EnquiryDetail';
+import EnquiryDetail from './pages/Enquire-management/components/EnquiryDetail';
 import TaskManagement from './pages/Enquire-management/TaskManagement';
 import CommunicationLog from './pages/Enquire-management/CommunicationLog';
 import ConversionWizard from './pages/Enquire-management/ConversionWizard';
@@ -124,7 +124,7 @@ function App() {
                 
                 {/* Enquiry Management Routes */}
                 <Route path="/enquiry-management" element={<EnquiryList />} />
-                <Route path="/enquiry-management/detail" element={<EnquiryDetail />} />
+                <Route path="/enquiry/:id" element={<EnquiryDetail />} />
                 <Route path="/enquiry-management/tasks" element={<TaskManagement />} />
                 <Route path="/enquiry-management/communication" element={<CommunicationLog />} />
                 <Route path="/enquiry-management/conversion" element={<ConversionWizard />} />

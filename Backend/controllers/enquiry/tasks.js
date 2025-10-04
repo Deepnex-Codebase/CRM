@@ -42,8 +42,8 @@ exports.getTasks = asyncHandler(async (req, res, next) => {
     sort: { due_date: 1, priority: -1 },
     populate: [
       { path: 'enquiry_id', select: 'enquiry_id name mobile' },
-      { path: 'assigned_to', select: 'name email team' },
-      { path: 'created_by', select: 'name email' }
+      { path: 'assigned_to', select: 'first_name last_name email team' },
+      { path: 'created_by', select: 'first_name last_name email' }
     ]
   };
 
@@ -121,6 +121,7 @@ exports.createTask = asyncHandler(async (req, res, next) => {
     task_type,
     priority: priority || 'medium',
     assigned_to,
+    assigned_by: req.body.assigned_by || req.user.id, // Use assigned_by from request or fallback to current user
     created_by: req.user.id,
     due_date,
     estimated_hours,
@@ -156,7 +157,7 @@ exports.updateTask = asyncHandler(async (req, res, next) => {
 
   // Only assigned user, creator, or admin can update
   const canUpdate = task.assigned_to?.toString() === req.user.id || 
-                   task.created_by.toString() === req.user.id || 
+                   (task.created_by && task.created_by.toString() === req.user.id) || 
                    req.user.role === 'admin';
 
   if (!canUpdate) {
@@ -165,7 +166,7 @@ exports.updateTask = asyncHandler(async (req, res, next) => {
 
   const allowedUpdates = [
     'title', 'description', 'priority', 'assigned_to', 'due_date', 
-    'estimated_hours', 'dependencies', 'metadata'
+    'estimated_hours', 'dependencies', 'metadata', 'status', 'completion_notes'
   ];
   const updates = {};
   

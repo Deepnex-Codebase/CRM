@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const CommunicationLogSchema = new mongoose.Schema({
   communication_log_id: {
@@ -310,5 +311,8 @@ CommunicationLogSchema.statics.getDeliveryStats = function(startDate, endDate) {
     }
   ]);
 };
+
+// Add pagination plugin
+CommunicationLogSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('CommunicationLog', CommunicationLogSchema);

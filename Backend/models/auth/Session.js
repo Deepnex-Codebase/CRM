@@ -61,6 +61,23 @@ const SessionSchema = new mongoose.Schema({
   is_active: {
     type: Boolean,
     default: true
+  },
+  is_terminated: {
+    type: Boolean,
+    default: false
+  },
+  terminated_at: {
+    type: Date,
+    default: null
+  },
+  terminated_by: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  termination_reason: {
+    type: String,
+    default: null
   }
 });
 

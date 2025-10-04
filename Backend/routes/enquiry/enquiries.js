@@ -24,7 +24,9 @@ const {
   startCall,
   endCall,
   getEnquiryCalls,
-  getEnquiryFilters
+  getEnquiryFilters,
+  bulkUpdateStatus,
+  bulkAssignEnquiries
 } = require('../../controllers/enquiry/enquiries');
 
 const router = express.Router();
@@ -68,6 +70,10 @@ router.get('/stage/:stage', getEnquiriesByStage);
 
 // Get assigned enquiries
 router.get('/assigned/:userId', getAssignedEnquiries);
+
+// Bulk operations
+router.put('/bulk/status', authorize('Admin', 'Sales Head'), bulkUpdateStatus);
+router.put('/bulk/assign', authorize('Admin', 'Sales Head'), bulkAssignEnquiries);
 
 // Dynamic filter options
 router.get('/filters', getEnquiryFilters);

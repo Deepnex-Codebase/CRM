@@ -1,55 +1,190 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import taskService from '../../services/enquire_management/taskService';
+import { toast } from 'react-toastify';
+import authService from '../../services/authService';
+import api from '../../utils/api';
+import { useNavigate } from 'react-router-dom';
 
 const TaskManagement = () => {
-  // Sample data for demonstration
-  const [tasks, setTasks] = useState([
-    {
-      task_id: 'TSK001',
-      enquiry_id: 'ENQ001',
-      title: 'Send product catalog',
-      due_date: '2023-07-18',
-      assigned_to: 'Amit Kumar',
-      status: 'pending'
-    },
-    {
-      task_id: 'TSK002',
-      enquiry_id: 'ENQ001',
-      title: 'Follow-up call',
-      due_date: '2023-07-20',
-      assigned_to: 'Amit Kumar',
-      status: 'pending'
-    },
-    {
-      task_id: 'TSK003',
-      enquiry_id: 'ENQ002',
-      title: 'Prepare quotation',
-      due_date: '2023-07-19',
-      assigned_to: 'Neha Singh',
-      status: 'done'
-    }
-  ]);
+  const navigate = useNavigate();
+
+  // State for tasks
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Pagination state
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  });
 
   // Filter states
   const [filters, setFilters] = useState({
     status: '',
-    assigned: '',
-    enquiry: ''
+    assigned_to: '',
+    enquiry_id: '',
+    task_type: '',
+    priority: '',
+    due_date_from: '',
+    due_date_to: ''
   });
+
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [taskForm, setTaskForm] = useState({
     title: '',
+    description: '',
+    task_type: 'follow_up_call',
+    priority: 'medium',
     due_date: '',
     assigned_to: '',
     enquiry_id: '',
-    remarks: ''
+    estimated_hours: 1
   });
+
+  // Users and enquiries for dropdowns
+  const [users, setUsers] = useState([]);
+  const [enquiries, setEnquiries] = useState([]);
+
+  // Fetch tasks from API with secure error handling
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      // Verify authentication before making request
+      if (!authService.isAuthenticated()) {
+        toast.error("Your session has expired. Please log in again.");
+        navigate('/login');
+        return;
+      }
+
+      const response = await taskService.getTasks({
+        ...filters,
+        page: pagination.page,
+        limit: pagination.limit
+      });
+
+      if (response.success) {
+        setTasks(response.data.docs || []);
+        setPagination({
+          ...pagination,
+          total: response.data.totalDocs || 0,
+          totalPages: response.data.totalPages || 0
+        });
+      } else {
+        setError('Failed to fetch tasks');
+        toast.error('Failed to fetch tasks');
+      }
+    } catch (err) {
+      console.error('Error fetching tasks:', err);
+      // Handle different error types
+      if (err.message?.includes('session has expired')) {
+        navigate('/login');
+      } else if (err.response?.status === 403) {
+        setError('You do not have permission to access these tasks.');
+        toast.error('Permission denied. Contact your administrator for access.');
+      } else {
+        setError('Failed to fetch tasks');
+        toast.error(err.message || 'Failed to fetch tasks');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch users for dropdown
+  const fetchUsers = async () => {
+    try {
+      // Verify authentication before making request
+      if (!authService.isAuthenticated()) {
+        toast.error("Your session has expired. Please log in again.");
+        navigate('/login');
+        return;
+      }
+      
+      const response = await authService.getCurrentUser();
+      if (response.success) {
+        const userResponse = await api.get('/auth/users');
+        if (userResponse.data && userResponse.data.success) {
+          const userData = userResponse.data.data || [];
+          setUsers(userData.map(user => ({
+            _id: user._id,
+            name: `${user.first_name} ${user.last_name}`
+          })));
+        } else {
+          toast.error('Failed to fetch users');
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      toast.error('Failed to load users');
+    }
+  };
+
+  // Fetch enquiries for dropdown
+  const fetchEnquiries = async () => {
+    try {
+      // Verify authentication before making request
+      if (!authService.isAuthenticated()) {
+        toast.error("Your session has expired. Please log in again.");
+        navigate('/login');
+        return;
+      }
+      
+      const response = await api.get('/enquiries');
+      if (response.data && response.data.success) {
+        const enquiryData = response.data.data || [];
+        setEnquiries(enquiryData.map(enquiry => ({
+          _id: enquiry._id,
+          enquiry_id: enquiry.enquiry_id,
+          name: enquiry.name || enquiry.company_name || 'Unnamed Enquiry'
+        })));
+      } else {
+        toast.error('Failed to fetch enquiries');
+      }
+    } catch (err) {
+      console.error('Error fetching enquiries:', err);
+      toast.error('Failed to load enquiries');
+    }
+  };
+
+  // Effect to check authentication and fetch tasks on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      const isAuth = authService.isAuthenticated();
+      setIsAuthenticated(isAuth);
+
+      if (!isAuth) {
+        toast.error("You must be logged in to access this page");
+        navigate('/login');
+        return;
+      }
+
+      fetchTasks();
+      fetchUsers();
+      fetchEnquiries();
+    };
+
+    checkAuth();
+  }, [navigate]);
+
+  // Effect to reload tasks when filters or pagination change
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchTasks();
+    }
+  }, [filters, pagination.page, pagination.limit, isAuthenticated]);
 
   // Handle filter change
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page on filter change
   };
 
   // Handle form change
@@ -60,221 +195,387 @@ const TaskManagement = () => {
 
   // Handle add task
   const handleAddTask = () => {
+    // Get current user ID for assigned_by
+    const currentUser = authService.getStoredUser();
+    
     setTaskForm({
       title: '',
+      description: '',
+      task_type: 'follow_up_call',
+      priority: 'medium',
       due_date: '',
       assigned_to: '',
       enquiry_id: '',
-      remarks: ''
+      estimated_hours: 1,
+      assigned_by: currentUser?._id || currentUser?.id || req?.user?.id // Add assigned_by field with current user ID
     });
     setShowModal(true);
   };
 
-  // Handle save task
-  const handleSaveTask = () => {
-    const newTask = {
-      task_id: `TSK${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-      ...taskForm,
-      status: 'pending'
-    };
+  // Handle edit task
+  const handleEditTask = (task) => {
+    // Get current user ID for assigned_by
+    const currentUser = authService.getStoredUser();
     
-    setTasks(prev => [...prev, newTask]);
-    setShowModal(false);
+    setTaskForm({
+      _id: task._id,
+      title: task.title,
+      description: task.description || '',
+      task_type: task.task_type || 'follow_up_call',
+      priority: task.priority || 'medium',
+      due_date: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : '',
+      assigned_to: task.assigned_to?._id || '',
+      enquiry_id: task.enquiry_id?._id || task.enquiry_id || '',
+      estimated_hours: task.estimated_duration || 1,
+      assigned_by: currentUser?._id || currentUser?.id // Add assigned_by field with current user ID
+    });
+    setShowModal(true);
+  };
+
+  // Handle save task with security measures
+  const handleSaveTask = async () => {
+    try {
+      // Verify authentication before saving
+      if (!authService.isAuthenticated()) {
+        toast.error("Your session has expired. Please log in again.");
+        navigate('/login');
+        return;
+      }
+
+      // Validate required fields
+      if (!taskForm.title || !taskForm.due_date) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      // Get current user ID directly from auth service
+      const currentUser = authService.getStoredUser();
+      
+      // Create a new task data object with assigned_by explicitly set
+      const taskData = {
+        ...taskForm,
+        assigned_by: currentUser?._id || currentUser?.id
+      };
+      
+      console.log("Task data being sent:", taskData); // Debug log
+
+      let response;
+      if (taskForm._id) {
+        // Update existing task
+        response = await taskService.updateTask(taskForm._id, taskData);
+        if (response.success) {
+          toast.success('Task updated successfully');
+        } else {
+          toast.error('Failed to update task');
+        }
+      } else {
+        // Create new task
+        response = await taskService.createTask(taskData);
+        if (response.success) {
+          toast.success('Task created successfully');
+        } else {
+          toast.error('Failed to create task');
+        }
+      }
+
+      if (response.success) {
+        setShowModal(false);
+        fetchTasks(); // Refresh task list
+      }
+    } catch (err) {
+      console.error('Error saving task:', err);
+      // Handle different error types
+      if (err.message?.includes('session has expired')) {
+        navigate('/login');
+      } else if (err.response?.status === 403) {
+        toast.error('Permission denied. You do not have rights to manage tasks.');
+      } else {
+        toast.error(err.message || 'Failed to save task');
+      }
+    }
   };
 
   // Handle mark as done
-  const handleMarkAsDone = (taskId) => {
-    setTasks(prev => 
-      prev.map(task => 
-        task.task_id === taskId ? { ...task, status: 'done' } : task
-      )
-    );
+  const handleMarkAsDone = async (taskId) => {
+    try {
+      const response = await taskService.updateTask(taskId, {
+        status: 'completed',
+        completion_notes: 'Task completed via Task Management interface'
+      });
+
+      if (response.success) {
+        // Update the task status in the local state
+        setTasks(prevTasks => 
+          prevTasks.map(task => 
+            task._id === taskId 
+              ? { ...task, status: 'completed' } 
+              : task
+          )
+        );
+        toast.success('Task marked as completed');
+      } else {
+        toast.error('Failed to update task status');
+      }
+    } catch (err) {
+      console.error('Error updating task status:', err);
+      toast.error(err.message || 'Failed to update task status');
+    }
   };
 
-  // Filter tasks based on filters
-  const filteredTasks = tasks.filter(task => {
-    return (
-      (filters.status === '' || task.status === filters.status) &&
-      (filters.assigned === '' || task.assigned_to === filters.assigned) &&
-      (filters.enquiry === '' || task.enquiry_id === filters.enquiry)
-    );
-  });
+  // Handle pagination
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
 
   return (
     <div className="container mx-auto px-4 py-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Task Management</h1>
-        <button 
+        <button
           onClick={handleAddTask}
           className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700"
         >
           Add Task
         </button>
       </div>
-      
+
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
         <div className="flex flex-wrap gap-4">
           <div className="w-full md:w-auto">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-            <select 
-              name="status" 
-              value={filters.status} 
-              onChange={handleFilterChange}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="done">Done</option>
-            </select>
-          </div>
-          
-          <div className="w-full md:w-auto">
             <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
-            <select 
-              name="assigned" 
-              value={filters.assigned} 
+            <select
+              name="assigned_to"
+              value={filters.assigned_to}
               onChange={handleFilterChange}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             >
               <option value="">All Users</option>
-              <option value="Amit Kumar">Amit Kumar</option>
-              <option value="Neha Singh">Neha Singh</option>
-              <option value="Raj Verma">Raj Verma</option>
+              {users.map(user => (
+                <option key={user._id} value={user._id}>{user.name}</option>
+              ))}
             </select>
           </div>
-          
+
           <div className="w-full md:w-auto">
             <label className="block text-sm font-medium text-gray-700 mb-1">Enquiry</label>
-            <select 
-              name="enquiry" 
-              value={filters.enquiry} 
+            <select
+              name="enquiry_id"
+              value={filters.enquiry_id}
               onChange={handleFilterChange}
               className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
             >
               <option value="">All Enquiries</option>
-              <option value="ENQ001">ENQ001</option>
-              <option value="ENQ002">ENQ002</option>
-              <option value="ENQ003">ENQ003</option>
+              {enquiries.map(enquiry => (
+                <option key={enquiry._id} value={enquiry._id}>
+                  {enquiry.enquiry_id} - {enquiry.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="w-full md:w-auto">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Task Type</label>
+            <select
+              name="task_type"
+              value={filters.task_type}
+              onChange={handleFilterChange}
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+            >
+              <option value="">All Types</option>
+              <option value="follow_up_call">Follow-up Call</option>
+              <option value="send_quotation">Send Quotation</option>
+              <option value="send_email">Send Email</option>
+              <option value="send_sms">Send SMS</option>
+              <option value="schedule_meeting">Schedule Meeting</option>
+              <option value="site_visit">Site Visit</option>
+              <option value="document_collection">Document Collection</option>
+              <option value="verification">Verification</option>
+              <option value="escalation">Escalation</option>
+              <option value="closure">Closure</option>
+              <option value="feedback_collection">Feedback Collection</option>
+              <option value="payment_follow_up">Payment Follow-up</option>
+              <option value="custom">Custom</option>
             </select>
           </div>
         </div>
       </div>
-      
+
       {/* Tasks Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Task ID
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Enquiry ID
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Title
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Due Date
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Assigned To
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredTasks.map((task) => (
-              <tr key={task.task_id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {task.task_id}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  <a href={`/enquiry/${task.enquiry_id}`} className="text-indigo-600 hover:text-indigo-900">
-                    {task.enquiry_id}
-                  </a>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {task.title}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {task.due_date}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {task.assigned_to}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                    task.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'
-                  }`}>
-                    {task.status === 'pending' ? 'Pending' : 'Done'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button className="text-indigo-600 hover:text-indigo-900 mr-3">
-                    Edit
-                  </button>
-                  {task.status === 'pending' && (
-                    <button 
-                      onClick={() => handleMarkAsDone(task.task_id)}
-                      className="text-green-600 hover:text-green-900"
-                    >
-                      Mark Done
-                    </button>
-                  )}
-                </td>
+        {loading ? (
+          <div className="p-4 text-center">Loading tasks...</div>
+        ) : error ? (
+          <div className="p-4 text-center text-red-500">{error}</div>
+        ) : tasks.length === 0 ? (
+          <div className="p-4 text-center">No tasks found</div>
+        ) : (
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Task ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Enquiry
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Title
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Due Date
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Assigned To
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {tasks.map((task) => (
+                <tr key={task._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {task.task_id}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <a href={`/enquiry/${task.enquiry_id?._id || task.enquiry_id}`} className="text-indigo-600 hover:text-indigo-900">
+                      {task.enquiry_id?.enquiry_id || task.enquiry_id}
+                    </a>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {task.title}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {task.task_type?.replace(/_/g, ' ')}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(task.due_date).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {task.assigned_to.first_name + " " + task.assigned_to.last_name || 'Unassigned'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${task.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                        task.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                          task.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            task.status === 'cancelled' ? 'bg-gray-100 text-gray-800' :
+                              task.status === 'on_hold' ? 'bg-purple-100 text-purple-800' :
+                                'bg-red-100 text-red-800'
+                      }`}>
+                      {task.status?.charAt(0).toUpperCase() + task.status?.slice(1).replace(/_/g, ' ')}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <button
+                      onClick={() => handleEditTask(task)}
+                      className="text-indigo-600 hover:text-indigo-900 mr-3"
+                    >
+                      Edit
+                    </button>
+                    {task.status !== 'completed' && task.status !== 'cancelled' && (
+                      <button
+                        onClick={() => handleMarkAsDone(task._id)}
+                        className="text-green-600 hover:text-green-900"
+                      >
+                        Complete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
         {/* Pagination */}
-        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-          <div className="flex-1 flex justify-between sm:hidden">
-            <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-              Previous
-            </button>
-            <button className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
-              Next
-            </button>
-          </div>
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">1</span> to <span className="font-medium">{filteredTasks.length}</span> of{' '}
-                <span className="font-medium">{filteredTasks.length}</span> results
-              </p>
+        {!loading && !error && tasks.length > 0 && (
+          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div className="flex-1 flex justify-between sm:hidden">
+              <button
+                onClick={() => handlePageChange(pagination.page - 1)}
+                disabled={pagination.page === 1}
+                className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white ${pagination.page === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                  }`}
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => handlePageChange(pagination.page + 1)}
+                disabled={pagination.page === pagination.totalPages}
+                className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white ${pagination.page === pagination.totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'
+                  }`}
+              >
+                Next
+              </button>
             </div>
-            <div>
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                <button className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                  Previous
-                </button>
-                <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
-                  1
-                </button>
-                <button className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
-                  Next
-                </button>
-              </nav>
+            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm text-gray-700">
+                  Showing <span className="font-medium">{(pagination.page - 1) * pagination.limit + 1}</span> to{' '}
+                  <span className="font-medium">
+                    {Math.min(pagination.page * pagination.limit, pagination.total)}
+                  </span> of{' '}
+                  <span className="font-medium">{pagination.total}</span> results
+                </p>
+              </div>
+              <div>
+                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                  <button
+                    onClick={() => handlePageChange(pagination.page - 1)}
+                    disabled={pagination.page === 1}
+                    className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${pagination.page === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                    Previous
+                  </button>
+
+                  {/* Page numbers */}
+                  {[...Array(pagination.totalPages).keys()].slice(
+                    Math.max(0, pagination.page - 3),
+                    Math.min(pagination.totalPages, pagination.page + 2)
+                  ).map(page => (
+                    <button
+                      key={page + 1}
+                      onClick={() => handlePageChange(page + 1)}
+                      className={`relative inline-flex items-center px-4 py-2 border ${pagination.page === page + 1
+                          ? 'bg-blue-50 border-blue-500 text-blue-600'
+                          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                        } text-sm font-medium`}
+                    >
+                      {page + 1}
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={() => handlePageChange(pagination.page + 1)}
+                    disabled={pagination.page === pagination.totalPages}
+                    className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${pagination.page === pagination.totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-500 hover:bg-gray-50'
+                      }`}
+                  >
+                    Next
+                  </button>
+                </nav>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
-      
+
       {/* Add Task Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">Add Task</h3>
-              <button 
+              <h3 className="text-lg font-medium">{taskForm._id ? 'Edit Task' : 'Add Task'}</h3>
+              <button
                 onClick={() => setShowModal(false)}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -283,12 +584,12 @@ const TaskManagement = () => {
                 </svg>
               </button>
             </div>
-            
+
             <div className="mt-2">
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   name="title"
                   value={taskForm.title}
                   onChange={handleFormChange}
@@ -296,51 +597,55 @@ const TaskManagement = () => {
                   placeholder="Task title"
                 />
               </div>
-              
+
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   name="due_date"
                   value={taskForm.due_date}
                   onChange={handleFormChange}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 />
               </div>
-              
+
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
-                <select 
+                <select
                   name="assigned_to"
                   value={taskForm.assigned_to}
                   onChange={handleFormChange}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 >
                   <option value="">Select User</option>
-                  <option value="Amit Kumar">Amit Kumar</option>
-                  <option value="Neha Singh">Neha Singh</option>
-                  <option value="Raj Verma">Raj Verma</option>
+                  {users.map(user => (
+                    <option key={user._id} value={user._id}>
+                      {user.name}
+                    </option>
+                  ))}
                 </select>
               </div>
-              
+
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Enquiry ID</label>
-                <select 
+                <select
                   name="enquiry_id"
                   value={taskForm.enquiry_id}
                   onChange={handleFormChange}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 >
                   <option value="">Select Enquiry</option>
-                  <option value="ENQ001">ENQ001</option>
-                  <option value="ENQ002">ENQ002</option>
-                  <option value="ENQ003">ENQ003</option>
+                  {enquiries.map(enquiry => (
+                    <option key={enquiry._id} value={enquiry._id}>
+                      {enquiry.enquiry_id} - {enquiry.name}
+                    </option>
+                  ))}
                 </select>
               </div>
-              
+
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
-                <textarea 
+                <textarea
                   name="remarks"
                   value={taskForm.remarks}
                   onChange={handleFormChange}
@@ -350,15 +655,15 @@ const TaskManagement = () => {
                 ></textarea>
               </div>
             </div>
-            
+
             <div className="flex justify-end mt-4">
-              <button 
+              <button
                 onClick={() => setShowModal(false)}
                 className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md text-sm mr-2"
               >
                 Cancel
               </button>
-              <button 
+              <button
                 onClick={handleSaveTask}
                 className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700"
               >
