@@ -505,4 +505,15 @@ NotificationLogSchema.statics.cleanupOldNotifications = function(daysOld = 90) {
   });
 };
 
+// Pre-save hook to set expiration date to 2 days from creation if not already set
+NotificationLogSchema.pre('save', function(next) {
+  // If this is a new notification or expires_at is not set
+  if (this.isNew && !this.expires_at) {
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 2); // Set expiry to 2 days from now
+    this.expires_at = expiryDate;
+  }
+  next();
+});
+
 module.exports = mongoose.model('NotificationLog', NotificationLogSchema);

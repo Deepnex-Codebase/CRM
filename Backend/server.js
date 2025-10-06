@@ -96,6 +96,7 @@ app.use('/api/profiles/mapping', profileMappingRoutes);
 app.use('/api/profiles/links', profileToProfileLinksRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/notifications', notificationLogRoutes);
+app.use('/api/notification-logs', notificationLogRoutes);
 app.use('/api/user-activity-logs', userActivityLogRoutes);
 app.use('/api/customers', customerMasterRoutes);
 app.use('/api/employees', employeeRoutes);

@@ -19,6 +19,7 @@ const {
 const router = express.Router();
 
 const { protect, authorize } = require('../../middleware/auth');
+const auditLogger = require('../../middleware/auditLogger');
 
 router.use(protect);
 
@@ -26,7 +27,7 @@ router.use(protect);
 router.get('/', getTasks);
 
 // Create new task
-router.post('/', authorize('Admin', 'Sales Head', 'Telecaller'), createTask);
+router.post('/', authorize('Admin', 'Sales Head', 'Telecaller'), auditLogger({ entityType: 'Task', action: 'CREATE' }), createTask);
 
 // Get task analytics
 router.get('/analytics', authorize('Admin', 'Sales Head'), getTaskAnalytics);
@@ -58,7 +59,7 @@ router.get('/:id/comments', getTaskComments);
 // Routes for specific task
 router.route('/:id')
   .get(getTaskById)
-  .put(authorize('Admin', 'Sales Head', 'Telecaller'), updateTask)
-  .delete(authorize('Admin'), deleteTask);
+  .put(authorize('Admin', 'Sales Head', 'Telecaller'), auditLogger({ entityType: 'Task', action: 'UPDATE' }), updateTask)
+  .delete(authorize('Admin'), auditLogger({ entityType: 'Task', action: 'DELETE' }), deleteTask);
 
 module.exports = router;

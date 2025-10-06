@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
 
 const AuditLogSchema = new mongoose.Schema({
+  // Added entity_details to store entity information in object form
+  entity_details: {
+    type: mongoose.Schema.Types.Mixed,
+    description: 'Stores entity information in object form for quick access'
+  },
   audit_log_id: {
     type: String,
     unique: true,
@@ -20,6 +25,7 @@ const AuditLogSchema = new mongoose.Schema({
       'Task',
       'StatusLog',
       'AssignmentLog',
+      'AssignmentRule',
       'CommunicationLog',
       'CallLog',
       'CallFeedback',
@@ -28,6 +34,8 @@ const AuditLogSchema = new mongoose.Schema({
       'StatusType',
       'PriorityScoreType',
       'SourceChannel',
+      'AutomationRule',
+      'AutomationTrigger',
       'System',
       'Authentication',
       'Other'
@@ -62,8 +70,16 @@ const AuditLogSchema = new mongoose.Schema({
       'SYNC',
       'EXPORT',
       'IMPORT',
+      'EXECUTE',
+      'TRIGGER',
+      'COMPLETE',
       'OTHER'
     ]
+  },
+  action_category: {
+    type: String,
+    enum: ['data', 'security', 'communication', 'system', 'automation', 'other'],
+    default: 'data'
   },
   user_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -165,7 +181,54 @@ AuditLogSchema.index({ correlation_id: 1 });
 AuditLogSchema.index({ created_at: -1 }); // Most recent first
 
 // Static method to create audit log entry
-AuditLogSchema.statics.createLog = function(logData) {
+AuditLogSchema.statics.createLog = function(userId, entityType, entityId, action, changes, metadata = {}) {
+  // Determine action category based on action
+  let actionCategory = 'data';
+  if (['LOGIN', 'LOGOUT'].includes(action)) {
+    actionCategory = 'security';
+  } else if (['CALL', 'EMAIL', 'SMS', 'WHATSAPP', 'SEND', 'RECEIVE'].includes(action)) {
+    actionCategory = 'communication';
+  } else if (['SYNC', 'EXPORT', 'IMPORT'].includes(action)) {
+    actionCategory = 'system';
+  } else if (['EXECUTE', 'TRIGGER'].includes(action)) {
+    actionCategory = 'automation';
+  }
+
+  // Process changes to determine old and new values
+  let oldValues = {};
+  let newValues = {};
+  
+  if (Array.isArray(changes)) {
+    changes.forEach(change => {
+      if (change.old_value !== undefined) {
+        oldValues[change.field] = change.old_value;
+      }
+      if (change.new_value !== undefined) {
+        newValues[change.field] = change.new_value;
+      }
+    });
+  }
+
+  const logData = {
+    user_id: userId,
+    entity_type: entityType,
+    entity_id: entityId,
+    action: action,
+    action_category: actionCategory,
+    changes: changes || [],
+    old_values: oldValues,
+    new_values: newValues,
+    metadata: metadata,
+    ip_address: metadata.ip_address,
+    user_agent: metadata.user_agent,
+    is_system_action: !userId,
+    session_id: metadata.session_id,
+    correlation_id: metadata.correlation_id,
+    severity: metadata.severity || 'low',
+    status: metadata.status || 'success',
+    description: metadata.description
+  };
+
   const auditLog = new this(logData);
   return auditLog.save();
 };
@@ -195,6 +258,45 @@ AuditLogSchema.statics.getEntityHistory = function(entityType, entityId, limit =
     .populate('user_id', 'name email')
     .sort({ created_at: -1 })
     .limit(limit);
+};
+
+// Static method to get system activity summary
+AuditLogSchema.statics.getSystemActivitySummary = function(startDate, endDate) {
+  const match = {};
+  
+  if (startDate || endDate) {
+    match.created_at = {};
+    if (startDate) match.created_at.$gte = new Date(startDate);
+    if (endDate) match.created_at.$lte = new Date(endDate);
+  }
+  
+  return this.aggregate([
+    { $match: match },
+    {
+      $group: {
+        _id: {
+          entity_type: '$entity_type',
+          action_category: '$action_category',
+          date: { $dateToString: { format: '%Y-%m-%d', date: '$created_at' } }
+        },
+        count: { $sum: 1 }
+      }
+    },
+    {
+      $group: {
+        _id: '$_id.date',
+        activities: {
+          $push: {
+            entity_type: '$_id.entity_type',
+            action_category: '$_id.action_category',
+            count: '$count'
+          }
+        },
+        total: { $sum: '$count' }
+      }
+    },
+    { $sort: { _id: 1 } }
+  ]);
 };
 
 module.exports = mongoose.model('AuditLog', AuditLogSchema);

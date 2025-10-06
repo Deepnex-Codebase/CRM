@@ -19,7 +19,13 @@ exports.getNotificationLogs = asyncHandler(async (req, res, next) => {
     limit = 10 
   } = req.query;
 
-  let filter = {};
+  let filter = {
+    // Only show notifications that haven't expired
+    $or: [
+      { expires_at: { $gt: new Date() } },
+      { expires_at: { $exists: false } }
+    ]
+  };
   
   if (enquiry_id) filter.enquiry_id = enquiry_id;
   if (notification_type) filter.notification_type = notification_type;
@@ -38,7 +44,7 @@ exports.getNotificationLogs = asyncHandler(async (req, res, next) => {
     sort: { created_at: -1 },
     populate: [
       { path: 'enquiry_id', select: 'enquiry_id name mobile' },
-      { path: 'recipient_id', select: 'name email' }
+      { path: 'recipient.user_id', select: 'name email' }
     ]
   };
 
@@ -56,7 +62,7 @@ exports.getNotificationLogs = asyncHandler(async (req, res, next) => {
 exports.getNotificationLogById = asyncHandler(async (req, res, next) => {
   const notificationLog = await NotificationLog.findById(req.params.id)
     .populate('enquiry_id', 'enquiry_id name mobile')
-    .populate('recipient_id', 'name email');
+    .populate('recipient.user_id', 'name email');
 
   if (!notificationLog) {
     return next(new ErrorResponse('Notification log not found', 404));

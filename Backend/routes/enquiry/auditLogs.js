@@ -12,7 +12,8 @@ const {
   getFailedLoginAttempts,
   exportAuditLogs,
   archiveOldLogs,
-  deleteAuditLog
+  deleteAuditLog,
+  getModelActivityLogs
 } = require('../../controllers/enquiry/auditLogs');
 
 const router = express.Router();
@@ -47,6 +48,9 @@ router.get('/export', authorize('Admin'), exportAuditLogs);
 
 // Archive old logs (Admin only)
 router.post('/archive', authorize('Admin'), archiveOldLogs);
+
+// Get model-specific audit logs
+router.get('/models/:model_name', getModelActivityLogs);
 
 // Get user activity
 router.get('/user/:user_id/activity', getUserActivity);
