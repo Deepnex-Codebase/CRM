@@ -19,7 +19,13 @@ exports.getNotificationLogs = asyncHandler(async (req, res, next) => {
     limit = 10 
   } = req.query;
 
-  let filter = {};
+  let filter = {
+    // Only show notifications that haven't expired
+    $or: [
+      { expires_at: { $gt: new Date() } },
+      { expires_at: { $exists: false } }
+    ]
+  };
   
   if (enquiry_id) filter.enquiry_id = enquiry_id;
   if (notification_type) filter.notification_type = notification_type;

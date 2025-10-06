@@ -3,6 +3,7 @@ const asyncHandler = require('../../middleware/async');
 const Task = require('../../models/enquiry/Task');
 const Enquiry = require('../../models/enquiry/Enquiry');
 const User = require('../../models/profile/User');
+const NotificationLog = require('../../models/profile/NotificationLog');
 
 // @desc    Get all tasks
 // @route   GET /api/v1/tasks
@@ -139,6 +140,33 @@ exports.createTask = asyncHandler(async (req, res, next) => {
     { path: 'created_by', select: 'name email' }
   ]);
 
+  // Create notification for task creation
+  if (task.assigned_to) {
+    try {
+      await NotificationLog.create({
+        task_id: task._id,
+        enquiry_id: task.enquiry_id,
+        notification_type: 'task_created',
+        notification_category: 'info',
+        recipient: {
+          user_id: task.assigned_to
+        },
+        sender: {
+          user_id: req.user.id
+        },
+        title: `New Task: ${task.title}`,
+        message: `You have been assigned a new task: ${task.title}. Due date: ${new Date(task.due_date).toLocaleDateString()}`,
+        priority: task.priority,
+        action_required: true,
+        action_url: `/tasks/${task._id}`,
+        is_read: false
+      });
+    } catch (err) {
+      console.error('Error creating notification:', err);
+      // Continue execution even if notification fails
+    }
+  }
+
   res.status(201).json({
     success: true,
     data: task
@@ -194,6 +222,33 @@ exports.updateTask = asyncHandler(async (req, res, next) => {
     { path: 'created_by', select: 'name email' }
   ]);
 
+  // Create notification for task update if assigned_to has changed
+  if (updates.assigned_to && updates.assigned_to !== task.assigned_to.toString()) {
+    try {
+      await NotificationLog.create({
+        task_id: task._id,
+        enquiry_id: task.enquiry_id,
+        notification_type: 'task_assigned',
+        notification_category: 'info',
+        recipient: {
+          user_id: updates.assigned_to
+        },
+        sender: {
+          user_id: req.user.id
+        },
+        title: `Task Assigned: ${task.title}`,
+        message: `You have been assigned a task: ${task.title}. Due date: ${new Date(task.due_date).toLocaleDateString()}`,
+        priority: task.priority,
+        action_required: true,
+        action_url: `/tasks/${task._id}`,
+        is_read: false
+      });
+    } catch (err) {
+      console.error('Error creating notification:', err);
+      // Continue execution even if notification fails
+    }
+  }
+
   res.status(200).json({
     success: true,
     data: task
@@ -218,6 +273,48 @@ exports.updateTaskStatus = asyncHandler(async (req, res, next) => {
   }
 
   await task.updateStatus(status, completion_notes, req.user.id);
+
+  // Create notification for task status update
+  try {
+    let notificationType = 'task_updated';
+    let notificationCategory = 'info';
+    let title = `Task Updated: ${task.title}`;
+    let message = `Task status has been updated to ${status}`;
+    
+    if (status === 'completed') {
+      notificationType = 'task_completed';
+      notificationCategory = 'success';
+      title = `Task Completed: ${task.title}`;
+      message = `Task has been marked as completed`;
+    } else if (status === 'overdue') {
+      notificationType = 'task_overdue';
+      notificationCategory = 'warning';
+      title = `Task Overdue: ${task.title}`;
+      message = `Task is now overdue`;
+    }
+    
+    await NotificationLog.create({
+      task_id: task._id,
+      enquiry_id: task.enquiry_id,
+      notification_type: notificationType,
+      notification_category: notificationCategory,
+      recipient: {
+        user_id: task.assigned_to
+      },
+      sender: {
+        user_id: req.user.id
+      },
+      title: title,
+      message: message,
+      priority: task.priority,
+      action_required: status !== 'completed',
+      action_url: `/tasks/${task._id}`,
+      is_read: false
+    });
+  } catch (err) {
+    console.error('Error creating notification:', err);
+    // Continue execution even if notification fails
+  }
 
   res.status(200).json({
     success: true,

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const NotificationLogSchema = new mongoose.Schema({
   notification_log_id: {
@@ -504,5 +505,19 @@ NotificationLogSchema.statics.cleanupOldNotifications = function(daysOld = 90) {
     is_read: true
   });
 };
+
+// Pre-save hook to set expiration date to 2 days from creation if not already set
+NotificationLogSchema.pre('save', function(next) {
+  // If this is a new notification or expires_at is not set
+  if (this.isNew && !this.expires_at) {
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 2); // Set expiry to 2 days from now
+    this.expires_at = expiryDate;
+  }
+  next();
+});
+
+// Apply the mongoose-paginate-v2 plugin to enable pagination
+NotificationLogSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('NotificationLog', NotificationLogSchema);
