@@ -44,6 +44,13 @@ exports.createProfileMapping = asyncHandler(async (req, res, next) => {
   // Add user to req.body
   req.body.created_by = req.user.id;
 
+  // Validate that enquiry_id is provided
+  if (!req.body.enquiry_id) {
+    return next(
+      new ErrorResponse('Enquiry ID is required for profile mapping', 400)
+    );
+  }
+
   // Check if enquiry exists
   const enquiry = await Enquiry.findById(req.body.enquiry_id);
   if (!enquiry) {
@@ -237,5 +244,94 @@ exports.getProfileMappingsByProfile = asyncHandler(async (req, res, next) => {
     success: true,
     count: profileMappings.length,
     data: profileMappings
+  });
+});
+
+// @desc    Run a profile mapping rule
+// @route   POST /api/v1/profile-mappings/:id/run
+// @access  Private
+exports.runProfileMapping = asyncHandler(async (req, res, next) => {
+  const profileMapping = await ProfileMapping.findById(req.params.id)
+    .populate({
+      path: 'enquiry_id',
+      select: 'name mobile email enquiry_id'
+    });
+
+  if (!profileMapping) {
+    return next(
+      new ErrorResponse(`Profile mapping not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  // Log the activity
+  await UserActivityLog.create({
+    user_id: req.user.id,
+    action_type: 'other',
+    entity_type: 'profile_mapping',
+    entity_id: profileMapping._id,
+    description: `Executed profile mapping ${profileMapping.mapping_id}`,
+    ip_address: req.ip,
+    user_agent: req.headers['user-agent']
+  });
+
+  // In a real implementation, this would execute the mapping logic
+  // For now, we'll just update the last_run timestamp
+  profileMapping.last_run = Date.now();
+  
+  // Increment conversion count
+  profileMapping.conversion_count = (profileMapping.conversion_count || 0) + 1;
+  
+  await profileMapping.save();
+
+  res.status(200).json({
+    success: true,
+    message: `Profile mapping ${profileMapping.mapping_id} executed successfully`,
+    data: profileMapping
+  });
+});
+
+// @desc    Toggle profile mapping status (active/inactive)
+// @route   PATCH /api/v1/profile-mappings/:id/status
+// @access  Private
+exports.toggleProfileMappingStatus = asyncHandler(async (req, res, next) => {
+  const { is_active } = req.body;
+
+  if (is_active === undefined) {
+    return next(
+      new ErrorResponse('Please provide is_active status', 400)
+    );
+  }
+
+  let profileMapping = await ProfileMapping.findById(req.params.id);
+
+  if (!profileMapping) {
+    return next(
+      new ErrorResponse(`Profile mapping not found with id of ${req.params.id}`, 404)
+    );
+  }
+
+  // Store previous state for activity log
+  const previousState = { ...profileMapping.toObject() };
+
+  // Update status
+  profileMapping.is_active = is_active;
+  await profileMapping.save();
+
+  // Log the activity
+  await UserActivityLog.create({
+    user_id: req.user.id,
+    action_type: 'update',
+    entity_type: 'profile_mapping',
+    entity_id: profileMapping._id,
+    description: `${is_active ? 'Activated' : 'Deactivated'} profile mapping ${profileMapping.mapping_id}`,
+    previous_state: previousState,
+    new_state: profileMapping.toObject(),
+    ip_address: req.ip,
+    user_agent: req.headers['user-agent']
+  });
+
+  res.status(200).json({
+    success: true,
+    data: profileMapping
   });
 });

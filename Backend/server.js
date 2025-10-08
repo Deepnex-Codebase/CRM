@@ -92,7 +92,7 @@ app.use('/api/profiles/complaint', complaintProfileRoutes);
 app.use('/api/profiles/job', jobProfileRoutes);
 app.use('/api/profiles/info', infoProfileRoutes);
 app.use('/api/profiles/site-visit', siteVisitScheduleRoutes);
-app.use('/api/profiles/mapping', profileMappingRoutes);
+app.use('/api/profiles/mappings', profileMappingRoutes);
 app.use('/api/profiles/links', profileToProfileLinksRoutes);
 app.use('/api/teams', teamsRoutes);
 app.use('/api/notifications', notificationLogRoutes);

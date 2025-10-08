@@ -11,6 +11,10 @@ const ProfileMappingSchema = new mongoose.Schema({
       return `MAP-${dateStr}-XXXX`; // This will be replaced by pre-save hook
     }
   },
+  name: {
+    type: String,
+    trim: true
+  },
   enquiry_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Enquiry',
@@ -47,6 +51,46 @@ const ProfileMappingSchema = new mongoose.Schema({
       'JobProfile',
       'SiteVisitSchedule'
     ]
+  },
+  conditions: [{
+    field: {
+      type: String,
+      required: true
+    },
+    operator: {
+      type: String,
+      enum: ['equals', 'not_equals', 'greater_than', 'less_than', 'contains', 'starts_with', 'ends_with', 'older_than', 'newer_than'],
+      default: 'equals'
+    },
+    value: {
+      type: String,
+      required: true
+    }
+  }],
+  field_mappings: [{
+    source_field: {
+      type: String,
+      required: true
+    },
+    target_field: {
+      type: String,
+      required: true
+    },
+    transformation: {
+      type: String,
+      default: null
+    }
+  }],
+  is_active: {
+    type: Boolean,
+    default: true
+  },
+  last_run: {
+    type: Date
+  },
+  conversion_count: {
+    type: Number,
+    default: 0
   },
   created_by: {
     type: mongoose.Schema.Types.ObjectId,

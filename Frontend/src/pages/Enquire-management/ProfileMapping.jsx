@@ -1,99 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Search, Filter, Download, ChevronDown, ChevronUp, 
-  Plus, Edit, Trash, ArrowRight, Check, X, Settings
+  Plus, Edit, Trash, ArrowRight, Check, X, Settings, Loader
 } from 'lucide-react';
+import { 
+  getProfileMappings, 
+  createProfileMapping, 
+  updateProfileMapping, 
+  deleteProfileMapping, 
+  runProfileMappingRule,
+  toggleProfileMappingStatus
+} from '../../services/enquire_management/profileMappingService';
+import { getProfilesByType } from '../../services/profile/profileService';
+import enquiryService from '../../services/enquire_management/enquiryService';
 
 const ProfileMapping = () => {
-  // Sample data for profile mapping rules
-  const [mappingRules, setMappingRules] = useState([
-    {
-      id: 'PM001',
-      name: 'Basic Lead to Customer',
-      source_profile: 'Lead',
-      target_profile: 'Customer',
-      conditions: [
-        { field: 'status', operator: 'equals', value: 'Qualified' },
-        { field: 'interest_level', operator: 'greater_than', value: '7' }
-      ],
-      field_mappings: [
-        { source_field: 'first_name', target_field: 'first_name', transformation: null },
-        { source_field: 'last_name', target_field: 'last_name', transformation: null },
-        { source_field: 'email', target_field: 'email', transformation: null },
-        { source_field: 'phone', target_field: 'contact_number', transformation: null },
-        { source_field: 'company', target_field: 'organization', transformation: null }
-      ],
-      is_active: true,
-      created_by: 'System',
-      created_at: '2023-06-15T10:00:00',
-      last_run: '2023-07-20T14:30:00',
-      conversion_count: 156
-    },
-    {
-      id: 'PM002',
-      name: 'Premium Lead to VIP Customer',
-      source_profile: 'Lead',
-      target_profile: 'VIP Customer',
-      conditions: [
-        { field: 'status', operator: 'equals', value: 'Qualified' },
-        { field: 'interest_level', operator: 'greater_than', value: '8' },
-        { field: 'budget', operator: 'greater_than', value: '100000' }
-      ],
-      field_mappings: [
-        { source_field: 'first_name', target_field: 'first_name', transformation: null },
-        { source_field: 'last_name', target_field: 'last_name', transformation: null },
-        { source_field: 'email', target_field: 'email', transformation: null },
-        { source_field: 'phone', target_field: 'primary_contact', transformation: null },
-        { source_field: 'company', target_field: 'company_name', transformation: null },
-        { source_field: 'budget', target_field: 'spending_capacity', transformation: 'multiply_by_1.5' }
-      ],
-      is_active: true,
-      created_by: 'Vikram Malhotra',
-      created_at: '2023-06-20T11:15:00',
-      last_run: '2023-07-21T09:45:00',
-      conversion_count: 42
-    },
-    {
-      id: 'PM003',
-      name: 'Customer to Inactive',
-      source_profile: 'Customer',
-      target_profile: 'Inactive Customer',
-      conditions: [
-        { field: 'last_purchase_date', operator: 'older_than', value: '365 days' },
-        { field: 'engagement_score', operator: 'less_than', value: '3' }
-      ],
-      field_mappings: [
-        { source_field: 'customer_id', target_field: 'former_customer_id', transformation: null },
-        { source_field: 'first_name', target_field: 'first_name', transformation: null },
-        { source_field: 'last_name', target_field: 'last_name', transformation: null },
-        { source_field: 'email', target_field: 'email', transformation: null },
-        { source_field: 'total_purchases', target_field: 'historical_purchases', transformation: null }
-      ],
-      is_active: false,
-      created_by: 'Neha Singh',
-      created_at: '2023-07-01T16:20:00',
-      last_run: '2023-07-15T23:00:00',
-      conversion_count: 78
-    }
-  ]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [mappingRules, setMappingRules] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [currentRule, setCurrentRule] = useState({
+    name: '',
+    source_profile: '',
+    target_profile: '',
+    conditions: [],
+    field_mappings: [],
+    is_active: true,
+    profile_id: null,
+    enquiry_id: ''
+  });
 
-  // Sample profile types
-  const profileTypes = ['Lead', 'Prospect', 'Customer', 'VIP Customer', 'Inactive Customer'];
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0
+  });
   
-  // Sample field definitions for each profile type
-  const profileFields = {
-    'Lead': ['first_name', 'last_name', 'email', 'phone', 'company', 'source', 'status', 'interest_level', 'budget', 'created_at'],
-    'Customer': ['customer_id', 'first_name', 'last_name', 'email', 'contact_number', 'organization', 'join_date', 'total_purchases', 'last_purchase_date', 'engagement_score'],
-    'VIP Customer': ['customer_id', 'first_name', 'last_name', 'email', 'primary_contact', 'company_name', 'join_date', 'spending_capacity', 'account_manager', 'loyalty_tier'],
-    'Inactive Customer': ['former_customer_id', 'first_name', 'last_name', 'email', 'historical_purchases', 'inactive_reason', 'last_active_date', 'reactivation_attempts']
-  };
-
+  // State for enquiries
+  const [enquiries, setEnquiries] = useState([]);
+  const [loadingEnquiries, setLoadingEnquiries] = useState(false);
+  
+  // State for profiles
+  const [profiles, setProfiles] = useState([]);
+  const [loadingProfiles, setLoadingProfiles] = useState(false);
+  
   // State for filters
   const [filters, setFilters] = useState({
     name: '',
     source_profile: '',
     target_profile: '',
-    is_active: ''
+    is_active: null, // Using null instead of empty string for boolean field
+    enquiry_id: ''
   });
 
   // State for advanced filters visibility
@@ -105,17 +63,191 @@ const ProfileMapping = () => {
     direction: 'desc'
   });
 
-  // State for edit/create modal
-  const [showModal, setShowModal] = useState(false);
-  const [currentRule, setCurrentRule] = useState(null);
-  const [isEditing, setIsEditing] = useState(false);
+  // Fetch profile mappings from API
+  const fetchProfileMappings = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await getProfileMappings(
+        pagination.page, 
+        pagination.limit, 
+        filters
+      );
+      
+      // Transform backend data to match frontend structure
+      const transformedData = response.data.map(mapping => ({
+        id: mapping._id,
+        mapping_id: mapping.mapping_id,
+        name: mapping.name || `Mapping ${mapping.mapping_id}`,
+        source_profile: mapping.profile_type,
+        target_profile: mapping.profile_type_ref,
+        conditions: mapping.conditions || [],
+        field_mappings: mapping.field_mappings || [],
+        is_active: mapping.is_active || true,
+        created_by: mapping.created_by ? mapping.created_by.name : 'System',
+        created_at: mapping.created_at,
+        last_run: mapping.last_run,
+        conversion_count: mapping.conversion_count || 0,
+        enquiry_id: mapping.enquiry_id,
+        profile_id: mapping.profile_id
+      }));
+      
+      setMappingRules(transformedData);
+      setPagination({
+        ...pagination,
+        total: response.total
+      });
+    } catch (err) {
+      console.error('Error fetching profile mappings:', err);
+      setError('Failed to load profile mappings. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  // Profile types from backend
+  const profileTypes = ['project', 'product', 'amc', 'complaint', 'info', 'job', 'site_visit'];
+  
+  // Field definitions for each profile type - these would ideally come from an API
+  const profileFields = {
+    'project': ['name', 'description', 'status', 'start_date', 'end_date', 'budget', 'location', 'client_name', 'project_manager'],
+    'product': ['name', 'description', 'category', 'price', 'sku', 'stock', 'features', 'specifications'],
+    'amc': ['name', 'description', 'start_date', 'end_date', 'renewal_date', 'client_name', 'contract_value', 'service_level'],
+    'complaint': ['subject', 'description', 'priority', 'status', 'reported_date', 'resolution_date', 'customer_name', 'assigned_to'],
+    'info': ['title', 'content', 'category', 'tags', 'publish_date', 'author', 'status'],
+    'job': ['title', 'description', 'location', 'department', 'salary_range', 'experience_required', 'skills_required', 'posting_date'],
+    'site_visit': ['location', 'scheduled_date', 'purpose', 'contact_person', 'status', 'notes', 'assigned_to']
+  };
+  
+  // Fetch enquiries for dropdown
+  const fetchEnquiries = async () => {
+    try {
+      setLoadingEnquiries(true);
+      const response = await enquiryService.getEnquiries({
+        page: 1,
+        limit: 100
+      });
+      if (response.success && response.data) {
+        setEnquiries(response.data);
+      } else {
+        console.error('Failed to fetch enquiries');
+      }
+    } catch (err) {
+      console.error('Error fetching enquiries:', err);
+    } finally {
+      setLoadingEnquiries(false);
+    }
+  };
+  
+  // Fetch profiles by type
+ 
+
+  // Load profile mappings when component mounts or filters change
+  useEffect(() => {
+    fetchProfileMappings();
+  }, [pagination.page, pagination.limit, filters]);
+
+  // Load enquiries when component mounts
+  useEffect(() => {
+    fetchEnquiries();
+  }, []);
+
+  // Function to generate dummy profiles based on profile type
+  
+  // Function to generate dummy profiles based on profile type
+  const getDummyProfiles = (type) => {
+    const generateObjectId = () => {
+      const timestamp = Math.floor(new Date().getTime() / 1000).toString(16).padStart(8, '0');
+      const machineId = Math.floor(Math.random() * 16777216).toString(16).padStart(6, '0');
+      const processId = Math.floor(Math.random() * 65536).toString(16).padStart(4, '0');
+      const counter = Math.floor(Math.random() * 16777216).toString(16).padStart(6, '0');
+      return timestamp + machineId + processId + counter;
+    };
+
+    const dummyData = {
+      project: [
+        { _id: generateObjectId(), name: 'Dummy Project 1', project_id: 'PRJ001' },
+        { _id: generateObjectId(), name: 'Dummy Project 2', project_id: 'PRJ002' },
+        { _id: generateObjectId(), name: 'Dummy Project 3', project_id: 'PRJ003' }
+      ],
+      product: [
+        { _id: generateObjectId(), name: 'Dummy Product 1', product_id: 'PRD001' },
+        { _id: generateObjectId(), name: 'Dummy Product 2', product_id: 'PRD002' },
+        { _id: generateObjectId(), name: 'Dummy Product 3', product_id: 'PRD003' }
+      ],
+      amc: [
+        { _id: generateObjectId(), name: 'Dummy AMC 1', amc_id: 'AMC001' },
+        { _id: generateObjectId(), name: 'Dummy AMC 2', amc_id: 'AMC002' },
+        { _id: generateObjectId(), name: 'Dummy AMC 3', amc_id: 'AMC003' }
+      ],
+      complaint: [
+        { _id: generateObjectId(), name: 'Dummy Complaint 1', complaint_id: 'CMP001' },
+        { _id: generateObjectId(), name: 'Dummy Complaint 2', complaint_id: 'CMP002' },
+        { _id: generateObjectId(), name: 'Dummy Complaint 3', complaint_id: 'CMP003' }
+      ],
+      info: [
+        { _id: generateObjectId(), name: 'Dummy Info 1', info_id: 'INF001' },
+        { _id: generateObjectId(), name: 'Dummy Info 2', info_id: 'INF002' },
+        { _id: generateObjectId(), name: 'Dummy Info 3', info_id: 'INF003' }
+      ],
+      job: [
+        { _id: generateObjectId(), name: 'Dummy Job 1', job_id: 'JOB001' },
+        { _id: generateObjectId(), name: 'Dummy Job 2', job_id: 'JOB002' },
+        { _id: generateObjectId(), name: 'Dummy Job 3', job_id: 'JOB003' }
+      ],
+      site_visit: [
+        { _id: generateObjectId(), name: 'Dummy Site Visit 1', site_visit_id: 'SV001' },
+        { _id: generateObjectId(), name: 'Dummy Site Visit 2', site_visit_id: 'SV002' },
+        { _id: generateObjectId(), name: 'Dummy Site Visit 3', site_visit_id: 'SV003' }
+      ]
+    };
+    return dummyData[type] || [];
+  };
+  
+  // Fetch profiles by type
+  const fetchProfilesByType = async (type) => {
+    try {
+      setLoadingProfiles(true);
+      const response = await getProfilesByType(type);
+      if (response?.data?.length > 0) {
+        setProfiles(response.data);
+      } else {
+        // Use dummy data if API returns empty
+        const dummyProfiles = getDummyProfiles(type);
+        setProfiles(dummyProfiles);
+      }
+    } catch (error) {
+      console.error(`Error fetching ${type} profiles:`, error);
+      // Use dummy data on error
+      const dummyProfiles = getDummyProfiles(type);
+      setProfiles(dummyProfiles);
+    } finally {
+      setLoadingProfiles(false);
+    }
+  };
+  
+  // Handle profile type change
+  const handleProfileTypeChange = (type, isSource = true) => {
+    if (isSource) {
+      setCurrentRule(prev => ({ ...prev, source_profile: type }));
+      fetchProfilesByType(type);
+    } else {
+      setCurrentRule(prev => ({ ...prev, target_profile: type }));
+      fetchProfilesByType(type);
+    }
+  };
+  
+  // Handle profile ID change
+  const handleProfileIdChange = (id) => {
+    setCurrentRule(prev => ({ ...prev, profile_id: id }));
+  };
+  
   // Handle filter change
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
   };
-
+  
   // Handle sort
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -123,14 +255,14 @@ const ProfileMapping = () => {
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }));
   };
-
+  
   // Filter and sort rules
   const filteredAndSortedRules = mappingRules
     .filter(rule => {
       const matchesName = filters.name === '' || rule.name.toLowerCase().includes(filters.name.toLowerCase());
       const matchesSourceProfile = filters.source_profile === '' || rule.source_profile === filters.source_profile;
       const matchesTargetProfile = filters.target_profile === '' || rule.target_profile === filters.target_profile;
-      const matchesActive = filters.is_active === '' || 
+      const matchesActive = filters.is_active === null || 
         (filters.is_active === 'active' && rule.is_active) || 
         (filters.is_active === 'inactive' && !rule.is_active);
       
@@ -153,7 +285,7 @@ const ProfileMapping = () => {
         ? String(a[key]).localeCompare(String(b[key]))
         : String(b[key]).localeCompare(String(a[key]));
     });
-
+  
   // Export to CSV
   const exportToCSV = () => {
     const headers = [
@@ -191,20 +323,20 @@ const ProfileMapping = () => {
     link.click();
     document.body.removeChild(link);
   };
-
+  
   // Get sort icon
   const getSortIcon = (key) => {
     if (sortConfig.key !== key) return null;
     return sortConfig.direction === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />;
   };
-
+  
   // Open edit modal
   const openEditModal = (rule) => {
     setCurrentRule({...rule});
     setIsEditing(true);
     setShowModal(true);
   };
-
+  
   // Open create modal
   const openCreateModal = () => {
     setCurrentRule({
@@ -218,12 +350,14 @@ const ProfileMapping = () => {
       created_by: 'Current User', // Would be replaced with actual logged-in user
       created_at: new Date().toISOString(),
       last_run: null,
-      conversion_count: 0
+      conversion_count: 0,
+      profile_id: null,
+      enquiry_id: ''
     });
     setIsEditing(false);
     setShowModal(true);
   };
-
+  
   // Add condition to current rule
   const addCondition = () => {
     setCurrentRule(prev => ({
@@ -231,7 +365,7 @@ const ProfileMapping = () => {
       conditions: [...prev.conditions, { field: '', operator: 'equals', value: '' }]
     }));
   };
-
+  
   // Remove condition from current rule
   const removeCondition = (index) => {
     setCurrentRule(prev => ({
@@ -239,7 +373,7 @@ const ProfileMapping = () => {
       conditions: prev.conditions.filter((_, i) => i !== index)
     }));
   };
-
+  
   // Update condition
   const updateCondition = (index, field, value) => {
     setCurrentRule(prev => ({
@@ -249,7 +383,7 @@ const ProfileMapping = () => {
       )
     }));
   };
-
+  
   // Add field mapping to current rule
   const addFieldMapping = () => {
     setCurrentRule(prev => ({
@@ -257,7 +391,7 @@ const ProfileMapping = () => {
       field_mappings: [...prev.field_mappings, { source_field: '', target_field: '', transformation: null }]
     }));
   };
-
+  
   // Remove field mapping from current rule
   const removeFieldMapping = (index) => {
     setCurrentRule(prev => ({
@@ -265,7 +399,7 @@ const ProfileMapping = () => {
       field_mappings: prev.field_mappings.filter((_, i) => i !== index)
     }));
   };
-
+  
   // Update field mapping
   const updateFieldMapping = (index, field, value) => {
     setCurrentRule(prev => ({
@@ -275,44 +409,152 @@ const ProfileMapping = () => {
       )
     }));
   };
-
+  
   // Save rule
-  const saveRule = () => {
-    if (isEditing) {
-      setMappingRules(prev => 
-        prev.map(rule => rule.id === currentRule.id ? currentRule : rule)
-      );
-    } else {
-      setMappingRules(prev => [...prev, currentRule]);
+  const saveRule = async () => {
+    try {
+      setLoading(true);
+      
+      // Validate profile_id is not empty
+      if (!currentRule.profile_id) {
+        alert('Please select a valid Profile ID');
+        setLoading(false);
+        return;
+      }
+      
+      // Transform frontend data to match backend structure
+      const mappingData = {
+        name: currentRule.name,
+        profile_type: currentRule.source_profile,
+        profile_id: currentRule.profile_id,
+        enquiry_id: currentRule.enquiry_id,
+        conditions: currentRule.conditions,
+        field_mappings: currentRule.field_mappings,
+        is_active: currentRule.is_active
+      };
+      
+      let response;
+      if (isEditing) {
+        response = await updateProfileMapping(currentRule.id, mappingData);
+        setMappingRules(prev => 
+          prev.map(rule => rule.id === currentRule.id ? {
+            ...rule,
+            ...response.data
+          } : rule)
+        );
+      } else {
+        response = await createProfileMapping(mappingData);
+        setMappingRules(prev => [...prev, {
+          id: response.data._id,
+          mapping_id: response.data.mapping_id,
+          name: response.data.name || `Mapping ${response.data.mapping_id}`,
+          source_profile: response.data.profile_type,
+          target_profile: response.data.profile_type_ref,
+          conditions: response.data.conditions || [],
+          field_mappings: response.data.field_mappings || [],
+          is_active: response.data.is_active || true,
+          created_by: response.data.created_by ? response.data.created_by.name : 'System',
+          created_at: response.data.created_at,
+          last_run: response.data.last_run,
+          conversion_count: response.data.conversion_count || 0,
+          enquiry_id: response.data.enquiry_id,
+          profile_id: response.data.profile_id
+        }]);
+      }
+      
+      setShowModal(false);
+    } catch (err) {
+      console.error('Error saving profile mapping:', err);
+      alert('Failed to save profile mapping. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    setShowModal(false);
   };
-
+  
   // Delete rule
-  const deleteRule = (id) => {
+  const deleteRule = async (id) => {
     if (window.confirm('Are you sure you want to delete this mapping rule?')) {
-      setMappingRules(prev => prev.filter(rule => rule.id !== id));
+      try {
+        setLoading(true);
+        await deleteProfileMapping(id);
+        setMappingRules(prev => prev.filter(rule => rule.id !== id));
+      } catch (err) {
+        console.error('Error deleting profile mapping:', err);
+        alert('Failed to delete profile mapping. Please try again.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
-
+  
   // Toggle rule active status
-  const toggleRuleStatus = (id) => {
-    setMappingRules(prev => 
-      prev.map(rule => 
-        rule.id === id ? { ...rule, is_active: !rule.is_active } : rule
-      )
-    );
+  const toggleRuleStatus = async (id) => {
+    try {
+      const rule = mappingRules.find(r => r.id === id);
+      if (!rule) return;
+      
+      setLoading(true);
+      await toggleProfileMappingStatus(id, !rule.is_active);
+      
+      setMappingRules(prev => 
+        prev.map(rule => 
+          rule.id === id ? { ...rule, is_active: !rule.is_active } : rule
+        )
+      );
+    } catch (err) {
+      console.error('Error toggling profile mapping status:', err);
+      alert('Failed to update profile mapping status. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
-
+  
   // Run rule manually
-  const runRule = (id) => {
-    alert(`Rule ${id} would be executed now. In a real implementation, this would trigger the profile conversion process.`);
-    // In a real implementation, this would call an API to execute the rule
+  const runRule = async (id) => {
+    try {
+      const rule = mappingRules.find(r => r.id === id);
+      if (!rule) {
+        alert('Rule not found');
+        return;
+      }
+  
+      // Check if profile_id is a dummy ID
+      if (rule.profile_id && rule.profile_id.toString().startsWith('dummy_')) {
+        alert('Cannot run mapping rule with dummy profile. Please select a real profile.');
+        return;
+      }
+  
+      setLoading(true);
+      const response = await runProfileMappingRule(id);
+      alert(`Rule executed successfully. ${response.data.message || 'Profile mapping completed.'}`);
+      
+      // Refresh the list to get updated conversion count
+      fetchProfileMappings();
+    } catch (err) {
+      console.error('Error running profile mapping rule:', err);
+      alert('Failed to run profile mapping rule. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
-
+  
   return (
     <div className="container mx-auto px-4 py-6">
       <h1 className="text-2xl font-bold mb-6">Profile Mapping</h1>
+      
+      {/* Loading and Error States */}
+      {loading && (
+        <div className="flex justify-center items-center my-4">
+          <Loader className="h-8 w-8 animate-spin text-blue-500" />
+          <span className="ml-2">Loading...</span>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          <p>{error}</p>
+        </div>
+      )}
       
       {/* Search and Filters */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
@@ -650,15 +892,39 @@ const ProfileMapping = () => {
               </div>
               
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Enquiry <span className="text-red-500">*</span></label>
+                <select
+                  value={currentRule.enquiry_id || ""}
+                  onChange={(e) => setCurrentRule({...currentRule, enquiry_id: e.target.value})}
+                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  required
+                >
+                  <option value="">Select Enquiry</option>
+                  {enquiries.map(enquiry => (
+                    <option key={enquiry._id} value={enquiry._id}>
+                      {enquiry.name || enquiry.company_name || `Enquiry ${enquiry.enquiry_id}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Source Profile</label>
                 <select
                   value={currentRule.source_profile}
                   onChange={(e) => {
+                    const selectedProfileType = e.target.value;
                     setCurrentRule({
                       ...currentRule, 
-                      source_profile: e.target.value,
+                      source_profile: selectedProfileType,
+                      profile_id: '', // Reset profile_id when source changes
                       field_mappings: [] // Reset field mappings when source changes
                     });
+                    
+                    // Fetch profiles for the selected type
+                    if (selectedProfileType) {
+                      fetchProfilesByType(selectedProfileType);
+                    }
                   }}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
                 >
@@ -668,6 +934,36 @@ const ProfileMapping = () => {
                   ))}
                 </select>
               </div>
+              
+              {currentRule.source_profile && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Profile ID <span className="text-red-500">*</span></label>
+                  <select
+                    value={currentRule.profile_id || ""}
+                    onChange={(e) => setCurrentRule({...currentRule, profile_id: e.target.value || null})}
+                    className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                    required
+                  >
+                    <option value="">Select Profile</option>
+                  {loadingProfiles ? (
+                    <option value="" disabled>Loading profiles...</option>
+                  ) : profiles.length > 0 ? (
+                    profiles.map(profile => (
+                      <option key={profile._id} value={profile._id}>
+                        {profile.name || profile.title || profile.subject || `${currentRule.source_profile} ${profile._id}`}
+                        {profile[`${currentRule.source_profile}_id`] ? ` (${profile[`${currentRule.source_profile}_id`]})` : ''}
+                      </option>
+                    ))
+                  ) : (
+                    getDummyProfiles(currentRule.source_profile).map(profile => (
+                      <option key={profile._id} value={profile._id}>
+                        {profile.name} ({profile[`${currentRule.source_profile}_id`]})
+                      </option>
+                    ))
+                  )}
+                  </select>
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Target Profile</label>

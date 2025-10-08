@@ -6,7 +6,9 @@ const {
   updateProfileMapping,
   deleteProfileMapping,
   getProfileMappingsByEnquiry,
-  getProfileMappingsByProfile
+  getProfileMappingsByProfile,
+  runProfileMapping,
+  toggleProfileMappingStatus
 } = require('../../controllers/profile/profileMapping');
 
 const ProfileMapping = require('../../models/profile/ProfileMapping');
@@ -36,6 +38,15 @@ router
   .get(protect, getProfileMapping)
   .put(protect, updateProfileMapping)
   .delete(protect, deleteProfileMapping);
+
+// Run profile mapping and toggle status routes
+router
+  .route('/:id/run')
+  .post(protect, runProfileMapping);
+
+router
+  .route('/:id/status')
+  .patch(protect, toggleProfileMappingStatus);
 
 // Enquiry and profile routes
 router
