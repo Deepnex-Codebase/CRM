@@ -15,6 +15,7 @@ const {
 const router = express.Router();
 
 const { protect, authorize } = require('../../middleware/auth');
+const auditLogger = require('../../middleware/auditLogger');
 
 router.use(protect);
 
@@ -22,7 +23,7 @@ router.use(protect);
 router.get('/', getAssignmentLogs);
 
 // Create new assignment log
-router.post('/', authorize('Admin', 'Sales Head'), createAssignmentLog);
+router.post('/', authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'AssignmentLog', action: 'CREATE' }), createAssignmentLog);
 
 // Get assignment analytics
 router.get('/analytics', authorize('Admin', 'Sales Head'), getAssignmentAnalytics);
@@ -31,7 +32,7 @@ router.get('/analytics', authorize('Admin', 'Sales Head'), getAssignmentAnalytic
 router.get('/workload-distribution', authorize('Admin', 'Sales Head'), getWorkloadDistribution);
 
 // Export assignment logs
-router.get('/export', authorize('Admin', 'Sales Head'), exportAssignmentLogs);
+router.get('/export', authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'AssignmentLog', action: 'EXPORT' }), exportAssignmentLogs);
 
 // Get enquiry assignment history
 router.get('/enquiry/:enquiry_id', getEnquiryAssignmentHistory);
@@ -42,7 +43,7 @@ router.get('/user/:user_id', authorize('Admin', 'Sales Head'), getUserAssignment
 // Routes for specific assignment log
 router.route('/:id')
   .get(getAssignmentLogById)
-  .put(authorize('Admin', 'Sales Head'), updateAssignmentLog)
-  .delete(authorize('Admin'), deleteAssignmentLog);
+  .put(authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'AssignmentLog', action: 'UPDATE' }), updateAssignmentLog)
+  .delete(authorize('Admin'), auditLogger({ entityType: 'AssignmentLog', action: 'DELETE' }), deleteAssignmentLog);
 
 module.exports = router;

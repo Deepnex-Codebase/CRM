@@ -18,6 +18,7 @@ const router = express.Router();
 
 const { protect, authorize } = require('../../middleware/auth');
 const advancedResults = require('../../middleware/advancedResults');
+const auditLogger = require('../../middleware/auditLogger');
 
 // Routes with advanced results middleware
 router
@@ -30,6 +31,7 @@ router
   .post(
     protect,
     authorize('Admin', 'Sales Head'),
+    auditLogger({ entityType: 'AutomationRule', action: 'CREATE' }),
     createAutomationRule
   );
 
@@ -56,11 +58,13 @@ router
   .put(
     protect,
     authorize('Admin', 'Sales Head'),
+    auditLogger({ entityType: 'AutomationRule', action: 'UPDATE' }),
     updateAutomationRule
   )
   .delete(
     protect,
     authorize('Admin'),
+    auditLogger({ entityType: 'AutomationRule', action: 'DELETE' }),
     deleteAutomationRule
   );
 

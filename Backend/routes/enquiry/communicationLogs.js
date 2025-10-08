@@ -15,6 +15,7 @@ const {
 const router = express.Router();
 
 const { protect, authorize } = require('../../middleware/auth');
+const auditLogger = require('../../middleware/auditLogger');
 
 router.use(protect);
 
@@ -22,13 +23,13 @@ router.use(protect);
 router.get('/', getCommunicationLogs);
 
 // Create new communication log
-router.post('/', authorize('Admin', 'Sales Head', 'Telecaller'), createCommunicationLog);
+router.post('/', authorize('Admin', 'Sales Head', 'Telecaller'), auditLogger({ entityType: 'CommunicationLog', action: 'CREATE' }), createCommunicationLog);
 
 // Get communication analytics
 router.get('/analytics', authorize('Admin', 'Sales Head'), getCommunicationAnalytics);
 
 // Export communication logs
-router.get('/export', authorize('Admin', 'Sales Head'), exportCommunicationLogs);
+router.get('/export', authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'CommunicationLog', action: 'EXPORT' }), exportCommunicationLogs);
 
 // Get enquiry communications
 router.get('/enquiry/:enquiry_id', getEnquiryCommunications);
@@ -37,12 +38,12 @@ router.get('/enquiry/:enquiry_id', getEnquiryCommunications);
 router.get('/user/:user_id', getUserCommunications);
 
 // Mark communication as read
-router.put('/:id/read', markAsRead);
+router.put('/:id/read', auditLogger({ entityType: 'CommunicationLog', action: 'UPDATE' }), markAsRead);
 
 // Routes for specific communication log
 router.route('/:id')
   .get(getCommunicationLogById)
-  .put(authorize('Admin', 'Sales Head', 'Telecaller'), updateCommunicationLog)
-  .delete(authorize('Admin'), deleteCommunicationLog);
+  .put(authorize('Admin', 'Sales Head', 'Telecaller'), auditLogger({ entityType: 'CommunicationLog', action: 'UPDATE' }), updateCommunicationLog)
+  .delete(authorize('Admin'), auditLogger({ entityType: 'CommunicationLog', action: 'DELETE' }), deleteCommunicationLog);
 
 module.exports = router;

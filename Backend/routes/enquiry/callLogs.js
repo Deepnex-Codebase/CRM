@@ -17,6 +17,7 @@ const {
 const router = express.Router();
 
 const { protect, authorize } = require('../../middleware/auth');
+const auditLogger = require('../../middleware/auditLogger');
 
 router.use(protect);
 
@@ -24,19 +25,19 @@ router.use(protect);
 router.get('/', getCallLogs);
 
 // Create new call log
-router.post('/', authorize('Admin', 'Sales Head', 'Telecaller'), createCallLog);
+router.post('/', authorize('Admin', 'Sales Head', 'Telecaller'), auditLogger({ entityType: 'CallLog', action: 'CREATE' }), createCallLog);
 
 // Start a call
-router.post('/start', authorize('Telecaller'), startCall);
+router.post('/start', authorize('Telecaller'), auditLogger({ entityType: 'CallLog', action: 'CREATE' }), startCall);
 
 // End a call
-router.put('/end/:id', authorize('Telecaller'), endCall);
+router.put('/end/:id', authorize('Telecaller'), auditLogger({ entityType: 'CallLog', action: 'UPDATE' }), endCall);
 
 // Get call analytics
 router.get('/analytics', authorize('Admin', 'Sales Head'), getCallAnalytics);
 
 // Export call logs
-router.get('/export', authorize('Admin', 'Sales Head'), exportCallLogs);
+router.get('/export', authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'CallLog', action: 'EXPORT' }), exportCallLogs);
 
 // Get enquiry call history
 router.get('/enquiry/:enquiry_id', getEnquiryCallHistory);
@@ -45,12 +46,12 @@ router.get('/enquiry/:enquiry_id', getEnquiryCallHistory);
 router.get('/user/:user_id', getUserCallHistory);
 
 // Add call feedback
-router.post('/:id/feedback', authorize('Telecaller'), addCallFeedback);
+router.post('/:id/feedback', authorize('Telecaller'), auditLogger({ entityType: 'CallLog', action: 'UPDATE' }), addCallFeedback);
 
 // Routes for specific call log
 router.route('/:id')
   .get(getCallLogById)
-  .put(authorize('Admin', 'Sales Head', 'Telecaller'), updateCallLog)
-  .delete(authorize('Admin'), deleteCallLog);
+  .put(authorize('Admin', 'Sales Head', 'Telecaller'), auditLogger({ entityType: 'CallLog', action: 'UPDATE' }), updateCallLog)
+  .delete(authorize('Admin'), auditLogger({ entityType: 'CallLog', action: 'DELETE' }), deleteCallLog);
 
 module.exports = router;

@@ -17,6 +17,7 @@ const {
 const router = express.Router();
 
 const { protect, authorize } = require('../../middleware/auth');
+const auditLogger = require('../../middleware/auditLogger');
 
 // All routes require authentication
 router.use(protect);
@@ -24,7 +25,7 @@ router.use(protect);
 // Public routes (for authenticated users)
 router.route('/')
   .get(getAutomationTriggers)
-  .post(authorize('admin'), createAutomationTrigger);
+  .post(authorize('admin'), auditLogger({ entityType: 'AutomationTrigger', action: 'CREATE' }), createAutomationTrigger);
 
 router.route('/type/:type')
   .get(getAutomationTriggersByType);
@@ -34,14 +35,14 @@ router.route('/event/:event')
 
 router.route('/:id')
   .get(getAutomationTrigger)
-  .put(authorize('admin'), updateAutomationTrigger)
-  .delete(authorize('admin'), deleteAutomationTrigger);
+  .put(authorize('admin'), auditLogger({ entityType: 'AutomationTrigger', action: 'UPDATE' }), updateAutomationTrigger)
+  .delete(authorize('admin'), auditLogger({ entityType: 'AutomationTrigger', action: 'DELETE' }), deleteAutomationTrigger);
 
 router.route('/:id/activate')
-  .patch(authorize('admin'), activateAutomationTrigger);
+  .patch(authorize('admin'), auditLogger({ entityType: 'AutomationTrigger', action: 'UPDATE' }), activateAutomationTrigger);
 
 router.route('/:id/deactivate')
-  .patch(authorize('admin'), deactivateAutomationTrigger);
+  .patch(authorize('admin'), auditLogger({ entityType: 'AutomationTrigger', action: 'UPDATE' }), deactivateAutomationTrigger);
 
 router.route('/:id/execute')
   .post(authorize('admin'), executeAutomationTrigger);
@@ -52,4 +53,4 @@ router.route('/:id/analytics')
 router.route('/:id/test')
   .post(authorize('admin'), testAutomationTrigger);
 
-module.exports = router; 
+module.exports = router;

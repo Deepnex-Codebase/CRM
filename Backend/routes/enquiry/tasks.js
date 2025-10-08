@@ -36,7 +36,7 @@ router.get('/analytics', authorize('Admin', 'Sales Head'), getTaskAnalytics);
 router.get('/overdue', getOverdueTasks);
 
 // Export tasks
-router.get('/export', authorize('Admin', 'Sales Head'), exportTasks);
+router.get('/export', authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'Task', action: 'EXPORT' }), exportTasks);
 
 // Get enquiry tasks
 router.get('/enquiry/:enquiry_id', getEnquiryTasks);

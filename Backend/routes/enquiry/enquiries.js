@@ -32,6 +32,7 @@ const {
 const router = express.Router();
 
 const { protect, authorize } = require('../../middleware/auth');
+const auditLogger = require('../../middleware/auditLogger');
 
 router.use(protect);
 
@@ -39,19 +40,19 @@ router.use(protect);
 router.get('/', getEnquiries);
 
 // Create new enquiry
-router.post('/', authorize('Admin', 'Sales Head', 'Telecaller'), createEnquiry);
+router.post('/', authorize('Admin', 'Sales Head', 'Telecaller'), auditLogger({ entityType: 'Enquiry', action: 'CREATE' }), createEnquiry);
 
 // Get form configuration
 router.get('/form-config', getEnquiryFormConfig);
 
 // Export template
-router.get('/export-template', authorize('Admin', 'Sales Head'), exportTemplate);
+router.get('/export-template', authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'Enquiry', action: 'EXPORT_TEMPLATE' }), exportTemplate);
 
 // Get enquiry history
 router.get('/history', authorize('Admin', 'Sales Head'), getEnquiryHistory);
 
 // Export enquiries
-router.get('/export', authorize('Admin', 'Sales Head'), exportEnquiries);
+router.get('/export', authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'Enquiry', action: 'EXPORT' }), exportEnquiries);
 
 // Check duplicate
 router.post('/check-duplicate', checkDuplicate);
@@ -72,8 +73,8 @@ router.get('/stage/:stage', getEnquiriesByStage);
 router.get('/assigned/:userId', getAssignedEnquiries);
 
 // Bulk operations
-router.put('/bulk/status', authorize('Admin', 'Sales Head'), bulkUpdateStatus);
-router.put('/bulk/assign', authorize('Admin', 'Sales Head'), bulkAssignEnquiries);
+router.put('/bulk/status', authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'Enquiry', action: 'UPDATE' }), bulkUpdateStatus);
+router.put('/bulk/assign', authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'Enquiry', action: 'UPDATE' }), bulkAssignEnquiries);
 
 // Dynamic filter options
 router.get('/filters', getEnquiryFilters);
@@ -81,17 +82,17 @@ router.get('/filters', getEnquiryFilters);
 // Single enquiry routes
 router.route('/:id')
   .get(getEnquiryById)
-  .put(authorize('Admin', 'Sales Head', 'Telecaller'), updateEnquiry)
-  .delete(authorize('Admin'), deleteEnquiry);
+  .put(authorize('Admin', 'Sales Head', 'Telecaller'), auditLogger({ entityType: 'Enquiry', action: 'UPDATE' }), updateEnquiry)
+  .delete(authorize('Admin'), auditLogger({ entityType: 'Enquiry', action: 'DELETE' }), deleteEnquiry);
 
 // Update enquiry status
-router.put('/:id/status', authorize('Admin', 'Sales Head', 'Telecaller'), updateEnquiryStatus);
+router.put('/:id/status', authorize('Admin', 'Sales Head', 'Telecaller'), auditLogger({ entityType: 'Enquiry', action: 'UPDATE' }), updateEnquiryStatus);
 
 // Assign enquiry
-router.put('/:id/assign', authorize('Admin', 'Sales Head'), assignEnquiry);
+router.put('/:id/assign', authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'Enquiry', action: 'UPDATE' }), assignEnquiry);
 
 // Add remark
-router.post('/:id/remarks', authorize('Admin', 'Sales Head', 'Telecaller'), addRemark);
+router.post('/:id/remarks', authorize('Admin', 'Sales Head', 'Telecaller'), auditLogger({ entityType: 'EnquiryRemark', action: 'CREATE' }), addRemark);
 
 // Get enquiry remarks
 router.get('/:id/remarks', getEnquiryRemarks);
