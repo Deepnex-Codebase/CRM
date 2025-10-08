@@ -24,7 +24,7 @@ exports.getCallLogs = asyncHandler(async (req, res, next) => {
   if (enquiry_id) filter.enquiry_id = enquiry_id;
   if (call_type) filter.call_type = call_type;
   if (call_status) filter.call_status = call_status;
-  if (caller_id) filter.caller_id = caller_id;
+  if (caller_id) filter['caller.user_id'] = caller_id;
   
   if (start_date || end_date) {
     filter.start_time = {};
@@ -38,7 +38,7 @@ exports.getCallLogs = asyncHandler(async (req, res, next) => {
     sort: { start_time: -1 },
     populate: [
       { path: 'enquiry_id', select: 'enquiry_id name mobile' },
-      { path: 'caller_id', select: 'name email' }
+      { path: 'caller.user_id', select: 'name email' }
     ]
   };
 
@@ -56,7 +56,7 @@ exports.getCallLogs = asyncHandler(async (req, res, next) => {
 exports.getCallLogById = asyncHandler(async (req, res, next) => {
   const callLog = await CallLog.findById(req.params.id)
     .populate('enquiry_id', 'enquiry_id name mobile')
-    .populate('caller_id', 'name email');
+    .populate('caller.user_id', 'name email');
 
   if (!callLog) {
     return next(new ErrorResponse('Call log not found', 404));
@@ -99,7 +99,7 @@ exports.createCallLog = asyncHandler(async (req, res, next) => {
     start_time: start_time || new Date(),
     end_time,
     call_status: call_status || 'initiated',
-    caller_id: req.user.id,
+    caller: { user_id: req.user.id },
     call_notes,
     recording_url,
     metadata: {
@@ -111,7 +111,7 @@ exports.createCallLog = asyncHandler(async (req, res, next) => {
 
   await callLog.populate([
     { path: 'enquiry_id', select: 'enquiry_id name mobile' },
-    { path: 'caller_id', select: 'name email' }
+    { path: 'caller.user_id', select: 'name email' }
   ]);
 
   res.status(201).json({
@@ -131,7 +131,7 @@ exports.updateCallLog = asyncHandler(async (req, res, next) => {
   }
 
   // Only caller or admin can update
-  if (callLog.caller_id.toString() !== req.user.id && req.user.role !== 'admin') {
+  if (callLog.caller.user_id.toString() !== req.user.id && req.user.role !== 'admin') {
     return next(new ErrorResponse('Not authorized to update this call log', 403));
   }
 
@@ -158,7 +158,7 @@ exports.updateCallLog = asyncHandler(async (req, res, next) => {
     { new: true, runValidators: true }
   ).populate([
     { path: 'enquiry_id', select: 'enquiry_id name mobile' },
-    { path: 'caller_id', select: 'name email' }
+    { path: 'caller.user_id', select: 'name email' }
   ]);
 
   res.status(200).json({
@@ -180,7 +180,7 @@ exports.endCall = asyncHandler(async (req, res, next) => {
   }
 
   // Only caller can end the call
-  if (callLog.caller_id.toString() !== req.user.id) {
+  if (callLog.caller.user_id.toString() !== req.user.id) {
     return next(new ErrorResponse('Not authorized to end this call', 403));
   }
 
@@ -389,7 +389,7 @@ exports.exportCallLogs = asyncHandler(async (req, res, next) => {
 
   const callLogs = await CallLog.find(filter)
     .populate('enquiry_id', 'enquiry_id name mobile')
-    .populate('caller_id', 'name email')
+    .populate('caller.user_id', 'name email')
     .sort({ start_time: -1 });
 
   if (format === 'csv') {

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const CallLogSchema = new mongoose.Schema({
   call_log_id: {
@@ -340,5 +341,8 @@ CallLogSchema.statics.getUserCallStats = function(userId, startDate, endDate) {
     }
   ]);
 };
+
+// Apply the mongoose-paginate-v2 plugin to enable pagination
+CallLogSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('CallLog', CallLogSchema);

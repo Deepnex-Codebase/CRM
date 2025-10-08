@@ -1,18 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
 const ConversionWizard = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(0); // Start at step 0 for enquiry selection
+  const [isLoading, setIsLoading] = useState(false);
+  const [enquiries, setEnquiries] = useState([]);
+  const [selectedEnquiryId, setSelectedEnquiryId] = useState(id || '');
   
-  // Sample enquiry data
-  const enquiry = {
-    enquiry_id: id || 'ENQ001',
-    customer_name: 'Rahul Sharma',
-    contact_number: '9876543210',
-    email: 'rahul.sharma@example.com'
-  };
+  // Selected enquiry data
+  const [enquiry, setEnquiry] = useState(null);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -27,6 +25,61 @@ const ConversionWizard = () => {
     site_visit_location: '',
     remarks: ''
   });
+  
+  // Fetch enquiries on component mount
+  useEffect(() => {
+    const fetchEnquiries = async () => {
+      setIsLoading(true);
+      try {
+        // In a real implementation, this would be an API call
+        // For now, we'll use sample data
+        const sampleEnquiries = [
+          {
+            enquiry_id: 'ENQ001',
+            customer_name: 'Rahul Sharma',
+            contact_number: '9876543210',
+            email: 'rahul.sharma@example.com',
+            date: '2023-06-15',
+            status: 'New'
+          },
+          {
+            enquiry_id: 'ENQ002',
+            customer_name: 'Priya Patel',
+            contact_number: '8765432109',
+            email: 'priya.patel@example.com',
+            date: '2023-06-14',
+            status: 'New'
+          },
+          {
+            enquiry_id: 'ENQ003',
+            customer_name: 'Amit Kumar',
+            contact_number: '7654321098',
+            email: 'amit.kumar@example.com',
+            date: '2023-06-13',
+            status: 'New'
+          }
+        ];
+        
+        setEnquiries(sampleEnquiries);
+        
+        // If ID is provided in URL, select that enquiry
+        if (id) {
+          const selectedEnquiry = sampleEnquiries.find(e => e.enquiry_id === id);
+          if (selectedEnquiry) {
+            setEnquiry(selectedEnquiry);
+            setSelectedEnquiryId(id);
+            setCurrentStep(1); // Skip to step 1 if enquiry is already selected
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching enquiries:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchEnquiries();
+  }, [id]);
   
   // Validation state
   const [errors, setErrors] = useState({});
@@ -99,6 +152,91 @@ const ConversionWizard = () => {
     return Object.keys(fieldErrors).length === 0;
   };
   
+  // Validate current step
+  const validateStep = () => {
+    let isValid = true;
+    let newErrors = {};
+    
+    switch (currentStep) {
+      case 0: // Enquiry selection step
+        if (!selectedEnquiryId) {
+          newErrors.enquiry = 'कृपया एक इन्क्वायरी चुनें';
+          isValid = false;
+        }
+        break;
+      case 1: // Profile type selection
+        if (!formData.profile_type) {
+          newErrors.profile_type = 'प्रोफाइल टाइप चुनना जरूरी है';
+          isValid = false;
+        }
+        break;
+      case 2: // Profile details
+        // Validate based on profile type
+        switch (formData.profile_type) {
+          case 'Project':
+            if (!formData.project_name) {
+              newErrors.project_name = 'प्रोजेक्ट का नाम जरूरी है';
+              isValid = false;
+            }
+            break;
+          case 'Product':
+            if (!formData.product_category) {
+              newErrors.product_category = 'प्रोडक्ट कैटेगरी चुनना जरूरी है';
+              isValid = false;
+            }
+            break;
+          case 'AMC':
+            if (!formData.amc_type) {
+              newErrors.amc_type = 'AMC टाइप चुनना जरूरी है';
+              isValid = false;
+            }
+            break;
+          case 'Complaint':
+            if (!formData.complaint_type) {
+              newErrors.complaint_type = 'कंप्लेंट टाइप चुनना जरूरी है';
+              isValid = false;
+            }
+            break;
+          case 'Info':
+            if (!formData.info_category) {
+              newErrors.info_category = 'इन्फो कैटेगरी चुनना जरूरी है';
+              isValid = false;
+            }
+            break;
+          case 'Job':
+            if (!formData.job_position) {
+              newErrors.job_position = 'जॉब पोजिशन जरूरी है';
+              isValid = false;
+            }
+            break;
+          case 'Site Visit':
+            if (!formData.site_visit_date) {
+              newErrors.site_visit_date = 'साइट विजिट की तारीख जरूरी है';
+              isValid = false;
+            }
+            if (!formData.site_visit_location) {
+              newErrors.site_visit_location = 'साइट विजिट का स्थान जरूरी है';
+              isValid = false;
+            }
+            break;
+          default:
+            break;
+        }
+        break;
+      default:
+        break;
+    }
+    
+    setErrors(newErrors);
+    return isValid;
+  };
+  
+  // Handle enquiry selection
+  const handleEnquirySelect = (selectedEnquiry) => {
+    setSelectedEnquiryId(selectedEnquiry.enquiry_id);
+    setEnquiry(selectedEnquiry);
+  };
+  
   // Handle next step
   const handleNextStep = () => {
     if (validateStep()) {
@@ -114,7 +252,13 @@ const ConversionWizard = () => {
   // Handle submit
   const handleSubmit = () => {
     if (validateStep()) {
-      console.log('Conversion data submitted:', formData);
+      // Prepare submission data
+      const submissionData = {
+        enquiry_id: selectedEnquiryId,
+        ...formData
+      };
+      
+      console.log('Conversion data submitted:', submissionData);
       // Implementation would go here
       
       // Redirect to enquiry detail page
@@ -124,15 +268,25 @@ const ConversionWizard = () => {
   
   return (
     <div className="container mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-6">Convert Enquiry: {enquiry.enquiry_id}</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        {currentStep === 0 ? 'Select Enquiry to Convert' : `Convert Enquiry: ${enquiry?.enquiry_id || ''}`}
+      </h1>
       
       {/* Progress Steps */}
       <div className="mb-8">
         <div className="flex items-center">
           <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
-            currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+            currentStep >= 0 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
           }`}>
             1
+          </div>
+          <div className={`flex-1 h-1 mx-2 ${
+            currentStep >= 1 ? 'bg-blue-600' : 'bg-gray-200'
+          }`}></div>
+          <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
+            currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
+          }`}>
+            2
           </div>
           <div className={`flex-1 h-1 mx-2 ${
             currentStep >= 2 ? 'bg-blue-600' : 'bg-gray-200'
@@ -140,7 +294,7 @@ const ConversionWizard = () => {
           <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
             currentStep >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
           }`}>
-            2
+            3
           </div>
           <div className={`flex-1 h-1 mx-2 ${
             currentStep >= 3 ? 'bg-blue-600' : 'bg-gray-200'
@@ -148,10 +302,13 @@ const ConversionWizard = () => {
           <div className={`flex items-center justify-center w-10 h-10 rounded-full ${
             currentStep >= 3 ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'
           }`}>
-            3
+            4
           </div>
         </div>
         <div className="flex justify-between mt-2">
+          <div className="text-center w-10">
+            <span className="text-xs font-medium">Select Enquiry</span>
+          </div>
           <div className="text-center w-10">
             <span className="text-xs font-medium">Select Type</span>
           </div>
@@ -165,10 +322,95 @@ const ConversionWizard = () => {
       </div>
       
       <div className="bg-white p-6 rounded-lg shadow">
+        {/* Step 0: Select Enquiry */}
+        {currentStep === 0 && (
+          <div>
+            <h2 className="text-lg font-semibold mb-4">Step 1: Select an Enquiry</h2>
+            <p className="mb-4 text-gray-600">
+              Choose the enquiry you want to convert into a profile.
+            </p>
+            
+            {isLoading ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <>
+                {errors.enquiry && (
+                  <div className="mb-4 text-red-500 text-sm">{errors.enquiry}</div>
+                )}
+                
+                <div className="overflow-x-auto">
+                  <table className="min-w-full bg-white border border-gray-200">
+                    <thead>
+                      <tr>
+                        <th className="py-2 px-4 border-b text-left">Select</th>
+                        <th className="py-2 px-4 border-b text-left">ID</th>
+                        <th className="py-2 px-4 border-b text-left">Customer Name</th>
+                        <th className="py-2 px-4 border-b text-left">Contact</th>
+                        <th className="py-2 px-4 border-b text-left">Email</th>
+                        <th className="py-2 px-4 border-b text-left">Date</th>
+                        <th className="py-2 px-4 border-b text-left">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {enquiries.map((enquiry) => (
+                        <tr 
+                          key={enquiry.enquiry_id}
+                          className={`cursor-pointer hover:bg-blue-50 ${
+                            selectedEnquiryId === enquiry.enquiry_id ? 'bg-blue-50' : ''
+                          }`}
+                          onClick={() => handleEnquirySelect(enquiry)}
+                        >
+                          <td className="py-2 px-4 border-b">
+                            <div className={`w-5 h-5 rounded-full border ${
+                              selectedEnquiryId === enquiry.enquiry_id ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                            }`}>
+                              {selectedEnquiryId === enquiry.enquiry_id && (
+                                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2 px-4 border-b">{enquiry.enquiry_id}</td>
+                          <td className="py-2 px-4 border-b">{enquiry.customer_name}</td>
+                          <td className="py-2 px-4 border-b">{enquiry.contact_number}</td>
+                          <td className="py-2 px-4 border-b">{enquiry.email}</td>
+                          <td className="py-2 px-4 border-b">{enquiry.date}</td>
+                          <td className="py-2 px-4 border-b">
+                            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                              {enquiry.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div className="flex justify-end mt-6">
+                  <button 
+                    onClick={handleNextStep}
+                    disabled={!selectedEnquiryId}
+                    className={`px-4 py-2 rounded-md text-sm ${
+                      selectedEnquiryId 
+                        ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Next Step
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        
         {/* Step 1: Select Profile Type */}
         {currentStep === 1 && (
           <div>
-            <h2 className="text-lg font-semibold mb-4">Step 1: Select Profile Type</h2>
+            <h2 className="text-lg font-semibold mb-4">Step 2: Select Profile Type</h2>
             <p className="mb-4 text-gray-600">
               Choose the type of profile you want to convert this enquiry into.
             </p>
@@ -322,7 +564,13 @@ const ConversionWizard = () => {
               </div>
             </div>
             
-            <div className="flex justify-end mt-6">
+            <div className="flex justify-between mt-6">
+              <button 
+                onClick={handlePrevStep}
+                className="px-4 py-2 rounded-md text-sm border border-gray-300 hover:bg-gray-100"
+              >
+                Previous Step
+              </button>
               <button 
                 onClick={handleNextStep}
                 disabled={!formData.profile_type}
@@ -340,8 +588,8 @@ const ConversionWizard = () => {
         
         {/* Step 2: Fill Profile Details */}
         {currentStep === 2 && (
-          <div>
-            <h2 className="text-lg font-semibold mb-4">Step 2: Fill Profile Details</h2>
+          <div className="bg-white rounded-lg p-6 shadow-sm">
+            <h2 className="text-lg font-semibold mb-4">Step 3: Fill Profile Details</h2>
             <p className="mb-4 text-gray-600">
               Please provide the necessary details for the {formData.profile_type} profile.
             </p>
@@ -355,19 +603,28 @@ const ConversionWizard = () => {
                     <input 
                       type="text" 
                       name="project_name"
-                      value={formData.project_name}
+                      value={formData.project_name || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.project_name && touched.project_name ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
                       placeholder="Enter project name"
                     />
+                    {errors.project_name && touched.project_name && (
+                      <p className="mt-1 text-sm text-red-500">{errors.project_name}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Project Type</label>
                     <select 
                       name="project_type"
-                      value={formData.project_type}
+                      value={formData.project_type || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.project_type && touched.project_type ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
                     >
                       <option value="">Select Project Type</option>
                       <option value="Residential">Residential</option>
@@ -375,6 +632,9 @@ const ConversionWizard = () => {
                       <option value="Industrial">Industrial</option>
                       <option value="Infrastructure">Infrastructure</option>
                     </select>
+                    {errors.project_type && touched.project_type && (
+                      <p className="mt-1 text-sm text-red-500">{errors.project_type}</p>
+                    )}
                   </div>
                 </>
               )}
@@ -385,9 +645,12 @@ const ConversionWizard = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Product Category</label>
                     <select 
                       name="product_category"
-                      value={formData.product_category}
+                      value={formData.product_category || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.product_category && touched.product_category ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
                     >
                       <option value="">Select Product Category</option>
                       <option value="Electronics">Electronics</option>
@@ -395,17 +658,26 @@ const ConversionWizard = () => {
                       <option value="Appliances">Appliances</option>
                       <option value="Software">Software</option>
                     </select>
+                    {errors.product_category && touched.product_category && (
+                      <p className="mt-1 text-sm text-red-500">{errors.product_category}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
                     <input 
                       type="number" 
                       name="quantity"
-                      value={formData.quantity}
+                      value={formData.quantity || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.quantity && touched.quantity ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
                       placeholder="Enter quantity"
                     />
+                    {errors.quantity && touched.quantity && (
+                      <p className="mt-1 text-sm text-red-500">{errors.quantity}</p>
+                    )}
                   </div>
                 </>
               )}
@@ -416,26 +688,38 @@ const ConversionWizard = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">AMC Type</label>
                     <select 
                       name="amc_type"
-                      value={formData.amc_type}
+                      value={formData.amc_type || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.amc_type && touched.amc_type ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
                     >
                       <option value="">Select AMC Type</option>
                       <option value="Comprehensive">Comprehensive</option>
                       <option value="Non-Comprehensive">Non-Comprehensive</option>
                       <option value="Labor Only">Labor Only</option>
                     </select>
+                    {errors.amc_type && touched.amc_type && (
+                      <p className="mt-1 text-sm text-red-500">{errors.amc_type}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Duration (Months)</label>
                     <input 
                       type="number" 
                       name="duration"
-                      value={formData.duration}
+                      value={formData.duration || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.duration && touched.duration ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
                       placeholder="Enter duration in months"
                     />
+                    {errors.duration && touched.duration && (
+                      <p className="mt-1 text-sm text-red-500">{errors.duration}</p>
+                    )}
                   </div>
                 </>
               )}
@@ -446,24 +730,34 @@ const ConversionWizard = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Complaint Type</label>
                     <select 
                       name="complaint_type"
-                      value={formData.complaint_type}
+                      value={formData.complaint_type || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.complaint_type && touched.complaint_type ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
                     >
                       <option value="">Select Complaint Type</option>
-                      <option value="Product Defect">Product Defect</option>
-                      <option value="Service Issue">Service Issue</option>
-                      <option value="Billing Problem">Billing Problem</option>
+                      <option value="Product Quality">Product Quality</option>
+                      <option value="Service Quality">Service Quality</option>
+                      <option value="Delivery">Delivery</option>
+                      <option value="Billing">Billing</option>
                       <option value="Other">Other</option>
                     </select>
+                    {errors.complaint_type && touched.complaint_type && (
+                      <p className="mt-1 text-sm text-red-500">{errors.complaint_type}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Severity</label>
                     <select 
                       name="severity"
-                      value={formData.severity}
+                      value={formData.severity || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.severity && touched.severity ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
                     >
                       <option value="">Select Severity</option>
                       <option value="Low">Low</option>
@@ -471,28 +765,35 @@ const ConversionWizard = () => {
                       <option value="High">High</option>
                       <option value="Critical">Critical</option>
                     </select>
+                    {errors.severity && touched.severity && (
+                      <p className="mt-1 text-sm text-red-500">{errors.severity}</p>
+                    )}
                   </div>
                 </>
               )}
               
               {formData.profile_type === 'Info' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Information Category</label>
-                    <select 
-                      name="info_category"
-                      value={formData.info_category}
-                      onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                    >
-                      <option value="">Select Information Category</option>
-                      <option value="Product Information">Product Information</option>
-                      <option value="Service Details">Service Details</option>
-                      <option value="Company Information">Company Information</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                </>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Information Category</label>
+                  <select 
+                    name="info_category"
+                    value={formData.info_category || ''}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    className={`w-full rounded-md border ${
+                      errors.info_category && touched.info_category ? 'border-red-500' : 'border-gray-300'
+                    } px-3 py-2 text-sm`}
+                  >
+                    <option value="">Select Information Category</option>
+                    <option value="Product Information">Product Information</option>
+                    <option value="Service Details">Service Details</option>
+                    <option value="Company Information">Company Information</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  {errors.info_category && touched.info_category && (
+                    <p className="mt-1 text-sm text-red-500">{errors.info_category}</p>
+                  )}
+                </div>
               )}
               
               {formData.profile_type === 'Job' && (
@@ -502,19 +803,28 @@ const ConversionWizard = () => {
                     <input 
                       type="text" 
                       name="job_position"
-                      value={formData.job_position}
+                      value={formData.job_position || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.job_position && touched.job_position ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
                       placeholder="Enter job position"
                     />
+                    {errors.job_position && touched.job_position && (
+                      <p className="mt-1 text-sm text-red-500">{errors.job_position}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
                     <select 
                       name="department"
-                      value={formData.department}
+                      value={formData.department || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.department && touched.department ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
                     >
                       <option value="">Select Department</option>
                       <option value="IT">IT</option>
@@ -523,6 +833,9 @@ const ConversionWizard = () => {
                       <option value="Marketing">Marketing</option>
                       <option value="Operations">Operations</option>
                     </select>
+                    {errors.department && touched.department && (
+                      <p className="mt-1 text-sm text-red-500">{errors.department}</p>
+                    )}
                   </div>
                 </>
               )}
@@ -530,25 +843,37 @@ const ConversionWizard = () => {
               {formData.profile_type === 'Site Visit' && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Visit Date</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Site Visit Date</label>
                     <input 
                       type="date" 
                       name="site_visit_date"
-                      value={formData.site_visit_date}
+                      value={formData.site_visit_date || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.site_visit_date && touched.site_visit_date ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
                     />
+                    {errors.site_visit_date && touched.site_visit_date && (
+                      <p className="mt-1 text-sm text-red-500">{errors.site_visit_date}</p>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Site Visit Location</label>
                     <input 
                       type="text" 
                       name="site_visit_location"
-                      value={formData.site_visit_location}
+                      value={formData.site_visit_location || ''}
                       onChange={handleChange}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                      placeholder="Enter visit location"
+                      onBlur={handleBlur}
+                      className={`w-full rounded-md border ${
+                        errors.site_visit_location && touched.site_visit_location ? 'border-red-500' : 'border-gray-300'
+                      } px-3 py-2 text-sm`}
+                      placeholder="Enter site visit location"
                     />
+                    {errors.site_visit_location && touched.site_visit_location && (
+                      <p className="mt-1 text-sm text-red-500">{errors.site_visit_location}</p>
+                    )}
                   </div>
                 </>
               )}
@@ -558,25 +883,31 @@ const ConversionWizard = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
                 <textarea 
                   name="remarks"
-                  value={formData.remarks}
+                  value={formData.remarks || ''}
                   onChange={handleChange}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  onBlur={handleBlur}
+                  className={`w-full rounded-md border ${
+                    errors.remarks && touched.remarks ? 'border-red-500' : 'border-gray-300'
+                  } px-3 py-2 text-sm`}
+                  placeholder="Enter any additional remarks"
                   rows="3"
-                  placeholder="Additional notes"
                 ></textarea>
+                {errors.remarks && touched.remarks && (
+                  <p className="mt-1 text-sm text-red-500">{errors.remarks}</p>
+                )}
               </div>
             </div>
             
-            <div className="flex justify-between mt-6">
+            <div className="flex justify-between mt-8 pt-4 border-t border-gray-200">
               <button 
                 onClick={handlePrevStep}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md text-sm hover:bg-gray-300"
+                className="px-5 py-2 bg-gray-200 text-gray-800 rounded-md font-medium hover:bg-gray-300 transition-colors"
               >
                 Previous Step
               </button>
               <button 
                 onClick={handleNextStep}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+                className="px-5 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors"
               >
                 Next Step
               </button>
@@ -587,7 +918,7 @@ const ConversionWizard = () => {
         {/* Step 3: Review & Confirm */}
         {currentStep === 3 && (
           <div>
-            <h2 className="text-lg font-semibold mb-4">Step 3: Review & Confirm</h2>
+            <h2 className="text-lg font-semibold mb-4">Step 4: Review & Confirm</h2>
             <p className="mb-4 text-gray-600">
               Please review the information below before confirming the conversion.
             </p>

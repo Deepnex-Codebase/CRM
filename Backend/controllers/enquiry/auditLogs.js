@@ -521,9 +521,42 @@ exports.getFailedLoginAttempts = asyncHandler(async (req, res, next) => {
 // @route   GET /api/v1/audit-logs/export
 // @access  Private (Admin only)
 exports.exportAuditLogs = asyncHandler(async (req, res, next) => {
-  // Only admin can export audit logs
-  if (!req.user || !req.user.role || req.user.role.toLowerCase() !== 'admin') {
-    return next(new ErrorResponse('Not authorized to export audit logs', 403));
+  // Check if user is authenticated
+  if (!req.user || !req.user._id) {
+    return next(new ErrorResponse('User not authenticated', 401));
+  }
+
+  try {
+    // 1. Query the users database to retrieve the role_id
+    const User = require('../../models/profile/User');
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return next(new ErrorResponse('User not found', 404));
+    }
+    
+    if (!user.role_id) {
+      return next(new ErrorResponse('User has no assigned role', 403));
+    }
+    
+    // 2. Query the roles database using the obtained role_id
+    const Role = require('../../models/auth/Role');
+    const role = await Role.findById(user.role_id);
+    
+    if (!role) {
+      return next(new ErrorResponse('Role not found', 404));
+    }
+    
+    // 3. Compare the role_name from the roles database with the required value
+    if (role.role_name.toLowerCase() !== 'admin') {
+      // Check if user has required permissions instead of just role name
+      if (!role.permissions.includes('audit_log_view') || !role.permissions.includes('report_export')) {
+        return next(new ErrorResponse('You need both audit_log_view and report_export permissions to export audit logs', 403));
+      }
+    }
+  } catch (error) {
+    console.error('Error during role verification:', error);
+    return next(new ErrorResponse('Error verifying user permissions', 500));
   }
 
   const { start_date, end_date, format = 'json', entity_type } = req.query;
@@ -548,30 +581,51 @@ exports.exportAuditLogs = asyncHandler(async (req, res, next) => {
     .sort({ timestamp: -1 });
 
   if (format === 'csv') {
-    // Convert to CSV format
-    const csv = auditLogs.map(log => ({
-      audit_log_id: log.audit_log_id,
-      timestamp: log.timestamp,
-      user_name: log.user_id?.name || '',
-      user_email: log.user_id?.email || '',
-      entity_type: log.entity_type,
-      entity_id: log.entity_id,
-      action: log.action,
-      action_category: log.action_category,
-      ip_address: log.ip_address,
-      changes_count: log.changes ? log.changes.length : 0
-    }));
+    // Handle empty results
+    if (!auditLogs || auditLogs.length === 0) {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=audit-logs.csv');
+      return res.send('No audit logs found for the specified period');
+    }
+    
+    try {
+      // Convert to CSV format with error handling
+      const csv = auditLogs.map(log => ({
+        audit_log_id: log.audit_log_id || '',
+        timestamp: log.timestamp ? new Date(log.timestamp).toISOString() : '',
+        user_name: log.user_id && log.user_id.name ? log.user_id.name : '',
+        user_email: log.user_id && log.user_id.email ? log.user_id.email : '',
+        entity_type: log.entity_type || '',
+        entity_id: log.entity_id ? log.entity_id.toString() : '',
+        action: log.action || '',
+        action_category: log.action_category || '',
+        ip_address: log.ip_address || '',
+        changes_count: log.changes ? log.changes.length : 0
+      }));
 
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=audit-logs.csv');
-    
-    // Simple CSV conversion (in production, use a proper CSV library)
-    const csvContent = [
-      Object.keys(csv[0]).join(','),
-      ...csv.map(row => Object.values(row).join(','))
-    ].join('\n');
-    
-    return res.send(csvContent);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename=audit-logs.csv');
+      
+      // Safer CSV conversion with proper escaping
+      const csvHeader = Object.keys(csv[0]).join(',');
+      const csvRows = csv.map(row => {
+        return Object.values(row).map(value => {
+          // Handle values that might contain commas or quotes
+          if (value === null || value === undefined) return '';
+          const stringValue = String(value);
+          if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+            return `"${stringValue.replace(/"/g, '""')}"`;
+          }
+          return stringValue;
+        }).join(',');
+      });
+      
+      const csvContent = [csvHeader, ...csvRows].join('\n');
+      return res.send(csvContent);
+    } catch (error) {
+      console.error('Error generating CSV:', error);
+      return next(new ErrorResponse('Error generating CSV export', 500));
+    }
   }
 
   res.status(200).json({
