@@ -4,6 +4,64 @@ const ProfileMapping = require('../../models/profile/ProfileMapping');
 const Enquiry = require('../../models/enquiry/Enquiry');
 const UserActivityLog = require('../../models/profile/UserActivityLog');
 
+// Helper function to get the model based on profile type
+const getModelByProfileType = (profileType) => {
+  try {
+    switch (profileType.toLowerCase()) {
+      case 'lead':
+        return require('../../models/profile/Lead');
+      case 'customer':
+        return require('../../models/profile/Customer');
+      case 'project':
+        return require('../../models/profile/Project');
+      case 'product':
+        return require('../../models/profile/Product');
+      case 'amc':
+        return require('../../models/profile/AMC');
+      case 'complaint':
+        return require('../../models/profile/Complaint');
+      case 'info':
+        return require('../../models/profile/Info');
+      // Temporarily comment out Job model since it doesn't exist
+      // case 'job':
+      //   return require('../../models/profile/Job');
+      case 'site_visit':
+        return require('../../models/profile/SiteVisit');
+      default:
+        return null;
+    }
+  } catch (error) {
+    console.error(`Error loading model for profile type ${profileType}: ${error.message}`);
+    return null;
+  }
+};
+
+// Helper function to apply transformation to a value
+const applyTransformation = (value, transformation) => {
+  if (!value) return value;
+  
+  switch (transformation) {
+    case 'uppercase':
+      return typeof value === 'string' ? value.toUpperCase() : value;
+    case 'lowercase':
+      return typeof value === 'string' ? value.toLowerCase() : value;
+    case 'capitalize':
+      return typeof value === 'string' ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+    case 'trim':
+      return typeof value === 'string' ? value.trim() : value;
+    case 'number':
+      return !isNaN(value) ? Number(value) : value;
+    case 'string':
+      return String(value);
+    case 'boolean':
+      return Boolean(value);
+    case 'date':
+      return value instanceof Date ? value : new Date(value);
+    default:
+      return value;
+  }
+};
+
 // @desc    Get all profile mappings
 // @route   GET /api/v1/profile-mappings
 // @access  Private
@@ -172,7 +230,7 @@ exports.deleteProfileMapping = asyncHandler(async (req, res, next) => {
   // Store the mapping data for activity log
   const deletedMapping = { ...profileMapping.toObject() };
 
-  await profileMapping.remove();
+  await ProfileMapping.deleteOne({ _id: req.params.id });
 
   // Log the activity
   await UserActivityLog.create({
@@ -274,14 +332,78 @@ exports.runProfileMapping = asyncHandler(async (req, res, next) => {
     user_agent: req.headers['user-agent']
   });
 
-  // In a real implementation, this would execute the mapping logic
-  // For now, we'll just update the last_run timestamp
-  profileMapping.last_run = Date.now();
-  
-  // Increment conversion count
-  profileMapping.conversion_count = (profileMapping.conversion_count || 0) + 1;
-  
-  await profileMapping.save();
+  // Execute the actual mapping logic
+  try {
+    // Get the source profile data based on profile type and ID
+    const sourceProfileModel = getModelByProfileType(profileMapping.profile_type);
+    if (!sourceProfileModel) {
+      // Update last_run to show attempt was made
+      profileMapping.last_run = Date.now();
+      await profileMapping.save();
+      return next(new ErrorResponse(`Source profile type model not found: ${profileMapping.profile_type}. The model may not exist in the system.`, 400));
+    }
+    
+    const sourceProfile = await sourceProfileModel.findById(profileMapping.profile_id);
+    if (!sourceProfile) {
+      // Update last_run to show attempt was made
+      profileMapping.last_run = Date.now();
+      await profileMapping.save();
+      return next(new ErrorResponse(`Source profile not found with id: ${profileMapping.profile_id}`, 404));
+    }
+    
+    // Get or create the target profile based on target profile type
+    const targetProfileType = profileMapping.profile_type_ref || profileMapping.target_profile;
+    const targetProfileModel = getModelByProfileType(targetProfileType);
+    if (!targetProfileModel) {
+      // Update last_run to show attempt was made
+      profileMapping.last_run = Date.now();
+      await profileMapping.save();
+      return next(new ErrorResponse(`Target profile type model not found: ${targetProfileType}. The model may not exist in the system.`, 400));
+    }
+    
+    // Create a new target profile or find existing one
+    let targetProfile = await targetProfileModel.findOne({ 
+      source_profile_id: profileMapping.profile_id,
+      source_profile_type: profileMapping.profile_type
+    });
+    
+    // If target profile doesn't exist, create a new one
+    if (!targetProfile) {
+      targetProfile = new targetProfileModel({
+        source_profile_id: profileMapping.profile_id,
+        source_profile_type: profileMapping.profile_type,
+        created_by: req.user.id
+      });
+    }
+    
+    // Apply field mappings
+    if (profileMapping.field_mappings && profileMapping.field_mappings.length > 0) {
+      profileMapping.field_mappings.forEach(mapping => {
+        let sourceValue = sourceProfile[mapping.source_field];
+        
+        // Apply transformation if specified
+        if (mapping.transformation) {
+          sourceValue = applyTransformation(sourceValue, mapping.transformation);
+        }
+        
+        // Set the value in target profile
+        targetProfile[mapping.target_field] = sourceValue;
+      });
+    }
+    
+    // Save the target profile
+    await targetProfile.save();
+    
+    // Update conversion details
+    profileMapping.last_run = Date.now();
+    profileMapping.conversion_count = (profileMapping.conversion_count || 0) + 1;
+    profileMapping.last_converted_id = targetProfile._id;
+    
+    await profileMapping.save();
+  } catch (error) {
+    console.error('Error executing profile mapping:', error);
+    return next(new ErrorResponse(`Error executing profile mapping: ${error.message}`, 500));
+  }
 
   res.status(200).json({
     success: true,

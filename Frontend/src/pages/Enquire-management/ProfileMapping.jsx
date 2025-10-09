@@ -294,19 +294,37 @@ const ProfileMapping = () => {
       'Created By', 'Created At', 'Last Run', 'Conversion Count'
     ];
     
-    const csvData = filteredAndSortedRules.map(rule => [
-      rule.id,
-      rule.name,
-      rule.source_profile,
-      rule.target_profile,
-      JSON.stringify(rule.conditions),
-      JSON.stringify(rule.field_mappings),
-      rule.is_active ? 'Active' : 'Inactive',
-      rule.created_by,
-      new Date(rule.created_at).toLocaleString(),
-      rule.last_run ? new Date(rule.last_run).toLocaleString() : 'Never',
-      rule.conversion_count
-    ]);
+    const csvData = filteredAndSortedRules.map(rule => {
+      // Format field mappings to be more readable in Excel
+      let formattedFieldMappings = '';
+      if (rule.field_mappings && rule.field_mappings.length > 0) {
+        formattedFieldMappings = rule.field_mappings.map(mapping => 
+          `${mapping.source_field} -> ${mapping.target_field}${mapping.transformation ? ` (${mapping.transformation})` : ''}`
+        ).join('; ');
+      }
+      
+      // Format conditions to be more readable
+      let formattedConditions = '';
+      if (rule.conditions && rule.conditions.length > 0) {
+        formattedConditions = rule.conditions.map(condition => 
+          `${condition.field} ${condition.operator} ${condition.value}`
+        ).join('; ');
+      }
+      
+      return [
+        rule.id,
+        rule.name,
+        rule.source_profile,
+        rule.target_profile,
+        formattedConditions,
+        formattedFieldMappings,
+        rule.is_active ? 'Active' : 'Inactive',
+        typeof rule.created_by === 'object' ? (rule.created_by?.name || 'System') : (rule.created_by || 'System'),
+        new Date(rule.created_at).toLocaleString(),
+        rule.last_run ? new Date(rule.last_run).toLocaleString() : 'Never',
+        rule.conversion_count
+      ];
+    });
     
     const csvContent = [
       headers.join(','),
@@ -526,7 +544,24 @@ const ProfileMapping = () => {
   
       setLoading(true);
       const response = await runProfileMappingRule(id);
-      alert(`Rule executed successfully. ${response.data.message || 'Profile mapping completed.'}`);
+      
+      // Create a detailed message showing what was converted
+      let conversionDetails = '';
+      if (rule.field_mappings && rule.field_mappings.length > 0) {
+        conversionDetails = '\n\nConverted Fields:\n';
+        rule.field_mappings.forEach((mapping, index) => {
+          conversionDetails += `${index + 1}. ${mapping.source_field} → ${mapping.target_field}`;
+          if (mapping.transformation) {
+            conversionDetails += ` (with ${mapping.transformation})`;
+          }
+          conversionDetails += '\n';
+        });
+      }
+      
+      // Show source and target profile types
+      const conversionSummary = `\nConverted from: ${rule.source_profile} to ${rule.target_profile}`;
+      
+      alert(`Rule executed successfully. ${response.data.message || 'Profile mapping completed.'}${conversionSummary}${conversionDetails}`);
       
       // Refresh the list to get updated conversion count
       fetchProfileMappings();
