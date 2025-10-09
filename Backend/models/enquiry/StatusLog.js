@@ -1,14 +1,12 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const StatusLogSchema = new mongoose.Schema({
   status_log_id: {
     type: String,
     unique: true,
     default: function() {
-      // Generate ID format: SLOG-YYYYMMDD-XXXX
-      const today = new Date();
-      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-      return `SLOG-${dateStr}-XXXX`; // This will be replaced by pre-save hook
+      return `SLXXXX`; // This will be replaced by pre-save hook
     }
   },
   enquiry_id: {
@@ -149,5 +147,8 @@ StatusLogSchema.statics.getStatusAnalytics = function(startDate, endDate) {
     }
   ]);
 };
+
+// Apply the pagination plugin to the schema
+StatusLogSchema.plugin(mongoosePaginate);
 
 module.exports = mongoose.model('StatusLog', StatusLogSchema);

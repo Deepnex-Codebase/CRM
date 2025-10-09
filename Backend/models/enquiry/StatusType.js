@@ -5,10 +5,7 @@ const StatusTypeSchema = new mongoose.Schema({
     type: String,
     unique: true,
     default: function() {
-      // Generate ID format: STS-YYYYMMDD-XXXX (where XXXX is sequential)
-      const today = new Date();
-      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-      return `STS-${dateStr}-XXXX`; // This will be replaced by pre-save hook
+      return `STXXXX`; // This will be replaced by pre-save hook
     }
   },
   name: {

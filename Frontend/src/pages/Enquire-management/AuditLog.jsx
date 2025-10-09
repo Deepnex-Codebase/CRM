@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, Download, ChevronDown, ChevronUp, FileText, User, Edit, AlertCircle } from 'lucide-react';
 import auditLogService from '../../services/enquire_management/auditLogService';
 import { toast } from 'react-toastify';
+import { useTheme } from '../../context/ThemeContext';
 
 const AuditLog = () => {
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { isDark } = useTheme();
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -356,16 +358,14 @@ const AuditLog = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       {log.audit_log_id}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:underline">
-                       <a href={`/enquiry/${log.entity_details?.enquiry_id || log.entity_id}`}>
-                        {log.entity_details ? (
-                          <>
-                            {log.entity_details.enquiry_id || log.entity_details.title || log.entity_id}
-                          </>
-                        ) : (
-                          log.entity_id
-                        )}
-                      </a>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900">
+                      {log.entity_details ? (
+                        <>
+                          {log.entity_details.enquiry_id || log.entity_details.title || log.entity_id}
+                        </>
+                      ) : (
+                        log.entity_id
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {log.entity_type}
@@ -379,7 +379,7 @@ const AuditLog = () => {
                       {log.action && log.action.toUpperCase() === 'CREATE' ? (
                         <span className="text-green-600 font-medium">New record created</span>
                       ) : log.action && log.action.toUpperCase() === 'DELETE' ? (
-                          <span className="text-red-600 font-medium">Record deleted</span>
+                        <span className="text-red-600 font-medium">Record deleted</span>
                       ) : log.changes && log.changes.length > 0 ? (
                         <div>
                           {log.changes.map((change, idx) => (
@@ -401,8 +401,8 @@ const AuditLog = () => {
                         (log.is_system_action ? 'System' : 'Unknown')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(log.created_at).toLocaleDateString()} <br />
-                        {new Date(log.created_at).toLocaleTimeString()}
+                      {new Date(log.created_at).toLocaleDateString()} <br />
+                      {new Date(log.created_at).toLocaleTimeString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {log.ip_address}
@@ -475,8 +475,8 @@ const AuditLog = () => {
                         key={pageNum}
                         onClick={() => setPagination(prev => ({ ...prev, page: pageNum }))}
                         className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${pagination.page === pageNum
-                            ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                          ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
                           }`}
                       >
                         {pageNum}

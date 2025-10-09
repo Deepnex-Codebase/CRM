@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import enquiryService from '../../services/enquire_management/enquiryService';
+import { useTheme } from '../../context/ThemeContext';
 
 // Function to export data to CSV
 const exportToCSV = (data, filename) => {
@@ -34,6 +35,8 @@ const EnquiryList = () => {
   const [enquiries, setEnquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const { isDark } = useTheme();
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -153,6 +156,23 @@ const EnquiryList = () => {
     setFilters(prev => ({ ...prev, [name]: value }));
     setCurrentPage(1); // Reset to first page when filters change
   };
+  
+  // Reset all filters
+  const resetFilters = () => {
+    setFilters({
+      status: '',
+      source_type: '',
+      assigned_to: '',
+      priority: '',
+      enquiry_profile: '',
+      dateFrom: '',
+      dateTo: '',
+      sortBy: 'created_at',
+      sortOrder: 'desc',
+      search: ''
+    });
+    setSearchTerm('');
+  };
 
   // Handle search input
   const handleSearch = (e) => {
@@ -223,19 +243,19 @@ const EnquiryList = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-6">Enquiry Management</h1>
+    <div className={` ${isDark ? 'text-white' : 'text-black'} container mx-auto px-4 py-6 ${isDark ? 'text-white' : 'text-black'}`}>
+      <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-black'}`}>Enquiry Management</h1>
       
       {/* Filters and Search */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
+      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} p-4 rounded-lg shadow mb-6`}>
         <div className="flex flex-wrap gap-4 mb-4">
           <div className="w-full md:w-auto">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-1`}>Status</label>
             <select 
               name="status" 
               value={filters.status} 
               onChange={handleFilterChange}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
             >
               <option value="">All Status</option>
               {filterOptions.statuses.map(status => (
@@ -245,12 +265,12 @@ const EnquiryList = () => {
           </div>
           
           <div className="w-full md:w-auto">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Source</label>
+            <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-1`}>Source</label>
             <select 
               name="source_type" 
               value={filters.source_type} 
               onChange={handleFilterChange}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
             >
               <option value="">All Sources</option>
               {filterOptions.sources.map(source => (
@@ -260,12 +280,12 @@ const EnquiryList = () => {
           </div>
           
           <div className="w-full md:w-auto">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Assigned To</label>
+            <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-1`}>Assigned To</label>
             <select 
               name="assigned_to" 
               value={filters.assigned_to} 
               onChange={handleFilterChange}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
             >
               <option value="">All Users</option>
               {filterOptions.users?.map(user => (
@@ -278,12 +298,12 @@ const EnquiryList = () => {
           </div>
           
           <div className="w-full md:w-auto">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+            <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-1`}>Priority</label>
             <select 
               name="priority" 
               value={filters.priority} 
               onChange={handleFilterChange}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
             >
               <option value="">All Priorities</option>
               <option value="HIGH">High</option>
@@ -295,13 +315,13 @@ const EnquiryList = () => {
         
         <div className="flex flex-wrap items-end gap-4">
           <div className="w-full md:w-1/3">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+            <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-1`}>Search</label>
             <input 
               type="text" 
               placeholder="Search by ID, name, phone..." 
               value={searchTerm}
               onChange={handleSearch}
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white placeholder-gray-400' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
             />
           </div>
           
@@ -326,7 +346,7 @@ const EnquiryList = () => {
             </button>
             <button 
               onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className="border border-gray-300 bg-white text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-100 flex items-center"
+              className={`border ${isDark ? 'border-gray-600 bg-gray-700 text-white hover:bg-gray-600' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-100'} px-4 py-2 rounded-md text-sm flex items-center`}
             >
               {showAdvancedFilters ? 'Hide Advanced' : 'Advanced Filters'}
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -338,16 +358,16 @@ const EnquiryList = () => {
         
         {/* Advanced Filters */}
         {showAdvancedFilters && (
-          <div className="mt-4 p-4 border border-gray-200 rounded-md bg-gray-50">
-            <h3 className="font-medium text-gray-700 mb-3">Advanced Filters</h3>
+          <div className={`mt-4 p-4 border ${isDark ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'} rounded-md`}>
+            <h3 className={`font-medium ${isDark ? 'text-white' : 'text-gray-700'} mb-3`}>Advanced Filters</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Enquiry Type</label>
+                <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-1`}>Enquiry Type</label>
                 <select 
                   name="enquiry_profile" 
                   value={filters.enquiry_profile} 
                   onChange={handleFilterChange}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
                 >
                   <option value="">All Types</option>
                   <option value="Project">Project</option>
@@ -361,34 +381,34 @@ const EnquiryList = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date From</label>
+                <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-1`}>Date From</label>
                 <input 
                   type="date" 
                   name="dateFrom" 
                   value={filters.dateFrom} 
                   onChange={handleFilterChange}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date To</label>
+                <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-1`}>Date To</label>
                 <input 
                   type="date" 
                   name="dateTo" 
                   value={filters.dateTo} 
                   onChange={handleFilterChange}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-1`}>Sort By</label>
                 <select 
                   name="sortBy" 
                   value={filters.sortBy} 
                   onChange={handleFilterChange}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
                 >
                   <option value="created_at">Date Created</option>
                   <option value="customer_name">Customer Name</option>
@@ -399,12 +419,12 @@ const EnquiryList = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Sort Order</label>
+                <label className={`block text-sm font-medium ${isDark ? 'text-gray-300' : 'text-gray-700'} mb-1`}>Sort Order</label>
                 <select 
                   name="sortOrder" 
                   value={filters.sortOrder} 
                   onChange={handleFilterChange}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+                  className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
                 >
                   <option value="asc">Ascending</option>
                   <option value="desc">Descending</option>
@@ -429,7 +449,7 @@ const EnquiryList = () => {
                     });
                     setSearchTerm('');
                   }}
-                  className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-100"
+                  className={`${isDark ? 'bg-gray-700 border-gray-600 text-white hover:bg-gray-600' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-100'} border px-4 py-2 rounded-md text-sm`}
                 >
                   Reset Filters
                 </button>
@@ -439,162 +459,186 @@ const EnquiryList = () => {
         )}
       </div>
       
+      {/* No enquiries message */}
+      {enquiries.length === 0 && !loading && (
+        <div className={`text-center py-10 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
+          <p className="text-lg">No enquiries found matching your filters.</p>
+          <button 
+            onClick={resetFilters}
+            className={`mt-2 px-4 py-2 rounded-md ${isDark ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-white text-gray-700 hover:bg-gray-100'} border ${isDark ? 'border-gray-600' : 'border-gray-300'}`}
+          >
+            Reset Filters
+          </button>
+        </div>
+      )}
+      
+      {/* Loading indicator */}
+      {loading && (
+        <div className="text-center py-10">
+          <div className={`inline-block animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 ${isDark ? 'border-gray-300' : 'border-gray-900'}`}></div>
+          <p className={`mt-2 ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>Loading enquiries...</p>
+        </div>
+      )}
+      
       {/* Enquiries Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                <input 
-                  type="checkbox" 
-                  className="rounded text-blue-600" 
-                  onChange={handleSelectAll}
-                  checked={selectedEnquiries.length === enquiries.length && enquiries.length > 0}
-                />
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                ID
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Customer
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Contact
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Type
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Priority
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Assigned To
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Created
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Next Task
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {enquiries.map((enquiry) => (
-              <tr key={enquiry._id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
+      {!loading && enquiries.length > 0 && (
+      <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow overflow-hidden`}>
+        <div className="overflow-x-auto">
+          <table className={`min-w-full divide-y ${isDark ? 'divide-gray-700' : 'divide-gray-200'}`}>
+            <thead className={`${isDark ? 'bg-gray-900' : 'bg-gray-50'}`}>
+              <tr>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap`}>
                   <input 
                     type="checkbox" 
                     className="rounded text-blue-600" 
-                    checked={selectedEnquiries.includes(enquiry._id)}
-                    onChange={(e) => handleSelectEnquiry(e, enquiry._id)}
+                    onChange={handleSelectAll}
+                    checked={selectedEnquiries.length === enquiries.length && enquiries.length > 0}
                   />
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {enquiry.enquiry_id || enquiry._id.substring(0, 8)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {enquiry.name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {enquiry.mobile}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {enquiry.enquiry_profile}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${enquiry.status === 'NEW' ? 'bg-blue-100 text-blue-800' : 
-                      enquiry.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' : 
-                      enquiry.status === 'QUALIFIED' ? 'bg-green-100 text-green-800' : 
-                      enquiry.status === 'CONVERTED' ? 'bg-purple-100 text-purple-800' : 
-                      'bg-gray-100 text-gray-800'}`}>
-                    {enquiry.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${enquiry.priority === 'HIGH' ? 'bg-red-100 text-red-800' : 
-                      enquiry.priority === 'MEDIUM' ? 'bg-orange-100 text-orange-800' : 
-                      'bg-green-100 text-green-800'}`}>
-                    {enquiry.priority}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {enquiry.assigned_to ? 
-                    (typeof enquiry.assigned_to === 'object' && enquiry.assigned_to !== null ? 
-                      (filterOptions.users?.find(u => u._id === enquiry.assigned_to._id) ? 
-                        `${filterOptions.users.find(u => u._id === enquiry.assigned_to._id).first_name} ${filterOptions.users.find(u => u._id === enquiry.assigned_to._id).last_name}` : 
-                        `${enquiry.assigned_to.first_name || ''} ${enquiry.assigned_to.last_name || ''}`) :
-                      (filterOptions.users?.find(u => u._id === enquiry.assigned_to) ? 
-                        `${filterOptions.users.find(u => u._id === enquiry.assigned_to).first_name} ${filterOptions.users.find(u => u._id === enquiry.assigned_to).last_name}` : 
-                        enquiry.assigned_to)) : 
-                    'Unassigned'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(enquiry.created_at).toLocaleDateString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {enquiry.next_task_due ? new Date(enquiry.next_task_due).toLocaleDateString() : 'None'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <Link to={`/enquiry/${enquiry._id}`} className="text-indigo-600 hover:text-indigo-900">
-                      View
-                    </Link>
-                    <button 
-                      onClick={() => handleDeleteEnquiry(enquiry._id)} 
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap`}>
+                  ID
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap`}>
+                  Customer
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap`}>
+                  Contact
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap`}>
+                  Type
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap`}>
+                  Status
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap`}>
+                  Priority
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap`}>
+                  Assigned To
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap`}>
+                  Created
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap`}>
+                  Next Task
+                </th>
+                <th className={`px-6 py-3 text-left text-xs font-medium ${isDark ? 'text-gray-300' : 'text-gray-500'} uppercase tracking-wider whitespace-nowrap`}>
+                  Actions
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className={`${isDark ? 'bg-gray-800 divide-y divide-gray-700' : 'bg-white divide-y divide-gray-200'}`}>
+              {enquiries.map((enquiry) => (
+                <tr key={enquiry._id} className={`${isDark ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <input 
+                      type="checkbox" 
+                      className="rounded text-blue-600" 
+                      checked={selectedEnquiries.includes(enquiry._id)}
+                      onChange={(e) => handleSelectEnquiry(e, enquiry._id)}
+                    />
+                  </td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    {enquiry.enquiry_id || enquiry._id.substring(0, 8)}
+                  </td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
+                    {enquiry.name}
+                  </td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
+                    {enquiry.mobile}
+                  </td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
+                    {enquiry.enquiry_profile}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                      ${enquiry.status === 'NEW' ? 'bg-blue-100 text-blue-800' : 
+                        enquiry.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' : 
+                        enquiry.status === 'QUALIFIED' ? 'bg-green-100 text-green-800' : 
+                        enquiry.status === 'CONVERTED' ? 'bg-purple-100 text-purple-800' : 
+                        'bg-gray-100 text-gray-800'}`}>
+                      {enquiry.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                      ${enquiry.priority === 'HIGH' ? 'bg-red-100 text-red-800' : 
+                        enquiry.priority === 'MEDIUM' ? 'bg-orange-100 text-orange-800' : 
+                        'bg-green-100 text-green-800'}`}>
+                      {enquiry.priority}
+                    </span>
+                  </td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
+                    {enquiry.assigned_to ? 
+                      (typeof enquiry.assigned_to === 'object' && enquiry.assigned_to !== null ? 
+                        (filterOptions.users?.find(u => u._id === enquiry.assigned_to._id) ? 
+                          `${filterOptions.users.find(u => u._id === enquiry.assigned_to._id).first_name} ${filterOptions.users.find(u => u._id === enquiry.assigned_to._id).last_name}` : 
+                          `${enquiry.assigned_to.first_name || ''} ${enquiry.assigned_to.last_name || ''}`) :
+                        (filterOptions.users?.find(u => u._id === enquiry.assigned_to) ? 
+                          `${filterOptions.users.find(u => u._id === enquiry.assigned_to).first_name} ${filterOptions.users.find(u => u._id === enquiry.assigned_to).last_name}` : 
+                          enquiry.assigned_to)) : 
+                      'Unassigned'}
+                  </td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
+                    {new Date(enquiry.created_at).toLocaleDateString()}
+                  </td>
+                  <td className={`px-6 py-4 whitespace-nowrap text-sm ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
+                    {enquiry.next_task_due ? new Date(enquiry.next_task_due).toLocaleDateString() : 'None'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <Link to={`/enquiry/${enquiry._id}`} className={`${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-indigo-600 hover:text-indigo-900'}`}>
+                        View
+                      </Link>
+                      <button 
+                        onClick={() => handleDeleteEnquiry(enquiry._id)} 
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         
         {/* Pagination */}
-        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+        <div className={`px-4 py-3 flex items-center justify-between border-t ${isDark ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} sm:px-6`}>
           <div className="flex-1 flex justify-between sm:hidden">
             <button 
               onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
-              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md ${isDark ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600' : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'} disabled:opacity-50`}
             >
               Previous
             </button>
             <button 
               onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
-              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              className={`ml-3 relative inline-flex items-center px-4 py-2 border text-sm font-medium rounded-md ${isDark ? 'border-gray-600 text-gray-300 bg-gray-700 hover:bg-gray-600' : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'} disabled:opacity-50`}
             >
               Next
             </button>
           </div>
           <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
             <div>
-              <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">{(currentPage - 1) * pageSize + 1}</span> to{' '}
-                <span className="font-medium">{Math.min(currentPage * pageSize, totalCount)}</span> of{' '}
-                <span className="font-medium">{totalCount}</span> results
+              <p className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Showing <span className="font-medium">{enquiries.length > 0 ? (currentPage - 1) * pageSize + 1 : 0}</span> to{' '}
+                <span className="font-medium">{enquiries.length > 0 ? Math.min(currentPage * pageSize, totalCount || enquiries.length) : 0}</span> of{' '}
+                <span className="font-medium">{totalCount || enquiries.length}</span> results
               </p>
             </div>
             <div>
               <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                <button className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                <button className={`relative inline-flex items-center px-2 py-2 rounded-l-md border ${isDark ? 'border-gray-600 bg-gray-700 text-gray-400 hover:bg-gray-600' : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'}`}>
                   Previous
                 </button>
-                <button className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700 hover:bg-gray-50">
+                <button className={`relative inline-flex items-center px-4 py-2 border ${isDark ? 'border-gray-600 bg-gray-700 text-gray-300 hover:bg-gray-600' : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'}`}>
                   1
                 </button>
-                <button className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50">
+                <button className={`relative inline-flex items-center px-2 py-2 rounded-r-md border ${isDark ? 'border-gray-600 bg-gray-700 text-gray-400 hover:bg-gray-600' : 'border-gray-300 bg-white text-gray-500 hover:bg-gray-50'}`}>
                   Next
                 </button>
               </nav>
@@ -602,6 +646,8 @@ const EnquiryList = () => {
           </div>
         </div>
       </div>
+      )}
+      
     </div>
   );
 };
