@@ -378,6 +378,31 @@ exports.createEnquiry = asyncHandler(async (req, res, next) => {
     req.body.channel_type = 'Manual';
   }
 
+  // Get SLA configuration for calculating response and resolution due dates
+  const slaConfig = {
+    responseTimes: {
+      high: 2,
+      medium: 4,
+      low: 8
+    },
+    resolutionTimes: {
+      high: 24,
+      medium: 48,
+      low: 72
+    }
+  };
+  
+  // Calculate response_due and resolution_due based on priority
+  const createdAt = new Date();
+  const priority = req.body.priority.toLowerCase();
+  
+  // Set response_due and resolution_due using the SLA configuration
+  const responseHours = slaConfig.responseTimes[priority] || slaConfig.responseTimes.medium;
+  const resolutionHours = slaConfig.resolutionTimes[priority] || slaConfig.resolutionTimes.medium;
+  
+  req.body.response_due = new Date(createdAt.getTime() + responseHours * 60 * 60 * 1000);
+  req.body.resolution_due = new Date(createdAt.getTime() + resolutionHours * 60 * 60 * 1000);
+  
   // Create enquiry
   const enquiry = await Enquiry.create(req.body);
 
@@ -423,6 +448,37 @@ exports.updateEnquiry = asyncHandler(async (req, res, next) => {
   const profileChanged = 
     req.body.enquiry_profile && 
     enquiry.enquiry_profile === 'Unknown' && 
+    req.body.enquiry_profile !== 'Unknown';
+    
+  // Check if priority is changing
+  const priorityChanged = req.body.priority && req.body.priority !== enquiry.priority;
+  
+  // If priority is changing, recalculate SLA due dates
+  if (priorityChanged) {
+    // Get SLA configuration
+    const slaConfig = {
+      responseTimes: {
+        high: 2,
+        medium: 4,
+        low: 8
+      },
+      resolutionTimes: {
+        high: 24,
+        medium: 48,
+        low: 72
+      }
+    };
+    
+    const priority = req.body.priority.toLowerCase();
+    const createdAt = enquiry.created_at;
+    
+    // Set response_due and resolution_due using the SLA configuration
+    const responseHours = slaConfig.responseTimes[priority] || slaConfig.responseTimes.medium;
+    const resolutionHours = slaConfig.resolutionTimes[priority] || slaConfig.resolutionTimes.medium;
+    
+    req.body.response_due = new Date(createdAt.getTime() + responseHours * 60 * 60 * 1000);
+    req.body.resolution_due = new Date(createdAt.getTime() + resolutionHours * 60 * 60 * 1000);
+  }
     req.body.enquiry_profile !== 'Unknown';
 
   // Update enquiry
@@ -663,6 +719,124 @@ exports.getEnquiryCalls = asyncHandler(async (req, res) => {
   // const Call = require('../../models/enquiry/Call'); // Commented out - Call model not found
   // const calls = await Call.find({ enquiry_id: req.params.id }).sort({ start_time: -1 });
   res.status(200).json({ success: true, data: [] }); // calls
+});
+
+// @desc    Get SLA configuration
+// @route   GET /api/enquiries/sla/config
+// @access  Private
+exports.getSLAConfiguration = asyncHandler(async (req, res, next) => {
+  // Default SLA configuration
+  const slaConfig = {
+    responseTimes: {
+      high: 2,
+      medium: 4,
+      low: 8
+    },
+    resolutionTimes: {
+      high: 24,
+      medium: 48,
+      low: 72
+    },
+    warningThreshold: 0.25 // 25% of time remaining
+  };
+
+  res.status(200).json({
+    success: true,
+    data: slaConfig
+  });
+});
+
+// @desc    Update SLA configuration
+// @route   PUT /api/enquiries/sla/config
+// @access  Private (Admin, Manager)
+exports.updateSLAConfiguration = asyncHandler(async (req, res, next) => {
+  const { responseTimes, resolutionTimes, warningThreshold } = req.body;
+
+  // Validate input
+  if (!responseTimes || !resolutionTimes) {
+    return next(new ErrorResponse('Please provide response and resolution times', 400));
+  }
+
+  // Validate that response and resolution times are provided for all priority levels
+  const priorities = ['high', 'medium', 'low'];
+  for (const priority of priorities) {
+    if (!responseTimes[priority] || !resolutionTimes[priority]) {
+      return next(new ErrorResponse(`Please provide response and resolution times for ${priority} priority`, 400));
+    }
+  }
+
+  // Create the updated configuration object
+  const updatedConfig = {
+    responseTimes,
+    resolutionTimes,
+    warningThreshold: warningThreshold || 0.25
+  };
+
+  // Store the configuration in memory for now
+  // In a production environment, this would be stored in a database
+  global.slaConfig = updatedConfig;
+
+  // Log the updated configuration
+  console.log('Updated SLA Configuration:', updatedConfig);
+
+  res.status(200).json({
+    success: true,
+    message: 'SLA configuration updated successfully',
+    data: updatedConfig
+  });
+});
+
+// @desc    Get SLA notification settings
+// @route   GET /api/enquiries/sla/notifications
+// @access  Private
+exports.getSLANotificationSettings = asyncHandler(async (req, res, next) => {
+  // Default notification settings
+  const notificationSettings = {
+    enableEmailNotifications: true,
+    enableSmsNotifications: false,
+    notifyOnBreach: true,
+    notifyOnWarning: true,
+    notifyAssignedUser: true,
+    notifyManager: true,
+    reminderInterval: 60 // minutes
+  };
+
+  res.status(200).json({
+    success: true,
+    data: notificationSettings
+  });
+});
+
+// @desc    Update SLA notification settings
+// @route   PUT /api/enquiries/sla/notifications
+// @access  Private (Admin, Manager)
+exports.updateSLANotificationSettings = asyncHandler(async (req, res, next) => {
+  const { 
+    enableEmailNotifications,
+    enableSmsNotifications,
+    notifyOnBreach,
+    notifyOnWarning,
+    notifyAssignedUser,
+    notifyManager,
+    reminderInterval
+  } = req.body;
+
+  // In a real implementation, you would save this to a database
+  // For now, we'll just return the updated settings
+  const updatedSettings = {
+    enableEmailNotifications: enableEmailNotifications !== undefined ? enableEmailNotifications : true,
+    enableSmsNotifications: enableSmsNotifications !== undefined ? enableSmsNotifications : false,
+    notifyOnBreach: notifyOnBreach !== undefined ? notifyOnBreach : true,
+    notifyOnWarning: notifyOnWarning !== undefined ? notifyOnWarning : true,
+    notifyAssignedUser: notifyAssignedUser !== undefined ? notifyAssignedUser : true,
+    notifyManager: notifyManager !== undefined ? notifyManager : true,
+    reminderInterval: reminderInterval || 60
+  };
+
+  res.status(200).json({
+    success: true,
+    data: updatedSettings
+  });
 });
 
 // @desc    Bulk import enquiries

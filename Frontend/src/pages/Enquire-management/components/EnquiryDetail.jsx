@@ -299,7 +299,7 @@ const EnquiryDetail = () => {
       {/* Back Button */}
       <div className="mb-4">
         <Link 
-          to="/enquiries" 
+          to="/enquiry-management" 
           className={`flex items-center font-medium ${
             isDark 
               ? 'text-white' 

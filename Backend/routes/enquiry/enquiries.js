@@ -26,7 +26,12 @@ const {
   getEnquiryCalls,
   getEnquiryFilters,
   bulkUpdateStatus,
-  bulkAssignEnquiries
+  bulkAssignEnquiries,
+  // SLA Configuration functions
+  getSLAConfiguration,
+  updateSLAConfiguration,
+  getSLANotificationSettings,
+  updateSLANotificationSettings
 } = require('../../controllers/enquiry/enquiries');
 
 const router = express.Router();
@@ -101,5 +106,15 @@ router.get('/:id/remarks', getEnquiryRemarks);
 router.post('/calls/start', authorize('Telecaller'), startCall);
 router.post('/calls/end', authorize('Telecaller'), endCall);
 router.get('/:id/calls', authorize('Telecaller', 'Admin', 'Sales Head'), getEnquiryCalls);
+
+// SLA Configuration routes
+router.route('/sla/config')
+    .get(getSLAConfiguration)
+    .put(authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'SLAConfig', action: 'UPDATE' }), updateSLAConfiguration);
+
+// SLA Notification Settings routes
+router.route('/sla/notifications')
+    .get(getSLANotificationSettings)
+    .put(authorize('Admin', 'Sales Head'), auditLogger({ entityType: 'SLANotification', action: 'UPDATE' }), updateSLANotificationSettings);
 
 module.exports = router;
