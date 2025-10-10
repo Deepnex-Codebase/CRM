@@ -21,6 +21,7 @@ class EnquiryService {
       if (filters.sortBy) queryParams.append('sort', filters.sortBy);
       if (filters.sortOrder) queryParams.append('order', filters.sortOrder);
       if (filters.search) queryParams.append('search', filters.search);
+      if (filters.slaStatus) queryParams.append('sla_status', filters.slaStatus);
       
       const response = await api.get(`/enquiries?${queryParams.toString()}`);
       
@@ -57,6 +58,186 @@ class EnquiryService {
       }
       // For list view, return an empty array to prevent map errors
       return { data: [], total: 0 };
+    }
+  }
+  
+  // Get SLA metrics for enquiries
+  async getSLAMetrics(filters = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      // Add filters
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.priority) queryParams.append('priority', filters.priority);
+      if (filters.slaStatus) queryParams.append('sla_status', filters.slaStatus);
+      if (filters.assigned_to) queryParams.append('assigned_to', filters.assigned_to);
+      if (filters.dateFrom) queryParams.append('date_from', filters.dateFrom);
+      if (filters.dateTo) queryParams.append('date_to', filters.dateTo);
+      
+      // Add aggregation parameter for metrics
+      queryParams.append('aggregate', 'sla_metrics');
+      
+      const response = await api.get(`/enquiries?${queryParams.toString()}`);
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        message: response.data.message || 'SLA metrics fetched successfully'
+      };
+    } catch (error) {
+      console.error('Error fetching SLA metrics:', error);
+      return {
+        success: false,
+        data: { breached: 0, at_risk: 0, on_track: 0, total: 0 },
+        message: error.response?.data?.message || error.message || 'Failed to fetch SLA metrics'
+      };
+    }
+  }
+  
+  // Get SLA data for enquiries - using standard enquiry endpoint with SLA filters
+  async getSLAData(filters = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      // Add pagination parameters with defaults if not provided
+      queryParams.append('page', filters.page || 1);
+      queryParams.append('limit', filters.limit || 10);
+      
+      // Add filters
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.priority) queryParams.append('priority', filters.priority);
+      if (filters.slaStatus) queryParams.append('sla_status', filters.slaStatus);
+      if (filters.assigned_to) queryParams.append('assigned_to', filters.assigned_to);
+      
+      // Use the standard enquiries endpoint with SLA filters
+      const response = await api.get(`/enquiries?${queryParams.toString()}`);
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        message: response.data.message || 'SLA data fetched successfully'
+      };
+    } catch (error) {
+      console.error('Error fetching SLA data:', error);
+      return {
+        success: false,
+        data: [],
+        message: error.response?.data?.message || error.message || 'Failed to fetch SLA data'
+      };
+    }
+  }
+  
+  // Get SLA metrics - using standard enquiry endpoint with aggregation
+  async getSLAMetrics(filters = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      // Add filters
+      if (filters.status) queryParams.append('status', filters.status);
+      if (filters.priority) queryParams.append('priority', filters.priority);
+      if (filters.slaStatus) queryParams.append('sla_status', filters.slaStatus);
+      if (filters.assigned_to) queryParams.append('assigned_to', filters.assigned_to);
+      if (filters.dateFrom) queryParams.append('date_from', filters.dateFrom);
+      if (filters.dateTo) queryParams.append('date_to', filters.dateTo);
+      
+      // Add aggregation parameter for metrics
+      queryParams.append('aggregate', 'sla_metrics');
+      
+      const response = await api.get(`/enquiries?${queryParams.toString()}`);
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        message: response.data.message || 'SLA metrics fetched successfully'
+      };
+    } catch (error) {
+      console.error('Error fetching SLA metrics:', error);
+      return {
+        success: false,
+        data: { breached: 0, at_risk: 0, on_track: 0, total: 0 },
+        message: error.response?.data?.message || error.message || 'Failed to fetch SLA metrics'
+      };
+    }
+  }
+  
+  // Get SLA configuration - using enquiry SLA config endpoint
+  async getSLAConfiguration() {
+    try {
+      const response = await api.get('/enquiries/sla/config');
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        message: response.data.message || 'SLA configuration fetched successfully'
+      };
+    } catch (error) {
+      console.error('Error fetching SLA configuration:', error);
+      return {
+        success: false,
+        data: null,
+        message: error.response?.data?.message || error.message || 'Failed to fetch SLA configuration'
+      };
+    }
+  }
+  
+  // Update SLA configuration - using enquiry SLA config endpoint
+  async updateSLAConfiguration(configData) {
+    try {
+      const response = await api.put('/enquiries/sla/config', configData);
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        message: response.data.message || 'SLA configuration updated successfully'
+      };
+    } catch (error) {
+      console.error('Error updating SLA configuration:', error);
+      return {
+        success: false,
+        data: null,
+        message: error.response?.data?.message || error.message || 'Failed to update SLA configuration'
+      };
+    }
+  }
+  
+  // Escalate SLA breach - using standard remark endpoint with escalation flag
+  async escalateSLABreach(enquiryId, escalationData = {}) {
+    try {
+      // Add escalation flag to the remark
+      const remarkData = {
+        text: escalationData.message || 'SLA breach escalated',
+        is_escalation: true,
+        escalation_level: escalationData.level || 1,
+        escalated_to: escalationData.escalatedTo
+      };
+      
+      const response = await api.post(`/enquiries/${enquiryId}/remarks`, remarkData);
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        message: response.data.message || 'SLA breach escalated successfully'
+      };
+    } catch (error) {
+      console.error(`Error escalating SLA breach for enquiry ${enquiryId}:`, error);
+      return {
+        success: false,
+        data: null,
+        message: error.response?.data?.message || error.message || 'Failed to escalate SLA breach'
+      };
+    }
+  }
+  
+  // Update SLA notification settings - using enquiry SLA notifications endpoint
+  async updateSLANotificationSettings(settings) {
+    try {
+      const response = await api.put('/enquiries/sla/notifications', settings);
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        message: response.data.message || 'SLA notification settings updated successfully'
+      };
+    } catch (error) {
+      console.error('Error updating SLA notification settings:', error);
+      return {
+        success: false,
+        data: null,
+        message: error.response?.data?.message || error.message || 'Failed to update SLA notification settings'
+      };
     }
   }
 
