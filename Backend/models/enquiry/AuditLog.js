@@ -21,6 +21,7 @@ const AuditLogSchema = new mongoose.Schema({
     required: [true, 'Entity type is required'],
     enum: [
       'Enquiry',
+      'EnquiryRemark',
       'User',
       'Task',
       'StatusLog',

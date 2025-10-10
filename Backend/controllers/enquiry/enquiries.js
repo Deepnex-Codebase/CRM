@@ -87,7 +87,17 @@ exports.getEnquiries = asyncHandler(async (req, res) => {
 
 // Get single enquiry by ID
 exports.getEnquiryById = asyncHandler(async (req, res) => {
-  const enquiry = await Enquiry.findById(req.params.id).populate('assigned_to')
+  // Try to find by enquiry_id first (for ENQ-YYYYMMDD-XXXX format)
+  let enquiry = await Enquiry.findOne({ enquiry_id: req.params.id }).populate('assigned_to');
+  
+  // If not found, try to find by MongoDB _id
+  if (!enquiry) {
+    try {
+      enquiry = await Enquiry.findById(req.params.id).populate('assigned_to');
+    } catch (err) {
+      // Ignore CastError - we'll handle the not found case below
+    }
+  }
   
   if (!enquiry) {
     return res.status(404).json({
@@ -538,7 +548,17 @@ exports.addRemark = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Please add a remark text', 400));
   }
 
-  const enquiry = await Enquiry.findById(req.params.id);
+  // Try to find by enquiry_id first (for ENQ-YYYYMMDD-XXXX format)
+  let enquiry = await Enquiry.findOne({ enquiry_id: req.params.id });
+  
+  // If not found, try to find by MongoDB _id
+  if (!enquiry) {
+    try {
+      enquiry = await Enquiry.findById(req.params.id);
+    } catch (err) {
+      // Ignore CastError - we'll handle the not found case below
+    }
+  }
 
   if (!enquiry) {
     return next(
