@@ -30,11 +30,107 @@ const exportToCSV = (data, filename) => {
   document.body.removeChild(link);
 };
 
+// Status Update Modal Component
+const StatusUpdateModal = ({ isOpen, onClose, onSubmit, statusOptions, currentStatus = '' }) => {
+  const [status, setStatus] = useState(currentStatus);
+  const [reason, setReason] = useState('');
+  const [remarks, setRemarks] = useState('');
+  const { isDark } = useTheme();
+
+  useEffect(() => {
+    setStatus(currentStatus);
+  }, [currentStatus]);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(status, reason, remarks);
+    setReason('');
+    setRemarks('');
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className={`${isDark ? 'bg-gray-800 text-white' : 'bg-white text-black'} p-6 rounded-lg shadow-lg w-full max-w-md`}>
+        <h2 className="text-xl font-bold mb-4">Update Status</h2>
+        <form onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Status</label>
+            <select 
+              value={status} 
+              onChange={(e) => setStatus(e.target.value)}
+              className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
+              required
+            >
+              <option value="">Select Status</option>
+              {statusOptions.map(option => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Reason for Change</label>
+            <select 
+              value={reason} 
+              onChange={(e) => setReason(e.target.value)}
+              className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
+              required
+            >
+              <option value="">Select Reason</option>
+              <option value="Customer Request">Customer Request</option>
+              <option value="Process Flow">Process Flow</option>
+              <option value="Data Correction">Data Correction</option>
+              <option value="Follow-up Result">Follow-up Result</option>
+              <option value="Management Decision">Management Decision</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium mb-1">Remarks</label>
+            <textarea 
+              value={remarks} 
+              onChange={(e) => setRemarks(e.target.value)}
+              className={`w-full rounded-md border ${isDark ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-black'} px-3 py-2 text-sm`}
+              rows="3"
+              placeholder="Additional details about this status change"
+            ></textarea>
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            <button 
+              type="button" 
+              onClick={onClose}
+              className={`px-4 py-2 rounded ${isDark ? 'bg-gray-600 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Update
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const EnquiryList = () => {
   // State for enquiries data
   const [enquiries, setEnquiries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Modal states
+  const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [selectedEnquiryId, setSelectedEnquiryId] = useState(null);
+  const [bulkStatusModalOpen, setBulkStatusModalOpen] = useState(false);
 
   const { isDark } = useTheme();
   

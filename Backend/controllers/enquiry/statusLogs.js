@@ -21,7 +21,7 @@ exports.getStatusLogs = asyncHandler(async (req, res, next) => {
     sort: { created_at: -1 },
     populate: [
       { path: 'enquiry_id', select: 'enquiry_id name mobile' },
-      { path: 'changed_by', select: 'name email' }
+      { path: 'changed_by', select: 'first_name last_name email _id' }
     ]
   };
 
@@ -55,7 +55,7 @@ exports.getStatusLogById = asyncHandler(async (req, res, next) => {
 // @route   POST /api/v1/status-logs
 // @access  Private
 exports.createStatusLog = asyncHandler(async (req, res, next) => {
-  const { enquiry_id, status, reason } = req.body;
+  const { enquiry_id, old_status, new_status, old_status_id, new_status_id, change_reason } = req.body;
 
   // Validate enquiry exists
   const enquiry = await Enquiry.findById(enquiry_id);
@@ -63,25 +63,48 @@ exports.createStatusLog = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Enquiry not found', 404));
   }
 
+  // Status to reason mapping - ALWAYS generate based on status
+  const statusReasonMap = {
+    'New': 'New Enquiry created',
+    'In Process': 'Processing started',
+    'Qualified': 'Lead qualified',
+    'Not Qualified': 'Lead not qualified',
+    'Converted': 'Enquiry converted to customer',
+    'Closed': 'Enquiry closed',
+    'On Hold': 'Enquiry put on hold',
+    'Cancelled': 'Enquiry cancelled',
+    'Pending': 'Pending further action',
+    'Contacted': 'Customer contacted',
+    'Follow Up': 'Follow up scheduled',
+    'Interested': 'Customer showed interest',
+    'Not Interested': 'Customer not interested'
+  };
+  
+  // Always use the mapped reason based on status (ignore any provided reason)
+  const autoReason = statusReasonMap[new_status] || `${new_status} update`;
+
+  // Create status log with the provided old and new status values
   const statusLog = await StatusLog.create({
     enquiry_id,
-    status,
-    previous_status: enquiry.status,
+    old_status: old_status || enquiry.status, // Use provided old_status or current enquiry status
+    new_status: new_status, // Use provided new_status
+    old_status_id,
+    new_status_id,
     changed_by: req.user.id,
-    reason,
+    change_reason: autoReason,
     metadata: {
       user_agent: req.get('User-Agent'),
       ip_address: req.ip
     }
   });
 
-  // Update enquiry status
-  enquiry.status = status;
+  // Update enquiry status with the new status
+  enquiry.status = new_status;
   await enquiry.save();
 
   await statusLog.populate([
     { path: 'enquiry_id', select: 'enquiry_id name mobile' },
-    { path: 'changed_by', select: 'name email' }
+    { path: 'changed_by', select: 'first_name last_name email _id' }
   ]);
 
   res.status(201).json({
@@ -307,26 +330,64 @@ exports.exportStatusLogs = asyncHandler(async (req, res, next) => {
     .sort({ created_at: -1 });
 
   if (format === 'csv') {
-    // Convert to CSV format
-    const csv = statusLogs.map(log => ({
-      status_log_id: log.status_log_id,
-      enquiry_id: log.enquiry_id?.enquiry_id || '',
-      enquiry_name: log.enquiry_id?.name || '',
-      status: log.status,
-      previous_status: log.previous_status || '',
-      changed_by: log.changed_by?.name || '',
-      reason: log.reason || '',
-      created_at: log.created_at
-    }));
+    // Convert to CSV format with proper handling of objects and values
+    const csv = statusLogs.map(log => {
+      // Handle changed_by properly - format as string if it's an object
+      let changedByStr = 'System';
+      if (log.changed_by) {
+        if (typeof log.changed_by === 'object') {
+          // Format user details properly
+          const firstName = log.changed_by.first_name || '';
+          const lastName = log.changed_by.last_name || '';
+          const email = log.changed_by.email || '';
+          changedByStr = `${firstName} ${lastName} (${email})`;
+        } else {
+          changedByStr = String(log.changed_by);
+        }
+      }
+
+      // Handle enquiry_id properly
+      let enquiryIdStr = '';
+      let enquiryNameStr = '';
+      if (log.enquiry_id) {
+        if (typeof log.enquiry_id === 'object') {
+          enquiryIdStr = log.enquiry_id.enquiry_id || '';
+          enquiryNameStr = log.enquiry_id.name || '';
+        } else {
+          enquiryIdStr = String(log.enquiry_id);
+        }
+      }
+
+      return {
+        status_log_id: log.status_log_id || '',
+        enquiry_id: enquiryIdStr,
+        enquiry_name: enquiryNameStr,
+        status: log.new_status || log.status || '',
+        previous_status: log.old_status || log.previous_status || '',
+        changed_by: changedByStr,
+        reason: log.change_reason || log.reason || '',
+        created_at: log.created_at ? new Date(log.created_at).toISOString() : ''
+      };
+    });
 
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename=status-logs.csv');
     
-    // Simple CSV conversion (in production, use a proper CSV library)
-    const csvContent = [
-      Object.keys(csv[0]).join(','),
-      ...csv.map(row => Object.values(row).join(','))
-    ].join('\n');
+    // Improved CSV conversion with proper escaping
+    const csvHeader = Object.keys(csv[0] || {}).join(',');
+    const csvRows = csv.map(row => {
+      return Object.values(row).map(value => {
+        // Handle values that might contain commas or quotes
+        if (value === null || value === undefined) return '';
+        const stringValue = String(value);
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      }).join(',');
+    });
+    
+    const csvContent = [csvHeader, ...csvRows].join('\n');
     
     return res.send(csvContent);
   }

@@ -16,11 +16,13 @@ const StatusLogSchema = new mongoose.Schema({
   },
   old_status: {
     type: String,
-    required: [true, 'Old status is required']
+    required: false,
+    default: 'Previous Status'
   },
   new_status: {
     type: String,
-    required: [true, 'New status is required']
+    required: false,
+    default: 'New Status'
   },
   old_status_id: {
     type: mongoose.Schema.Types.ObjectId,
@@ -29,7 +31,7 @@ const StatusLogSchema = new mongoose.Schema({
   new_status_id: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'StatusType',
-    required: [true, 'New status ID is required']
+    required: false
   },
   changed_by: {
     type: mongoose.Schema.Types.ObjectId,
@@ -39,10 +41,6 @@ const StatusLogSchema = new mongoose.Schema({
   change_reason: {
     type: String,
     maxlength: [500, 'Change reason cannot exceed 500 characters']
-  },
-  remarks: {
-    type: String,
-    maxlength: [1000, 'Remarks cannot exceed 1000 characters']
   },
   timestamp: {
     type: Date,
@@ -67,21 +65,20 @@ const StatusLogSchema = new mongoose.Schema({
 // Pre-save hook to generate unique status_log_id
 StatusLogSchema.pre('save', async function(next) {
   if (this.isNew && this.status_log_id.includes('XXXX')) {
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-    
-    // Find the last status log for today
+    // Find the last status log
     const lastLog = await this.constructor.findOne({
-      status_log_id: new RegExp(`^SLOG-${dateStr}-`)
+      status_log_id: new RegExp('^SL')
     }).sort({ status_log_id: -1 });
     
     let sequence = 1;
     if (lastLog) {
-      const lastSequence = parseInt(lastLog.status_log_id.split('-')[2]);
+      // Extract the sequence number from SL0001 format
+      const lastSequence = parseInt(lastLog.status_log_id.substring(2));
       sequence = lastSequence + 1;
     }
     
-    this.status_log_id = `SLOG-${dateStr}-${sequence.toString().padStart(4, '0')}`;
+    // Format: SL0001, SL0002, etc.
+    this.status_log_id = `SL${sequence.toString().padStart(4, '0')}`;
   }
   next();
 });

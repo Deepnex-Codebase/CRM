@@ -82,10 +82,42 @@ class EnquiryService {
   }
 
   // Update enquiry status
-  async updateEnquiryStatus(id, status) {
+  async updateEnquiryStatus(id, status, reason = '', remarks = '') {
     try {
+      // First get the current status of the enquiry
+      const currentEnquiry = await this.getEnquiryById(id);
+      const oldStatus = currentEnquiry.data?.status || 'Unknown';
+      
+      // Update the enquiry status
       const response = await api.put(`/enquiries/${id}/status`, { status });
-      return response.data;
+      
+      // Create a status log entry
+      try {
+        const statusLogService = await import('../enquire_management/statusLogService');
+        // Get user ID from localStorage for changed_by field
+        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+        const userId = userData._id || '64f8c973f3fa0e9afc2218f7'; // Default admin ID if not found
+        
+        await statusLogService.default.logStatusChange(
+          id,
+          oldStatus,
+          oldStatus, // old_status_id (using same value as oldStatus for now)
+          status,
+          status, // new_status_id (using same value as status for now)
+          reason,
+          remarks,
+          userId
+        );
+      } catch (logError) {
+        console.error('Failed to create status log:', logError);
+        // Continue with the function even if logging fails
+      }
+      
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        message: response.data.message || 'Status updated successfully'
+      };
     } catch (error) {
       console.error(`Error updating enquiry ${id} status:`, error);
       throw error;
@@ -104,9 +136,48 @@ class EnquiryService {
   }
 
   // Bulk update status
-  async bulkUpdateStatus(ids, status) {
+  async bulkUpdateStatus(ids, status, reason = '', remarks = '') {
     try {
+      // First get the current status of each enquiry
+      const statusLogService = await import('../enquire_management/statusLogService');
+      
+      // Update all enquiries status
       const response = await api.put('/enquiries/bulk/status', { ids, status });
+      
+      // Create status logs for each enquiry
+      try {
+        // For each enquiry, create a status log
+        for (const id of ids) {
+          try {
+            // Get current enquiry to find old status
+            const currentEnquiry = await this.getEnquiryById(id);
+            const oldStatus = currentEnquiry.data?.status || 'Unknown';
+            
+            // Get user ID from localStorage for changed_by field
+            const userData = JSON.parse(localStorage.getItem('user') || '{}');
+            const userId = userData._id || '64f8c973f3fa0e9afc2218f7'; // Default admin ID if not found
+            
+            // Log the status change
+            await statusLogService.default.logStatusChange(
+              id,
+              oldStatus,
+              oldStatus, // old_status_id (using same value as oldStatus for now)
+              status,
+              status, // new_status_id (using same value as status for now)
+              reason,
+              remarks,
+              userId
+            );
+          } catch (logError) {
+            console.error(`Failed to create status log for enquiry ${id}:`, logError);
+            // Continue with the next enquiry even if logging fails for one
+          }
+        }
+      } catch (logError) {
+        console.error('Failed to create status logs:', logError);
+        // Continue with the function even if logging fails
+      }
+      
       return response.data;
     } catch (error) {
       console.error('Error bulk updating status:', error);

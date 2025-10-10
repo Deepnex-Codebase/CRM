@@ -104,7 +104,7 @@ const EnquirySchema = new mongoose.Schema({
   // Status and Assignment
   status: {
     type: String,
-    required: true,
+    required: false,
     enum: [
       'New',
       'Unknown',

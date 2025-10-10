@@ -1,76 +1,18 @@
-import React, { useState } from 'react';
-import { Search, Filter, Download, ChevronDown, ChevronUp, Clock, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, Filter, Download, ChevronDown, ChevronUp, Clock, AlertCircle, Loader } from 'lucide-react';
+import statusLogService from '../../services/enquire_management/statusLogService';
 
 const StatusLog = () => {
-  // Sample data for demonstration
-  const [statusLogs, setStatusLogs] = useState([
-    {
-      id: 'SL001',
-      enquiry_id: 'ENQ001',
-      customer_name: 'Rahul Sharma',
-      previous_status: null,
-      new_status: 'New',
-      changed_by: 'System',
-      changed_at: '2023-07-10T09:30:00',
-      reason: 'Enquiry Created',
-      notes: 'New enquiry received through website form'
-    },
-    {
-      id: 'SL002',
-      enquiry_id: 'ENQ001',
-      customer_name: 'Rahul Sharma',
-      previous_status: 'New',
-      new_status: 'In Progress',
-      changed_by: 'Amit Kumar',
-      changed_at: '2023-07-11T10:15:00',
-      reason: 'Processing Started',
-      notes: 'Initial contact made with customer'
-    },
-    {
-      id: 'SL003',
-      enquiry_id: 'ENQ001',
-      customer_name: 'Rahul Sharma',
-      previous_status: 'In Progress',
-      new_status: 'On Hold',
-      changed_by: 'Neha Singh',
-      changed_at: '2023-07-13T14:30:00',
-      reason: 'Awaiting Information',
-      notes: 'Customer needs to provide additional documents'
-    },
-    {
-      id: 'SL004',
-      enquiry_id: 'ENQ002',
-      customer_name: 'Priya Patel',
-      previous_status: null,
-      new_status: 'New',
-      changed_by: 'System',
-      changed_at: '2023-07-12T11:45:00',
-      reason: 'Enquiry Created',
-      notes: 'New enquiry received through phone call'
-    },
-    {
-      id: 'SL005',
-      enquiry_id: 'ENQ002',
-      customer_name: 'Priya Patel',
-      previous_status: 'New',
-      new_status: 'Qualified',
-      changed_by: 'Raj Verma',
-      changed_at: '2023-07-14T09:20:00',
-      reason: 'Lead Qualification',
-      notes: 'Customer meets all qualification criteria'
-    },
-    {
-      id: 'SL006',
-      enquiry_id: 'ENQ003',
-      customer_name: 'Vikram Malhotra',
-      previous_status: 'In Progress',
-      new_status: 'Closed',
-      changed_by: 'Amit Kumar',
-      changed_at: '2023-07-15T16:45:00',
-      reason: 'Deal Won',
-      notes: 'Customer signed contract for Project X'
-    }
-  ]);
+  // State for status logs
+  const [statusLogs, setStatusLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
 
   // State for filters
   const [filters, setFilters] = useState({
@@ -89,14 +31,55 @@ const StatusLog = () => {
 
   // State for sorting
   const [sortConfig, setSortConfig] = useState({
-    key: 'changed_at',
+    key: 'timestamp',
     direction: 'desc'
   });
+
+  // Fetch status logs
+  useEffect(() => {
+    const fetchStatusLogs = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Prepare filter parameters
+        const filterParams = {};
+        
+        if (filters.enquiry_id) filterParams.enquiry_id = filters.enquiry_id;
+        if (filters.customer_name) filterParams.customer_name = filters.customer_name;
+        if (filters.previous_status) filterParams.old_status = filters.previous_status;
+        if (filters.new_status) filterParams.new_status = filters.new_status;
+        if (filters.changed_by) filterParams.changed_by = filters.changed_by;
+        if (filters.reason) filterParams.change_reason = filters.reason;
+        if (filters.date_from) filterParams.date_from = filters.date_from;
+        if (filters.date_to) filterParams.date_to = filters.date_to;
+        
+        // Add sorting parameters
+        filterParams.sortBy = sortConfig.key;
+        filterParams.sortOrder = sortConfig.direction;
+        
+        const response = await statusLogService.getStatusLogs(currentPage, pageSize, filterParams);
+        
+        setStatusLogs(response.data.docs || []);
+        setTotalPages(response.data.totalPages || 1);
+        setTotalCount(response.data.totalDocs || 0);
+      } catch (err) {
+        console.error('Error fetching status logs:', err);
+        setError('Failed to load status logs. Please try again later.');
+        setStatusLogs([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchStatusLogs();
+  }, [currentPage, pageSize, filters, sortConfig]);
 
   // Handle filter change
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
   // Handle sort
@@ -106,80 +89,42 @@ const StatusLog = () => {
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }));
   };
-
-  // Filter and sort logs
-  const filteredAndSortedLogs = statusLogs
-    .filter(log => {
-      const matchesEnquiryId = filters.enquiry_id === '' || log.enquiry_id.toLowerCase().includes(filters.enquiry_id.toLowerCase());
-      const matchesCustomerName = filters.customer_name === '' || log.customer_name.toLowerCase().includes(filters.customer_name.toLowerCase());
-      const matchesPreviousStatus = filters.previous_status === '' || 
-        (log.previous_status && log.previous_status.toLowerCase().includes(filters.previous_status.toLowerCase()));
-      const matchesNewStatus = filters.new_status === '' || log.new_status.toLowerCase().includes(filters.new_status.toLowerCase());
-      const matchesChangedBy = filters.changed_by === '' || log.changed_by.toLowerCase().includes(filters.changed_by.toLowerCase());
-      const matchesReason = filters.reason === '' || log.reason.toLowerCase().includes(filters.reason.toLowerCase());
-      
-      let matchesDateRange = true;
-      if (filters.date_from && filters.date_to) {
-        const logDate = new Date(log.changed_at);
-        const fromDate = new Date(filters.date_from);
-        const toDate = new Date(filters.date_to);
-        toDate.setHours(23, 59, 59, 999); // Set to end of day
-        matchesDateRange = logDate >= fromDate && logDate <= toDate;
-      }
-      
-      return matchesEnquiryId && matchesCustomerName && matchesPreviousStatus && 
-             matchesNewStatus && matchesChangedBy && matchesReason && matchesDateRange;
-    })
-    .sort((a, b) => {
-      const key = sortConfig.key;
-      
-      if (a[key] === null) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (b[key] === null) return sortConfig.direction === 'asc' ? 1 : -1;
-      
-      if (key === 'changed_at') {
-        return sortConfig.direction === 'asc' 
-          ? new Date(a[key]) - new Date(b[key])
-          : new Date(b[key]) - new Date(a[key]);
-      }
-      
-      return sortConfig.direction === 'asc'
-        ? a[key].localeCompare(b[key])
-        : b[key].localeCompare(a[key]);
-    });
+  
+  // Handle page change
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+  };
+  
+  // Handle page size change
+  const handlePageSizeChange = (size) => {
+    setPageSize(size);
+    setCurrentPage(1); // Reset to first page when changing page size
+  };
 
   // Export to CSV
-  const exportToCSV = () => {
-    const headers = [
-      'ID', 'Enquiry ID', 'Customer Name', 'Previous Status', 
-      'New Status', 'Changed By', 'Changed At', 'Reason', 'Notes'
-    ];
-    
-    const csvData = filteredAndSortedLogs.map(log => [
-      log.id,
-      log.enquiry_id,
-      log.customer_name,
-      log.previous_status || 'None',
-      log.new_status,
-      log.changed_by,
-      new Date(log.changed_at).toLocaleString(),
-      log.reason,
-      log.notes
-    ]);
-    
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `status_log_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const exportToCSV = async () => {
+    try {
+      // Use the export function from statusLogService
+      const response = await statusLogService.exportStatusLogs({
+        ...filters,
+        sortBy: sortConfig.key,
+        sortOrder: sortConfig.direction
+      });
+      
+      // Create a blob from the response data
+      const blob = new Blob([response], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `status_log_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error('Error exporting status logs:', err);
+      alert('Failed to export status logs. Please try again later.');
+    }
   };
 
   // Get sort icon
@@ -436,53 +381,58 @@ const StatusLog = () => {
                     {getSortIcon('reason')}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Notes
-                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredAndSortedLogs.map((log) => (
-                <tr key={log.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {log.id}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:underline">
-                    <a href={`/enquiry-management/enquiry-detail/${log.enquiry_id}`}>
-                      {log.enquiry_id}
-                    </a>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {log.customer_name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {log.previous_status ? (
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(log.previous_status)}`}>
-                        {log.previous_status}
+              {statusLogs.length > 0 ? (
+                statusLogs.map((log) => (
+                  <tr key={log._id || log.status_log_id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {log.status_log_id}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:underline">
+                      <a href={`/enquiry-management/enquiry-detail/${log.enquiry_id}`}>
+                        {log.enquiry_id.enquiry_id || log.enquiry_id}
+                      </a>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {log.enquiry_id.name || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      {log.old_status ? (
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(log.old_status)}`}>
+                          {log.old_status}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400 italic">None</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(log.new_status)}`}>
+                        {log.new_status}
                       </span>
-                    ) : (
-                      <span className="text-gray-400 italic">None</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(log.new_status)}`}>
-                      {log.new_status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {log.changed_by}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(log.changed_at).toLocaleString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {log.reason}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
-                    {log.notes}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {typeof log.changed_by === 'object' ? 
+                        `${log.changed_by?.first_name + " " + log.changed_by?.last_name || 'System'}` 
+                        : (log.changed_by || 'System')}
+                    </td>
+                    {console.log(log)}
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(log.timestamp || log.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {log.change_reason || 'N/A'}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
+                    No status logs found
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
