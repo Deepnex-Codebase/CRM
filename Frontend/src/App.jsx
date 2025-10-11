@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { InfoProfileProvider } from './context/InfoProfileContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './components/layout/Layout';
 
@@ -12,6 +13,13 @@ import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 
 // Main Pages
 import Dashboard from './pages/Dashboard';
+
+// Info Profile Pages
+import InfoProfilesList from './pages/info/InfoProfilesList';
+import InfoProfileDetail from './pages/info/InfoProfileDetail';
+import CreateInfoRequest from './pages/info/CreateInfoRequest';
+import AssignInfoRequest from './pages/info/AssignInfoRequest';
+import FeedbackAndClosure from './pages/info/FeedbackAndClosure';
 
 // User Management Pages
 import UserManagement from './pages/user-management/UserManagement';
@@ -52,9 +60,10 @@ function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Router>
-          <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
-            <Routes>
+        <InfoProfileProvider>
+          <Router>
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+              <Routes>
               {/* Public Routes */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -69,7 +78,12 @@ function App() {
                 {/* Dashboard */}
                 <Route index element={<Dashboard />} />
                 
-                
+                {/* Info Profile Routes */}
+                <Route path="/info" element={<InfoProfilesList />} />
+                <Route path="/info/:id" element={<InfoProfileDetail />} />
+                <Route path="/info/create" element={<CreateInfoRequest />} />
+                <Route path="/info/:id/assign" element={<AssignInfoRequest />} />
+                <Route path="/info/:id/feedback" element={<FeedbackAndClosure />} />
                 
                 {/* User Management Routes */}
               <Route path="/user-management/users" element={<UserManagement />} />
@@ -166,6 +180,7 @@ function App() {
             </Routes>
           </div>
         </Router>
+      </InfoProfileProvider>
       </AuthProvider>
     </ThemeProvider>
   );

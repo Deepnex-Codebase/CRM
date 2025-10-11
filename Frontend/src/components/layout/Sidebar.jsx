@@ -63,11 +63,28 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
   useEffect(() => {
     setEnquiryManagementOpen(isEnquiryManagementPath);
   }, [isEnquiryManagementPath]);
+  
+  // Check if current path is info profile related
+  const isInfoProfilePath = location.pathname.startsWith('/info');
+  const [infoProfileOpen, setInfoProfileOpen] = useState(isInfoProfilePath);
+
+  // Auto-open/close Info Profile dropdown based on current route
+  useEffect(() => {
+    setInfoProfileOpen(isInfoProfilePath);
+  }, [isInfoProfilePath]);
 
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard, current: location.pathname === '/' },
-   { name: 'Reports', href: '/reports', icon: BarChart3, current: location.pathname === '/reports' },
+    { name: 'Reports', href: '/reports', icon: BarChart3, current: location.pathname === '/reports' },
     { name: 'Settings', href: '/settings', icon: Settings, current: location.pathname === '/settings' }
+  ];
+  
+  // Info Profile items
+  const infoProfileItems = [
+    { name: 'Info Profiles List', href: '/info', icon: FileText, current: location.pathname === '/info' },
+    { name: 'Create Info Request', href: '/info/create', icon: FileText, current: location.pathname === '/info/create' },
+    { name: 'Assign Info Request', href: '/info/assign', icon: ArrowRightCircle, current: location.pathname.includes('/info') && location.pathname.includes('/assign') }
+    // Feedback & Closure removed as it's similar to Assign Info Request
   ];
   
   // Enquiry management items
@@ -278,6 +295,96 @@ const Sidebar = ({ isOpen, onClose, isCollapsed, onToggleCollapse }) => {
                   {enquiryManagementOpen && (
                     <div className="ml-6 space-y-1">
                       {enquiryManagementItems.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <NavLink
+                            key={item.name}
+                            to={item.href}
+                            className={({ isActive }) =>
+                              `group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                                isActive
+                                  ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                              }`
+                            }
+                            onClick={() => {
+                              if (window.innerWidth < 1024) {
+                                onClose();
+                              }
+                            }}
+                          >
+                            <Icon className="h-4 w-4 flex-shrink-0 mr-3" />
+                            {item.name}
+                          </NavLink>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Info Profile Dropdown */}
+            <div className="space-y-1">
+              {isCollapsed ? (
+                // Collapsed mode - show info profile items as individual icons
+                <div className="space-y-2">
+                  {infoProfileItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <NavLink
+                        key={item.name}
+                        to={item.href}
+                        className={({ isActive }) =>
+                          `group relative flex flex-col items-center justify-center px-2 py-3 text-xs font-medium rounded-lg transition-all duration-200 ${
+                            isActive
+                              ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                          }`
+                        }
+                        onClick={() => {
+                          if (window.innerWidth < 1024) {
+                            onClose();
+                          }
+                        }}
+                        title={item.name}
+                      >
+                        <Icon className="h-5 w-5 flex-shrink-0 mb-1" />
+                        <span className="text-center leading-tight truncate w-full max-w-[3rem]">
+                          {item.name.length > 6 ? `${item.name.substring(0, 6)}...` : item.name}
+                        </span>
+                        
+                        {/* Tooltip */}
+                        <div className="absolute left-full ml-2 px-2 py-1 bg-gray-900 dark:bg-gray-700 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50">
+                          {item.name}
+                        </div>
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              ) : (
+                // Expanded mode - show dropdown
+                <>
+                  <button
+                    onClick={() => setInfoProfileOpen(!infoProfileOpen)}
+                    className={`w-full group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${
+                      isInfoProfilePath
+                        ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-600 dark:text-primary-400'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white'
+                    }`}
+                  >
+                    <FileText className="h-5 w-5 flex-shrink-0 mr-3" />
+                    Info Profile
+                    {infoProfileOpen ? (
+                      <ChevronUp className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    )}
+                  </button>
+                  
+                  {infoProfileOpen && (
+                    <div className="ml-6 space-y-1">
+                      {infoProfileItems.map((item) => {
                         const Icon = item.icon;
                         return (
                           <NavLink

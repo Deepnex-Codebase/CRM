@@ -51,14 +51,15 @@ const infoResponsesRoutes = require('./routes/info/infoResponses');
 const enquiryRoutes = require('./routes/enquiry/enquiries');
 const statusLogRoutes = require('./routes/enquiry/statusLogs');
 const assignmentLogRoutes = require('./routes/enquiry/assignmentLogs');
-const taskRoutes = require('./routes/enquiry/tasks');
 const communicationLogRoutes = require('./routes/enquiry/communicationLogs');
 const callLogRoutes = require('./routes/enquiry/callLogs');
+const taskRoutes = require('./routes/enquiry/tasks');
+const integrationConfigRoutes = require('./routes/enquiry/integrationConfigs');
+const validationRoutes = require('./routes/enquiry/validation');
 const sourceChannelRoutes = require('./routes/enquiry/sourceChannels');
 const statusTypeRoutes = require('./routes/enquiry/statusTypes');
 const automationRuleRoutes = require('./routes/enquiry/automationRules');
 const automationTriggerRoutes = require('./routes/enquiry/automationTriggers');
-const integrationConfigRoutes = require('./routes/enquiry/integrationConfigs');
 const auditLogRoutes = require('./routes/enquiry/auditLogs');
 const priorityScoreTypeRoutes = require('./routes/enquiry/priorityScoreTypes');
 
@@ -83,6 +84,7 @@ app.use(cors({
 // Authentication API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/security', securityRoutes);
+app.use('/api/enquiries/validation', validationRoutes);
 
 // API Routes
 app.use('/api/profiles/project', projectProfileRoutes);
