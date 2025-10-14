@@ -19,13 +19,31 @@ const validateEnquiryFields = (body) => {
   if (body.type_of_lead === 'B2B') {
     if (!body.business_model) errors.push('Business Model is required for B2B leads');
     if (!body.company_name) errors.push('Company Name is required for B2B leads');
+    
+    // Additional B2B validations (not required but validated if present)
+    if (body.annual_revenue && typeof body.annual_revenue !== 'number') 
+      errors.push('Annual Revenue must be a number');
+    if (body.employee_count && typeof body.employee_count !== 'number') 
+      errors.push('Employee Count must be a number');
   }
   
   // B2C specific validations
   if (body.type_of_lead === 'B2C') {
     if (!body.pv_capacity_kw) errors.push('PV Capacity (kW) is required for B2C leads');
     if (!body.category) errors.push('Category is required for B2C leads');
+    
+    // Additional B2C validations (not required but validated if present)
+    if (body.aadhaar_number && !/^\d{12}$/.test(body.aadhaar_number)) 
+      errors.push('Aadhaar Number must be 12 digits');
+    if (body.pan_number && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(body.pan_number)) 
+      errors.push('PAN Number must be in valid format (e.g., ABCDE1234F)');
   }
+  
+  // Project details validations (not required but validated if present)
+  if (body.area_sqft && isNaN(Number(body.area_sqft))) 
+    errors.push('Area (sqft) must be a number');
+  if (body.monthly_electricity_bill && isNaN(Number(body.monthly_electricity_bill))) 
+    errors.push('Monthly Electricity Bill must be a number');
   
   // Loan document validations
   if (body.need_loan === true) {
@@ -87,7 +105,7 @@ exports.getEnquiries = asyncHandler(async (req, res) => {
 
 // Get single enquiry by ID
 exports.getEnquiryById = asyncHandler(async (req, res) => {
-  // Try to find by enquiry_id first (for ENQ-YYYYMMDD-XXXX format)
+  // Try to find by enquiry_id first (for ENQXXXX format)
   let enquiry = await Enquiry.findOne({ enquiry_id: req.params.id }).populate('assigned_to');
   
   // If not found, try to find by MongoDB _id
@@ -548,7 +566,7 @@ exports.addRemark = asyncHandler(async (req, res, next) => {
     return next(new ErrorResponse('Please add a remark text', 400));
   }
 
-  // Try to find by enquiry_id first (for ENQ-YYYYMMDD-XXXX format)
+  // Try to find by enquiry_id first (for ENQXXXX format)
   let enquiry = await Enquiry.findOne({ enquiry_id: req.params.id });
   
   // If not found, try to find by MongoDB _id
@@ -604,10 +622,15 @@ exports.assignEnquiry = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Store previous assignment for logging
+  const previousAssignedTo = enquiry.assigned_to;
+
   // Update assignment
   enquiry.assigned_to = assigned_to;
   if (assigned_team) {
     enquiry.assigned_team = assigned_team;
+  } else if (user.team) {
+    enquiry.assigned_team = user.team;
   }
 
   // Update stage if not already assigned
@@ -616,6 +639,30 @@ exports.assignEnquiry = asyncHandler(async (req, res, next) => {
   }
 
   await enquiry.save();
+
+  // Create assignment log
+  const AssignmentLog = require('../../models/enquiry/AssignmentLog');
+  await AssignmentLog.create({
+    enquiry_id: enquiry._id,
+    assignment_type: req.body.assignment_type || 'manual_assignment',
+    assignment_method: req.body.assignment_method || 'manual',
+    new_assignee: {
+      user_id: assigned_to
+    },
+    old_assignee: {
+      user_id: previousAssignedTo
+    },
+    assigned_by: req.user.id,
+    assignment_reason: req.body.assignment_reason || 'manual_override',
+    remarks: req.body.remarks || 'Manual assignment by user',
+    metadata: {
+      user_agent: req.get('User-Agent'),
+      ip_address: req.ip,
+      assigned_user_team: user.team
+    },
+    ip_address: req.ip,
+    user_agent: req.get('User-Agent')
+  });
 
   res.status(200).json({
     success: true,

@@ -241,8 +241,8 @@ exports.createCommunicationLog = asyncHandler(async (req, res, next) => {
   }
 
   await communicationLog.populate([
-    { path: 'enquiry_id', select: 'enquiry_id name mobile' },
-    { path: 'created_by', select: 'name email' }
+    { path: 'enquiry_id', select: 'enquiry_id name mobile' }
+    // Removed created_by as it doesn't exist in the schema
   ]);
 
   res.status(201).json({

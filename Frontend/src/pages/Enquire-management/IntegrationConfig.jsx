@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Search, Filter, Download, ChevronDown, ChevronUp, 
   Settings, RefreshCw, Play, Pause, Trash2, Edit, Plus, 
-  Check, X, ExternalLink, Database, Lock, Shield
+  Check, X, ExternalLink, Database, Lock, Shield, AlertTriangle
 } from 'lucide-react';
 
 const IntegrationConfig = () => {

@@ -10,10 +10,8 @@ const AuditLogSchema = new mongoose.Schema({
     type: String,
     unique: true,
     default: function() {
-      // Generate ID format: AUDIT-YYYYMMDD-XXXX
-      const today = new Date();
-      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-      return `AUDIT-${dateStr}-XXXX`; // This will be replaced by pre-save hook
+      // Generate ID format: AUDITXXXX
+      return `AUDITXXXX`;
     }
   },
   entity_type: {

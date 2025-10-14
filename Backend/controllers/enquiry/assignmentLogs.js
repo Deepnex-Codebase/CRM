@@ -21,18 +21,112 @@ exports.getAssignmentLogs = asyncHandler(async (req, res, next) => {
     page: parseInt(page),
     limit: parseInt(limit),
     sort: { created_at: -1 },
+    lean: false, // Ensure we get Mongoose documents, not plain objects
     populate: [
-      { path: 'enquiry_id', select: 'enquiry_id name mobile' },
-      { path: 'assigned_to', select: 'name email team' },
-      { path: 'assigned_by', select: 'name email' }
+      { 
+        path: 'enquiry_id', 
+        select: '_id enquiry_id name mobile customer_details status',
+        model: 'Enquiry'
+      },
+      { 
+        path: 'new_assignee.user_id', 
+        select: '_id first_name last_name name email team profile_image role',
+        model: 'User'
+      },
+      { 
+        path: 'old_assignee.user_id', 
+        select: '_id first_name last_name name email team profile_image role',
+        model: 'User'
+      },
+      { 
+        path: 'assigned_by', 
+        select: '_id first_name last_name name email profile_image role',
+        model: 'User'
+      }
     ]
   };
 
   const assignmentLogs = await AssignmentLog.paginate(filter, options);
 
+  // Format the response to match what the frontend expects
+  const formattedLogs = {
+    ...assignmentLogs,
+    docs: assignmentLogs.docs.map(log => {
+      // Use toObject with proper options to preserve all objects
+      const logObj = log.toObject ? log.toObject({ virtuals: true, getters: true }) : log;
+      
+      // Format user names by concatenating first_name and last_name
+      const formatUserName = (user) => {
+        if (!user) return '';
+        if (user.first_name && user.last_name) return `${user.first_name} ${user.last_name}`;
+        if (user.name) return user.name;
+        return user._id ? user._id.toString().substring(0, 8) + '...' : '';
+      };
+      
+      // Get user display info
+      const getUserDisplayInfo = (user) => {
+        if (!user) return { name: '', email: '', id: '' };
+        return {
+          name: formatUserName(user),
+          email: user.email || '',
+          id: user._id || '',
+          role: user.role || '',
+          profile_image: user.profile_image || '',
+          team: user.team || ''
+        };
+      };
+      
+      // Get enquiry object and info
+      const enquiryObj = logObj.enquiry_id || {};
+      const customerName = enquiryObj.name || 'Unknown';
+      
+      // Get user objects and display info
+      const prevAssigneeObj = logObj.old_assignee?.user_id || null;
+      const prevAssigneeInfo = getUserDisplayInfo(prevAssigneeObj);
+      
+      const newAssigneeObj = logObj.new_assignee?.user_id || null;
+      const newAssigneeInfo = getUserDisplayInfo(newAssigneeObj);
+      
+      const assignedByObj = logObj.assigned_by || null;
+      const assignedByInfo = getUserDisplayInfo(assignedByObj);
+      
+      return {
+        ...logObj,
+        id: logObj._id,
+        // Preserve all MongoDB objects
+        enquiry_id: enquiryObj,
+        enquiry_id_str: enquiryObj._id ? enquiryObj._id.toString() : '',
+        customer_name: customerName,
+        
+        // Previous assignee data
+        previous_assignee_obj: prevAssigneeObj,
+        previous_assignee: prevAssigneeInfo.name,
+        previous_assignee_email: prevAssigneeInfo.email,
+        previous_assignee_info: prevAssigneeInfo,
+        
+        // New assignee data
+        new_assignee_obj: newAssigneeObj,
+        new_assignee: newAssigneeInfo.name,
+        new_assignee_email: newAssigneeInfo.email,
+        new_assignee_info: newAssigneeInfo,
+        
+        // Assigned by data
+        assigned_by_obj: assignedByObj,
+        assigned_by: assignedByInfo.name,
+        assigned_by_email: assignedByInfo.email,
+        assigned_by_info: assignedByInfo,
+        
+        // Other fields
+        assigned_at: logObj.created_at || logObj.timestamp,
+        reason: logObj.assignment_reason || 'Manual Assignment',
+        notes: logObj.remarks || ''
+      };
+    })
+  };
+
   res.status(200).json({
     success: true,
-    data: assignmentLogs
+    data: formattedLogs
   });
 });
 

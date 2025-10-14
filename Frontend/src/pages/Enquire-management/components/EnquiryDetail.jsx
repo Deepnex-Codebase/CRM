@@ -24,6 +24,8 @@ const EnquiryDetail = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [users, setUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [assignmentNote, setAssignmentNote] = useState('');
+  const [assignmentReason, setAssignmentReason] = useState('manual_override');
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [assigningUser, setAssigningUser] = useState(false);
   
@@ -141,18 +143,33 @@ const EnquiryDetail = () => {
   
   // Handle user assignment
   const handleAssignUser = async () => {
+    // Validate required fields
     if (!selectedUserId) {
       toast.error('Please select a user');
       return;
     }
     
+    if (!assignmentReason) {
+      toast.error('Please select an assignment reason');
+      return;
+    }
+    
     try {
       setAssigningUser(true);
-      const response = await enquiryService.assignEnquiry(id, selectedUserId);
       
-      if (response && response.data) {
+      // Include the new fields in the API call
+      const response = await enquiryService.assignEnquiry(
+        id, 
+        selectedUserId, 
+        {
+          assignment_reason: assignmentReason,
+          remarks: assignmentNote
+        }
+      );
+      
+      if (response.success) {
         // If the response contains the full updated enquiry, use it
-        if (response.data.assigned_to) {
+        if (response.data && response.data.assigned_to) {
           setEnquiry(response.data);
         } else {
           // Otherwise, update the enquiry with the new assignee from our users list
@@ -172,6 +189,8 @@ const EnquiryDetail = () => {
         toast.success('Enquiry assigned successfully');
         setShowAssignModal(false);
         setSelectedUserId('');
+        setAssignmentNote('');
+        setAssignmentReason('manual_override');
       }
     } catch (err) {
       console.error('Error assigning enquiry:', err);
@@ -255,31 +274,87 @@ const EnquiryDetail = () => {
                 <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-indigo-500"></div>
               </div>
             ) : (
-              <select
-                className={`w-full p-2 rounded mb-4 ${
-                  isDark 
-                    ? 'bg-gray-700 border-gray-600 text-white' 
-                    : 'bg-white border-gray-300 text-black'
-                }`}
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-              >
-                <option value="">Select User</option>
-                {users.map((user) => (
-                  <option key={user._id} value={user._id}>
-                    {user.first_name} {user.last_name}
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Assign To
+                  </label>
+                  <select
+                    className={`w-full p-2 rounded ${
+                      isDark 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'bg-white border-gray-300 text-black'
+                    }`}
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(e.target.value)}
+                  >
+                    <option value="">Select User</option>
+                    {users.map((user) => (
+                      <option key={user._id} value={user._id}>
+                        {user.first_name} {user.last_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Assignment Reason
+                  </label>
+                  <select
+                    className={`w-full p-2 rounded ${
+                      isDark 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'bg-white border-gray-300 text-black'
+                    }`}
+                    value={assignmentReason}
+                    onChange={(e) => setAssignmentReason(e.target.value)}
+                  >
+                    <option value="initial_assignment">Initial Assignment</option>
+                    <option value="workload_balancing">Workload Balancing</option>
+                    <option value="skill_match">Skill Match</option>
+                    <option value="escalation">Escalation</option>
+                    <option value="user_request">User Request</option>
+                    <option value="system_auto">System Auto</option>
+                    <option value="manual_override">Manual Override</option>
+                    <option value="availability_change">Availability Change</option>
+                    <option value="performance_based">Performance Based</option>
+                    <option value="geographic_routing">Geographic Routing</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Note
+                  </label>
+                  <textarea
+                    className={`w-full p-2 rounded ${
+                      isDark 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'bg-white border-gray-300 text-black'
+                    }`}
+                    value={assignmentNote}
+                    onChange={(e) => setAssignmentNote(e.target.value)}
+                    placeholder="Add a note about this assignment"
+                    rows="3"
+                    maxLength="1000"
+                  ></textarea>
+                </div>
+              </div>
             )}
-            <div className="flex justify-end gap-2">
+            <div className="flex justify-end gap-2 mt-4">
               <button
                 className={`px-4 py-2 rounded ${
                   isDark 
                     ? 'bg-gray-600 text-white hover:bg-gray-500' 
                     : 'bg-gray-300 text-gray-800 hover:bg-gray-400'
                 }`}
-                onClick={() => setShowAssignModal(false)}
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setAssignmentNote('');
+                  setAssignmentReason('manual_override');
+                  setSelectedUserId('');
+                }}
                 disabled={assigningUser}
               >
                 Cancel
@@ -674,62 +749,6 @@ const EnquiryDetail = () => {
               </div>
             </div>
           </div>
-
-          {/* Marketing Information */}
-          <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-md mb-6`}>
-            <h2 className={`text-xl font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Marketing Information</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>UTM Source</p>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{enquiry.utm_source || 'N/A'}</p>
-              </div>
-              <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>UTM Medium</p>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{enquiry.utm_medium || 'N/A'}</p>
-              </div>
-              <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>UTM Campaign</p>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{enquiry.utm_campaign || 'N/A'}</p>
-              </div>
-              <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>UTM Term</p>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{enquiry.utm_term || 'N/A'}</p>
-              </div>
-              <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>UTM Content</p>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{enquiry.utm_content || 'N/A'}</p>
-              </div>
-              <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Referrer URL</p>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{enquiry.referrer_url || 'N/A'}</p>
-              </div>
-              <div>
-                <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Landing Page</p>
-                <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{enquiry.landing_page || 'N/A'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Device Information */}
-          {enquiry.device_info && (
-            <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-md mb-6`}>
-              <h2 className={`text-xl font-semibold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>Device Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Device</p>
-                  <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{enquiry.device_info.device || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>OS</p>
-                  <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{enquiry.device_info.os || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'} mb-1`}>Browser</p>
-                  <p className={`font-medium ${isDark ? 'text-white' : 'text-gray-900'}`}>{enquiry.device_info.browser || 'N/A'}</p>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Remarks */}
           <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-md mb-6`}>

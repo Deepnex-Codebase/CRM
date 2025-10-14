@@ -50,15 +50,68 @@ const EnquirySchema = new mongoose.Schema({
   source_of_reference: { type: String },
   need_loan: { type: Boolean, default: false },
   
+  // B2B specific customer fields
+  designation: { type: String },
+  company_name: { type: String },
+  company_website: { type: String },
+  industry_type: { type: String },
+  decision_maker_name: { type: String },
+  decision_maker_contact: { type: String },
+  decision_maker_email: { type: String },
+  annual_revenue: { type: Number },
+  employee_count: { type: Number },
+  
+  // B2C specific customer fields
+  aadhaar_number: { type: String },
+  pan_number: { type: String },
+  residential_address: { type: String },
+  occupation: { type: String },
+  family_size: { type: String },
+  income_range: { type: String },
+  property_ownership: { type: String },
+  
+  // Additional project details
+  roof_type: { type: String },
+  area_sqft: { type: Number },
+  energy_consumption: { type: String },
+  existing_power_source: { type: String },
+  power_backup: { type: String },
+  operation_hours: { type: String },
+  expansion_plans: { type: String },
+  monthly_electricity_bill: { type: Number },
+  electricity_connection_type: { type: String },
+  roof_ownership: { type: String },
+  shading_issues: { type: String },
+  
+  // Additional document fields
+  company_registration: { type: String },
+  tax_documents: { type: String },
+  utility_bills: { type: String },
+  site_photos: { type: String },
+  property_documents: { type: String },
+  consent_letter: { type: String },
+  id_proof: { type: String },
+  
+  // Additional quotation fields
+  payment_terms: { type: String },
+  contract_duration: { type: String },
+  service_level_agreement: { type: String },
+  emi_option: { type: String },
+  subsidy_amount: { type: Number },
+  net_amount: { type: Number },
+  quotation_date: { type: Date },
+  validity_period: { type: String },
+  warranty_period: { type: String },
+  installation_timeline: { type: String },
+  financing_options: { type: String },
+  
   // Enquiry Metadata
   enquiry_id: {
     type: String,
     unique: true,
     default: function() {
-      // Generate ID format: ENQ-YYYYMMDD-XXXX (where XXXX is sequential)
-      const today = new Date();
-      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-      return `ENQ-${dateStr}-XXXX`; // This will be replaced by pre-save hook
+      // Generate ID format: ENQXXXX (where XXXX is sequential)
+      return `ENQXXXX`;
     }
   },
   source_type: {
@@ -310,20 +363,19 @@ EnquirySchema.pre('save', async function(next) {
     return next();
   }
   
-  // Generate ID format: ENQ-YYYYMMDD-XXXX (where XXXX is sequential)
-  const today = new Date();
-  const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
+  // Generate ID format: ENQXXXX (where XXXX is sequential)
   
-  // Find the highest enquiry_id for today
+  // Find the highest enquiry_id
   const lastEnquiry = await this.constructor.findOne(
-    { enquiry_id: new RegExp(`^ENQ-${dateStr}`) },
+    { enquiry_id: /^ENQ\d{4}$/ },
     { enquiry_id: 1 },
     { sort: { enquiry_id: -1 } }
   );
   
   let sequence = 1;
   if (lastEnquiry && lastEnquiry.enquiry_id) {
-    const lastSequence = parseInt(lastEnquiry.enquiry_id.split('-')[2]);
+    // Extract the sequence number from ENQXXXX format
+    const lastSequence = parseInt(lastEnquiry.enquiry_id.substring(3));
     if (!isNaN(lastSequence)) {
       sequence = lastSequence + 1;
     }
@@ -331,7 +383,7 @@ EnquirySchema.pre('save', async function(next) {
   
   // Pad sequence with leading zeros
   const paddedSequence = sequence.toString().padStart(4, '0');
-  this.enquiry_id = `ENQ-${dateStr}-${paddedSequence}`;
+  this.enquiry_id = `ENQ${paddedSequence}`;
   
   next();
 });

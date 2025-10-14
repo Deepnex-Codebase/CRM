@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import enquiryService from '../../services/enquire_management/enquiryService';
 import { useTheme } from '../../context/ThemeContext';
+import EnquiryForm from './components/EnquiryForm';
 
 // Function to export data to CSV
 const exportToCSV = (data, filename) => {
@@ -131,8 +132,35 @@ const EnquiryList = () => {
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [selectedEnquiryId, setSelectedEnquiryId] = useState(null);
   const [bulkStatusModalOpen, setBulkStatusModalOpen] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { isDark } = useTheme();
+  
+  // Handle create enquiry
+  const handleCreateEnquiry = () => {
+    setShowCreateModal(true);
+  };
+
+  const handleCloseCreateModal = () => {
+    setShowCreateModal(false);
+  };
+
+  const handleEnquiryCreated = async () => {
+    // Refresh the enquiry list
+    try {
+      setLoading(true);
+      const response = await enquiryService.getEnquiries({
+        ...filters,
+        search: searchTerm
+      });
+      setEnquiries(response.data || []);
+      setShowCreateModal(false);
+    } catch (err) {
+      console.error('Failed to refresh enquiries:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // Filter states
   const [filters, setFilters] = useState({
@@ -340,7 +368,15 @@ const EnquiryList = () => {
 
   return (
     <div className={` ${isDark ? 'text-white' : 'text-black'} container mx-auto px-4 py-6 ${isDark ? 'text-white' : 'text-black'}`}>
-      <h1 className={`text-2xl font-bold mb-6 ${isDark ? 'text-white' : 'text-black'}`}>Enquiry Management</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-black'}`}>Enquiry Management</h1>
+        <button
+          onClick={handleCreateEnquiry}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center"
+        >
+          Create Enquiry
+        </button>
+      </div>
       
       {/* Filters and Search */}
       <div className={`${isDark ? 'bg-gray-800' : 'bg-white'} p-4 rounded-lg shadow mb-6`}>
@@ -744,6 +780,23 @@ const EnquiryList = () => {
       </div>
       )}
       
+      {/* Create Enquiry Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`relative w-full max-w-4xl max-h-[90vh] overflow-y-auto ${isDark ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-xl p-6`}>
+            <button
+              onClick={handleCloseCreateModal}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <h2 className={`text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-800'}`}>Create New Enquiry</h2>
+            <EnquiryForm onSubmitSuccess={handleEnquiryCreated} onCancel={handleCloseCreateModal} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -35,7 +35,7 @@ const ConversionWizard = () => {
         // For now, we'll use sample data
         const sampleEnquiries = [
           {
-            enquiry_id: 'ENQ001',
+            enquiry_id: 'ENQ0001',
             customer_name: 'Rahul Sharma',
             contact_number: '9876543210',
             email: 'rahul.sharma@example.com',
@@ -43,7 +43,7 @@ const ConversionWizard = () => {
             status: 'New'
           },
           {
-            enquiry_id: 'ENQ002',
+            enquiry_id: 'ENQ0002',
             customer_name: 'Priya Patel',
             contact_number: '8765432109',
             email: 'priya.patel@example.com',
@@ -51,7 +51,7 @@ const ConversionWizard = () => {
             status: 'New'
           },
           {
-            enquiry_id: 'ENQ003',
+            enquiry_id: 'ENQ0003',
             customer_name: 'Amit Kumar',
             contact_number: '7654321098',
             email: 'amit.kumar@example.com',

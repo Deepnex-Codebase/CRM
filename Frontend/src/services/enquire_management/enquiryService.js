@@ -306,13 +306,27 @@ class EnquiryService {
   }
 
   // Assign enquiry
-  async assignEnquiry(id, userId) {
+  async assignEnquiry(id, userId, options = {}) {
     try {
-      const response = await api.put(`/enquiries/${id}/assign`, { assigned_to: userId });
-      return response.data;
+      const response = await api.put(`/enquiries/${id}/assign`, { 
+        assigned_to: userId,
+        assignment_type: 'manual_assignment',
+        assignment_method: 'manual',
+        assignment_reason: options.assignment_reason || 'manual_override',
+        remarks: options.remarks || 'Manual assignment by user'
+      });
+      return {
+        success: true,
+        data: response.data.data || response.data,
+        message: response.data.message || 'Enquiry assigned successfully'
+      };
     } catch (error) {
       console.error(`Error assigning enquiry ${id}:`, error);
-      throw error;
+      return {
+        success: false,
+        data: null,
+        message: error.response?.data?.message || error.message || `Failed to assign enquiry ${id}`
+      };
     }
   }
 

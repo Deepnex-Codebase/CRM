@@ -6,10 +6,8 @@ const TaskSchema = new mongoose.Schema({
     type: String,
     unique: true,
     default: function() {
-      // Generate ID format: TASK-YYYYMMDD-XXXX
-      const today = new Date();
-      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-      return `TASK-${dateStr}-XXXX`; // This will be replaced by pre-save hook
+      // Generate ID format: TASKXXXX
+      return `TASKXXXX`; // This will be replaced by pre-save hook
     }
   },
   enquiry_id: {
@@ -237,21 +235,20 @@ const TaskSchema = new mongoose.Schema({
 // Pre-save hook to generate unique task_id and update timestamps
 TaskSchema.pre('save', async function(next) {
   if (this.isNew && this.task_id.includes('XXXX')) {
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-    
-    // Find the last task for today
+    // Find the last task with TASKXXXX format
     const lastTask = await this.constructor.findOne({
-      task_id: new RegExp(`^TASK-${dateStr}-`)
+      task_id: /^TASK\d{4}$/
     }).sort({ task_id: -1 });
     
     let sequence = 1;
     if (lastTask) {
-      const lastSequence = parseInt(lastTask.task_id.split('-')[2]);
+      // Extract the numeric part from the last task ID
+      const lastSequence = parseInt(lastTask.task_id.substring(4));
       sequence = lastSequence + 1;
     }
     
-    this.task_id = `TASK-${dateStr}-${sequence.toString().padStart(4, '0')}`;
+    // Generate new task ID in TASKXXXX format
+    this.task_id = `TASK${sequence.toString().padStart(4, '0')}`;
   }
   
   // Update SLA status based on due date

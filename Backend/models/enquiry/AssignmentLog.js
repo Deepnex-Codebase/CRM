@@ -1,14 +1,13 @@
 const mongoose = require('mongoose');
+const mongoosePaginate = require('mongoose-paginate-v2');
 
 const AssignmentLogSchema = new mongoose.Schema({
   assignment_log_id: {
     type: String,
     unique: true,
     default: function() {
-      // Generate ID format: ALOG-YYYYMMDD-XXXX
-      const today = new Date();
-      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-      return `ALOG-${dateStr}-XXXX`; // This will be replaced by pre-save hook
+      // Generate ID format: ALOGXXXX
+      return `ALOGXXXX`;
     }
   },
   enquiry_id: {
@@ -150,6 +149,9 @@ AssignmentLogSchema.index({ assignment_type: 1 });
 AssignmentLogSchema.index({ timestamp: -1 });
 AssignmentLogSchema.index({ assignment_log_id: 1 });
 AssignmentLogSchema.index({ is_active: 1 });
+
+// Apply the pagination plugin
+AssignmentLogSchema.plugin(mongoosePaginate);
 
 // Virtual for formatted timestamp
 AssignmentLogSchema.virtual('formatted_timestamp').get(function() {

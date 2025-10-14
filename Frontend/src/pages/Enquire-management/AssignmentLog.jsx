@@ -1,65 +1,27 @@
-import React, { useState } from 'react';
-import { UserPlus, Search, Calendar, Filter, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
+import { UserPlus, Search, Calendar, Filter, Download, ChevronDown, ChevronUp, AlertCircle, Loader, Shield, Lock } from 'lucide-react';
+import assignmentLogService from '../../services/enquire_management/assignmentLogService';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-toastify';
+import { debounce } from 'lodash';
+import DOMPurify from 'dompurify';
 
 const AssignmentLog = () => {
-  // Sample data for demonstration
-  const [assignmentLogs, setAssignmentLogs] = useState([
-    {
-      id: 'AL001',
-      enquiry_id: 'ENQ001',
-      customer_name: 'Rahul Sharma',
-      previous_assignee: null,
-      new_assignee: 'Amit Kumar',
-      assigned_by: 'Vikram Malhotra',
-      assigned_at: '2023-07-10T09:30:00',
-      reason: 'Initial Assignment',
-      notes: 'Assigned based on territory and expertise'
-    },
-    {
-      id: 'AL002',
-      enquiry_id: 'ENQ001',
-      customer_name: 'Rahul Sharma',
-      previous_assignee: 'Amit Kumar',
-      new_assignee: 'Neha Singh',
-      assigned_by: 'Vikram Malhotra',
-      assigned_at: '2023-07-12T14:15:00',
-      reason: 'Workload Balancing',
-      notes: 'Amit Kumar has high workload, reassigning to balance team capacity'
-    },
-    {
-      id: 'AL003',
-      enquiry_id: 'ENQ002',
-      customer_name: 'Priya Patel',
-      previous_assignee: null,
-      new_assignee: 'Raj Verma',
-      assigned_by: 'Vikram Malhotra',
-      assigned_at: '2023-07-13T11:45:00',
-      reason: 'Initial Assignment',
-      notes: 'Assigned based on product knowledge'
-    },
-    {
-      id: 'AL004',
-      enquiry_id: 'ENQ003',
-      customer_name: 'Vikram Malhotra',
-      previous_assignee: null,
-      new_assignee: 'Amit Kumar',
-      assigned_by: 'System',
-      assigned_at: '2023-07-14T10:00:00',
-      reason: 'Auto Assignment',
-      notes: 'Automatically assigned based on round-robin algorithm'
-    },
-    {
-      id: 'AL005',
-      enquiry_id: 'ENQ003',
-      customer_name: 'Vikram Malhotra',
-      previous_assignee: 'Amit Kumar',
-      new_assignee: 'Neha Singh',
-      assigned_by: 'Amit Kumar',
-      assigned_at: '2023-07-15T16:30:00',
-      reason: 'Expertise Required',
-      notes: 'Customer requires specific product knowledge that Neha has'
-    }
-  ]);
+  // Authentication context for secure access
+  const { user, isAuthenticated } = useAuth();
+  
+  // State for assignment logs data
+  const [assignmentLogs, setAssignmentLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds refresh
+  const [lastRefreshed, setLastRefreshed] = useState(new Date());
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  });
 
   // State for filters
   const [filters, setFilters] = useState({
@@ -82,9 +44,46 @@ const AssignmentLog = () => {
     direction: 'desc'
   });
 
-  // Handle filter change
+  // Handle filter change with validation
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
+    
+    // Input validation based on field type
+    if (name === 'enquiry_id') {
+      // Validate enquiry ID format (alphanumeric with optional hyphens)
+      if (value && !/^[a-zA-Z0-9-]*$/.test(value)) {
+        toast.error('Invalid enquiry ID format');
+        return;
+      }
+    } else if (name === 'customer_name') {
+      // Validate customer name (letters, spaces, and common name characters)
+      if (value && !/^[a-zA-Z0-9\s.',-]*$/.test(value)) {
+        toast.error('Invalid customer name format');
+        return;
+      }
+    } else if (name === 'previous_assignee' || name === 'new_assignee') {
+      // Validate assignee name (letters, spaces, and common name characters)
+      if (value && !/^[a-zA-Z0-9\s.',-]*$/.test(value)) {
+        toast.error('Invalid assignee name format');
+        return;
+      }
+    } else if (name === 'date_from' || name === 'date_to') {
+      // Validate date format
+      if (value) {
+        const dateValue = new Date(value);
+        if (isNaN(dateValue.getTime())) {
+          toast.error('Invalid date format');
+          return;
+        }
+        
+        // Prevent future dates
+        if (dateValue > new Date()) {
+          toast.error('Date cannot be in the future');
+          return;
+        }
+      }
+    }
+    
     setFilters(prev => ({ ...prev, [name]: value }));
   };
 
@@ -96,79 +95,280 @@ const AssignmentLog = () => {
     }));
   };
 
-  // Filter and sort logs
-  const filteredAndSortedLogs = assignmentLogs
-    .filter(log => {
-      const matchesEnquiryId = filters.enquiry_id === '' || log.enquiry_id.toLowerCase().includes(filters.enquiry_id.toLowerCase());
-      const matchesCustomerName = filters.customer_name === '' || log.customer_name.toLowerCase().includes(filters.customer_name.toLowerCase());
-      const matchesPreviousAssignee = filters.previous_assignee === '' || 
-        (log.previous_assignee && log.previous_assignee.toLowerCase().includes(filters.previous_assignee.toLowerCase()));
-      const matchesNewAssignee = filters.new_assignee === '' || log.new_assignee.toLowerCase().includes(filters.new_assignee.toLowerCase());
-      const matchesAssignedBy = filters.assigned_by === '' || log.assigned_by.toLowerCase().includes(filters.assigned_by.toLowerCase());
-      const matchesReason = filters.reason === '' || log.reason.toLowerCase().includes(filters.reason.toLowerCase());
+  // Fetch assignment logs from backend
+  // Auto-refresh timer
+  useEffect(() => {
+    const refreshTimer = setInterval(() => {
+      // Only refresh if not currently loading and on the first page
+      if (!loading && pagination.page === 1) {
+        fetchAssignmentLogs();
+      }
+    }, refreshInterval);
+    
+    return () => clearInterval(refreshTimer);
+  }, [refreshInterval, loading, pagination.page]);
+
+  // Extract fetchAssignmentLogs as a reusable function
+  const fetchAssignmentLogs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      setLastRefreshed(new Date());
       
-      let matchesDateRange = true;
+      // Validate date range if both are provided
       if (filters.date_from && filters.date_to) {
-        const logDate = new Date(log.assigned_at);
-        const fromDate = new Date(filters.date_from);
-        const toDate = new Date(filters.date_to);
-        toDate.setHours(23, 59, 59, 999); // Set to end of day
-        matchesDateRange = logDate >= fromDate && logDate <= toDate;
+        const startDate = new Date(filters.date_from);
+        const endDate = new Date(filters.date_to);
+        
+        if (startDate > endDate) {
+          setError('Start date cannot be after end date');
+          setLoading(false);
+          toast.error('Invalid date range');
+          return;
+        }
+        
+        // Limit date range to prevent excessive queries
+        const daysDiff = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
+        if (daysDiff > 90) {
+          setError('Date range cannot exceed 90 days');
+          setLoading(false);
+          toast.error('Date range too large');
+          return;
+        }
       }
       
-      return matchesEnquiryId && matchesCustomerName && matchesPreviousAssignee && 
-             matchesNewAssignee && matchesAssignedBy && matchesReason && matchesDateRange;
-    })
-    .sort((a, b) => {
-      const key = sortConfig.key;
+      // Prepare filters for API call
+      const apiFilters = {
+        page: pagination.page,
+        limit: pagination.limit,
+        enquiry_id: filters.enquiry_id,
+        date_from: filters.date_from,
+        date_to: filters.date_to
+      };
       
-      if (a[key] === null) return sortConfig.direction === 'asc' ? -1 : 1;
-      if (b[key] === null) return sortConfig.direction === 'asc' ? 1 : -1;
+      // Add additional filters if they exist
+      if (filters.assigned_by) apiFilters.assigned_by = filters.assigned_by;
+      if (filters.reason) apiFilters.assignment_type = filters.reason;
       
-      if (key === 'assigned_at') {
-        return sortConfig.direction === 'asc' 
-          ? new Date(a[key]) - new Date(b[key])
-          : new Date(b[key]) - new Date(a[key]);
+      // Set request timeout
+      const timeoutId = setTimeout(() => {
+        if (loading) {
+          setLoading(false);
+          setError('Request timed out. Please try again.');
+          toast.error('Request timed out');
+        }
+      }, 30000); // 30 second timeout
+      
+      const response = await assignmentLogService.getAssignmentLogs(apiFilters);
+      
+      // Clear timeout as request completed
+      clearTimeout(timeoutId);
+      
+      if (response.success) {
+        // Transform the data to match the expected structure for the table
+        const transformedLogs = (response.data.docs || []).map(log => {
+          // Handle different possible data structures
+          return {
+            id: log._id,
+            enquiry_id: typeof log.enquiry_id === 'object' ? log.enquiry_id._id : log.enquiry_id,
+            customer_name: typeof log.enquiry_id === 'object' ? log.enquiry_id.name : 'Unknown',
+            previous_assignee: typeof log.previous_assigned_to === 'object' ? log.previous_assigned_to.name : log.previous_assigned_to || '',
+            new_assignee: typeof log.assigned_to === 'object' ? log.assigned_to.name : log.assigned_to || '',
+            assigned_by: typeof log.assigned_by === 'object' ? log.assigned_by.name : log.assigned_by || '',
+            assigned_at: log.created_at || log.timestamp,
+            reason: log.assignment_reason || log.reason || 'Manual Assignment',
+            notes: log.remarks || ''
+          };
+        });
+        
+        setAssignmentLogs(transformedLogs);
+        setPagination({
+          ...pagination,
+          total: response.data.totalDocs || 0,
+          totalPages: response.data.totalPages || 0
+        });
+      } else {
+        setError('Failed to fetch assignment logs');
+        toast.error(response.message || 'Failed to fetch assignment logs');
       }
+    } catch (err) {
+      console.error('Error fetching assignment logs:', err);
+      
+      // Handle different error types
+      if (err.response) {
+        // Server responded with error status
+        const status = err.response.status;
+        
+        if (status === 401 || status === 403) {
+          setError('You do not have permission to access this data');
+          toast.error('Authentication or authorization error');
+        } else if (status === 404) {
+          setError('No assignment logs found');
+          setAssignmentLogs([]);
+        } else if (status === 500) {
+          setError('Server error. Please try again later');
+          toast.error('Server error occurred');
+        } else {
+          setError(`Error: ${err.response.data?.message || 'Unknown error'}`);
+          toast.error('Failed to load data');
+        }
+      } else if (err.request) {
+        // Request made but no response received (network error)
+        setError('Network error. Please check your connection');
+        toast.error('Network connection issue');
+      } else {
+        // Other errors
+        setError('Error fetching assignment logs: ' + (err.message || 'Unknown error'));
+        toast.error('Failed to load assignment logs');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setError('Authentication required');
+      setLoading(false);
+      return;
+    }
+    
+    fetchAssignmentLogs();
+  }, [isAuthenticated, pagination.page, pagination.limit, filters.enquiry_id, filters.date_from, filters.date_to]);
+  
+  // Handle page change
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({
+      ...prev,
+      page: newPage
+    }));
+  };
+  
+  // Apply client-side filtering for additional filters not sent to API
+  const filteredLogs = assignmentLogs.filter(log => {
+    // Sanitize inputs for security
+    const sanitizedCustomerName = DOMPurify.sanitize(filters.customer_name);
+    const sanitizedPreviousAssignee = DOMPurify.sanitize(filters.previous_assignee);
+    const sanitizedNewAssignee = DOMPurify.sanitize(filters.new_assignee);
+    
+    const matchesCustomerName = !sanitizedCustomerName || 
+      (log.customer_name && log.customer_name.toLowerCase().includes(sanitizedCustomerName.toLowerCase()));
+    
+    const matchesPreviousAssignee = !sanitizedPreviousAssignee || 
+      (log.previous_assignee && log.previous_assignee.toLowerCase().includes(sanitizedPreviousAssignee.toLowerCase()));
+    
+    const matchesNewAssignee = !sanitizedNewAssignee || 
+      (log.new_assignee && log.new_assignee.toLowerCase().includes(sanitizedNewAssignee.toLowerCase()));
+    
+    return matchesCustomerName && matchesPreviousAssignee && matchesNewAssignee;
+  });
+  
+  // Debounced search to prevent excessive API calls
+  const debouncedSearch = useCallback(
+    debounce((filters) => {
+      setPagination(prev => ({...prev, page: 1})); // Reset to first page on new search
+    }, 500),
+    []
+  );
+  
+  // Sort logs client-side
+  const sortedLogs = [...filteredLogs].sort((a, b) => {
+    const key = sortConfig.key;
+    
+    if (!a[key]) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (!b[key]) return sortConfig.direction === 'asc' ? 1 : -1;
+    
+    if (key === 'timestamp' || key === 'created_at') {
+      return sortConfig.direction === 'asc' 
+        ? new Date(a[key]) - new Date(b[key])
+        : new Date(b[key]) - new Date(a[key]);
+    }
+    
+    // Handle nested properties
+    if (key.includes('.')) {
+      const parts = key.split('.');
+      let aValue = a;
+      let bValue = b;
+      
+      for (const part of parts) {
+        aValue = aValue?.[part];
+        bValue = bValue?.[part];
+      }
+      
+      if (!aValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (!bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       
       return sortConfig.direction === 'asc'
-        ? a[key].localeCompare(b[key])
-        : b[key].localeCompare(a[key]);
-    });
+        ? String(aValue).localeCompare(String(bValue))
+        : String(bValue).localeCompare(String(aValue));
+    }
+    
+    return sortConfig.direction === 'asc'
+      ? String(a[key]).localeCompare(String(b[key]))
+      : String(b[key]).localeCompare(String(a[key]));
+  });
 
-  // Export to CSV
-  const exportToCSV = () => {
-    const headers = [
-      'ID', 'Enquiry ID', 'Customer Name', 'Previous Assignee', 
-      'New Assignee', 'Assigned By', 'Assigned At', 'Reason', 'Notes'
-    ];
-    
-    const csvData = filteredAndSortedLogs.map(log => [
-      log.id,
-      log.enquiry_id,
-      log.customer_name,
-      log.previous_assignee || 'None',
-      log.new_assignee,
-      log.assigned_by,
-      new Date(log.assigned_at).toLocaleString(),
-      log.reason,
-      log.notes
-    ]);
-    
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `assignment_log_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Export to CSV using backend service
+  const exportToCSV = async () => {
+    try {
+      setLoading(true);
+      
+      // Prepare export filters
+      const exportFilters = {
+        start_date: filters.date_from,
+        end_date: filters.date_to,
+        assigned_to: filters.new_assignee,
+        assignment_type: filters.reason
+      };
+      
+      // Call backend export service
+      const response = await assignmentLogService.exportAssignmentLogs(exportFilters);
+      
+      if (response.success && response.data) {
+        // Format data for CSV
+        const headers = [
+          'ID', 'Enquiry ID', 'Customer Name', 'Previous Assignee', 
+          'New Assignee', 'Assigned By', 'Timestamp', 'Reason', 'Notes'
+        ];
+        
+        const csvData = response.data.map(log => [
+          log.assignment_log_id,
+          log.enquiry_id?.enquiry_id || log.enquiry_id,
+          log.enquiry_id?.name || 'N/A',
+          log.old_assignee?.user_id?.name || log.old_assignee?.team_id?.name || 'None',
+          log.new_assignee?.user_id?.name || log.new_assignee?.team_id?.name || 'None',
+          log.assigned_by?.name || 'System',
+          new Date(log.timestamp).toLocaleString(),
+          log.assignment_reason,
+          log.remarks || ''
+        ]);
+        
+        const csvContent = [
+          headers.join(','),
+          ...csvData.map(row => row.map(cell => `"${cell || ''}"`).join(','))
+        ].join('\n');
+        
+        // Create and download file
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `assignment_log_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        toast.success('Export completed successfully');
+      } else {
+        toast.error('Failed to export data');
+      }
+    } catch (err) {
+      console.error('Export error:', err);
+      toast.error('Export failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Get sort icon
@@ -179,7 +379,30 @@ const AssignmentLog = () => {
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <h1 className="text-2xl font-bold mb-6">Assignment Log</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">
+          Assignment Log
+          {user?.permissions?.includes('view_sensitive_data') && (
+            <span className="ml-2 text-green-600 inline-flex items-center" title="Secure Connection">
+              <Lock className="h-4 w-4 mr-1" />
+              <span className="text-sm font-normal">Secure</span>
+            </span>
+          )}
+        </h1>
+        <div className="flex space-x-2">
+          <button 
+            onClick={exportToCSV}
+            disabled={loading || !user?.permissions?.includes('export_assignment_logs')}
+            className={`${user?.permissions?.includes('export_assignment_logs') 
+              ? 'bg-green-600 hover:bg-green-700' 
+              : 'bg-gray-400 cursor-not-allowed'} text-white px-4 py-2 rounded flex items-center`}
+            title={!user?.permissions?.includes('export_assignment_logs') ? 'You do not have permission to export' : ''}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export to CSV
+          </button>
+        </div>
+      </div>
       
       {/* Search and Filters */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
@@ -204,16 +427,6 @@ const AssignmentLog = () => {
             >
               <Filter className="h-4 w-4 mr-2" />
               {showAdvancedFilters ? 'Hide Filters' : 'Show Filters'}
-            </button>
-          </div>
-          
-          <div className="w-full md:w-auto ml-auto">
-            <button
-              onClick={exportToCSV}
-              className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Export to CSV
             </button>
           </div>
         </div>
@@ -394,13 +607,13 @@ const AssignmentLog = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredAndSortedLogs.map((log) => (
+              {sortedLogs.map((log) => (
                 <tr key={log.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {log.id}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:underline">
-                    <a href={`/enquiry-management/enquiry-detail/${log.enquiry_id}`}>
+                    <a href={`/enquiry-management/enquiry-detail/${log.enquiry_id}`} target="_blank" rel="noopener noreferrer">
                       {log.enquiry_id}
                     </a>
                   </td>
@@ -413,6 +626,7 @@ const AssignmentLog = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {log.new_assignee}
                   </td>
+                  {console.log(log)}
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {log.assigned_by}
                   </td>

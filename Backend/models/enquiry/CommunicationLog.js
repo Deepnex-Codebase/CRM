@@ -6,10 +6,8 @@ const CommunicationLogSchema = new mongoose.Schema({
     type: String,
     unique: true,
     default: function() {
-      // Generate ID format: CLOG-YYYYMMDD-XXXX
-      const today = new Date();
-      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-      return `CLOG-${dateStr}-XXXX`; // This will be replaced by pre-save hook
+      // Generate ID format: CLOGXXXX
+      return `CLOGXXXX`; // This will be replaced by pre-save hook
     }
   },
   enquiry_id: {
@@ -161,21 +159,20 @@ const CommunicationLogSchema = new mongoose.Schema({
 // Pre-save hook to generate unique communication_log_id and update timestamps
 CommunicationLogSchema.pre('save', async function(next) {
   if (this.isNew && this.communication_log_id.includes('XXXX')) {
-    const today = new Date();
-    const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-    
-    // Find the last communication log for today
+    // Find the last communication log with CLOGXXXX format
     const lastLog = await this.constructor.findOne({
-      communication_log_id: new RegExp(`^CLOG-${dateStr}-`)
+      communication_log_id: /^CLOG\d{4}$/
     }).sort({ communication_log_id: -1 });
     
     let sequence = 1;
     if (lastLog) {
-      const lastSequence = parseInt(lastLog.communication_log_id.split('-')[2]);
+      // Extract the numeric part from the last log ID
+      const lastSequence = parseInt(lastLog.communication_log_id.substring(4));
       sequence = lastSequence + 1;
     }
     
-    this.communication_log_id = `CLOG-${dateStr}-${sequence.toString().padStart(4, '0')}`;
+    // Generate new communication log ID in CLOGXXXX format
+    this.communication_log_id = `CLOG${sequence.toString().padStart(4, '0')}`;
   }
   
   this.updated_at = Date.now();

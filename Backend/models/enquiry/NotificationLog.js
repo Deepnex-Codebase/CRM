@@ -5,10 +5,8 @@ const NotificationLogSchema = new mongoose.Schema({
     type: String,
     unique: true,
     default: function() {
-      // Generate ID format: NLOG-YYYYMMDD-XXXX
-      const today = new Date();
-      const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-      return `NLOG-${dateStr}-XXXX`; // This will be replaced by pre-save hook
+      // Generate ID format: NLOGXXXX
+      return `NLOGXXXX`; // This will be replaced by pre-save hook
     }
   },
   enquiry_id: {

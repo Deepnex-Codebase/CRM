@@ -412,11 +412,12 @@ const SecurityLogs = () => {
   };
 
   // Filter logs based on search, type, severity, and time range
-  const filteredLogs = logs.filter(log => {
-    const matchesSearch = log.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.ip_address.includes(searchTerm) ||
-                         log.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.details.reason.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredLogs = Array.isArray(logs) ? logs.filter(log => {
+    const matchesSearch = searchTerm === '' || 
+                         log.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         log.ip_address?.includes(searchTerm) ||
+                         log.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         log.details?.reason?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesType = filterType === 'all' || log.event_type === filterType;
     const matchesSeverity = filterSeverity === 'all' || log.severity === filterSeverity;
     
@@ -436,7 +437,7 @@ const SecurityLogs = () => {
     }
     
     return matchesSearch && matchesType && matchesSeverity && matchesTimeRange;
-  });
+  }) : [];
 
   const handleViewLog = (log) => {
     setSelectedLog(log);
